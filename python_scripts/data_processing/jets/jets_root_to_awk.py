@@ -21,37 +21,50 @@ def split_and_save_to_disk(processed_data, base_filename):
     """
     Split the processed data into TRAIN, VAL, and TEST sets and save them to disk.
     """
-    
-    # NOTE: THIS SPLITS BY TOTAL SAMPLE AMOUNT, AND NOT SPLITTING BY EVENT, SMALL CHANCE OF TRAIN-TEST OVERLAP (like in cells included in multiple tracks), change at some point later 
-    num_events = len(processed_data['eventNumber'])  # Note that at the moment since everything is flattened, this is just the total number of samples
-    #can probably just go max(processed_data['eventNumber']) - min(processed_data['eventNumber'])? would just need to make sure splitting is done based on the 'eventNumber' field and not array slicing
-    # ===
 
-    train_cutoff = int(num_events * TRAIN_SPLIT_RATIO)
-    val_cutoff = train_cutoff + int(num_events * VAL_SPLIT_RATIO)
-    
+    global TRAIN_IDS, VAL_IDS, TEST_IDS
+    num_events = len(processed_data["eventNumber"])
+
+    train_mask, val_mask, test_mask = (
+        np.zeros(num_events).astype("bool"),
+        np.zeros(num_events).astype("bool"),
+        np.zeros(num_events).astype("bool"),
+    )
+
+    for idx, event_idx in enumerate(processed_data.eventNumber):
+        if len(event_idx) == 0:
+            continue
+        if np.isin(event_idx[0], TRAIN_IDS):
+            train_mask[idx] = True
+            TRAIN_IDS = TRAIN_IDS[TRAIN_IDS != event_idx[0]]
+        elif np.isin(event_idx[0], VAL_IDS):
+            val_mask[idx] = True
+            VAL_IDS = VAL_IDS[VAL_IDS != event_idx[0]]
+        else:
+            test_mask[idx] = True
+            TEST_IDS = TEST_IDS[TEST_IDS != event_idx[0]]
+
     # Directories for train, val, and test sets
-    train_dir = os.path.join(SAVE_LOC, 'train')
-    val_dir = os.path.join(SAVE_LOC, 'val')
-    test_dir = os.path.join(SAVE_LOC, 'test')
-    
+    train_dir = os.path.join(AWK_SAVE_LOC, "train")
+    val_dir = os.path.join(AWK_SAVE_LOC, "val")
+    test_dir = os.path.join(AWK_SAVE_LOC, "test")
+
     # Ensure directories exist
-    os.makedirs(SAVE_LOC, exist_ok=True)
+    os.makedirs(AWK_SAVE_LOC, exist_ok=True)
     os.makedirs(train_dir, exist_ok=True)
     os.makedirs(val_dir, exist_ok=True)
     os.makedirs(test_dir, exist_ok=True)
-    
 
-    # Split data
-    train_data = processed_data[:train_cutoff]
-    val_data = processed_data[train_cutoff:val_cutoff]
-    test_data = processed_data[val_cutoff:]
-    
-    # Save data
-    ak.to_parquet(train_data, os.path.join(train_dir, base_filename + '_train.parquet'))
-    ak.to_parquet(val_data, os.path.join(val_dir, base_filename + '_val.parquet'))
-    ak.to_parquet(test_data, os.path.join(test_dir, base_filename + '_test.parquet'))
-
+    for mask, folder, split in zip(
+        [train_mask, val_mask, test_mask],
+        [train_dir, val_dir, test_dir],
+        ["train", "val", "test"],
+    ):
+        if not np.any(mask):
+            print(f"No events in {split} split for this chunk!")
+            continue
+        data = processed_data[mask]
+        ak.to_parquet(data, os.path.join(folder, base_filename + f"_{split}.parquet"))
 
 
 def process_events(data, cell_ID_geo, cell_eta_geo, cell_phi_geo, cell_rPerp_geo, thread_id,  progress_dict):
