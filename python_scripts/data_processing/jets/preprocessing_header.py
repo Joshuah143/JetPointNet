@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 # CERNBOX = os.environ["CERNBOX"]
-REPO_PATH = Path.home() / "workspace/PointNet_Segmentation"
+REPO_PATH = Path.home() / "workspace/jetpointnet"
 SCRIPT_PATH = REPO_PATH / "python_scripts/data_processing/jets"
 sys.path.append(str(SCRIPT_PATH))
 
