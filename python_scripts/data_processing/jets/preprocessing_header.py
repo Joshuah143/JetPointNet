@@ -1,29 +1,58 @@
-from track_metadata import calo_layers, has_fixed_r, fixed_r, fixed_z  
-HAS_FIXED_R, FIXED_R, FIXED_Z = has_fixed_r, fixed_r, fixed_z # Loading the calorimeter geometery
+import sys
+from pathlib import Path
+
+# CERNBOX = os.environ["CERNBOX"]
+REPO_PATH = Path.home() / "workspace/PointNet_Segmentation"
+SCRIPT_PATH = REPO_PATH / "python_scripts/data_processing/jets"
+sys.path.append(str(SCRIPT_PATH))
+
+from track_metadata import calo_layers, has_fixed_r, fixed_r, fixed_z
+
+HAS_FIXED_R, FIXED_R, FIXED_Z = (
+    has_fixed_r,
+    fixed_r,
+    fixed_z,
+)  # Loading the calorimeter geometery
 
 
 # ===== FIELDS TO CHANGE =====
 add_tracks_as_labels = False
-NUM_EVENTS_PER_CHUNK = 250
-TRAIN_SPLIT_RATIO = 0.8
-VAL_SPLIT_RATIO = 0.1
+NUM_EVENTS_PER_CHUNK = 1000
+TRAIN_SPLIT_RATIO = 0.55
+VAL_SPLIT_RATIO = 0.3
 # TEST_SPLIT_RATIO is implied to be the remaining percentage
-NUM_THREAD_PER_CHUNK = 32 # For root_to_awk processing
-OUTPUT_DIRECTORY_NAME = "2000_events_w_fixed_hits/"
+NUM_THREAD_PER_CHUNK = 25  # root to awk
+NUM_CHUNK_THREADS = 16  # awk to npz
+OUTPUT_DIRECTORY_NAME = "rho_full/"
 # ============================
 
 
 DEBUG_NUM_EVENTS_TO_USE = None
-UPROOT_MASK_VALUE_THRESHOLD = -100000
-MAX_DISTANCE = 0.1
+UPROOT_MASK_VALUE_THRESHOLD = -100_000
+MAX_DISTANCE = 0.2
 
 # Path to the ROOT file containing jet events
-#FILE_LOC = "/data/atlas/mltree_1000.root"
 
-FILE_LOC = "/data/atlas/mltree_2000_fixedHits.root"
-GEO_FILE_LOC = "/data/atlas/data/rho_delta/rho_small.root"
+# RHO DATA
+FILE_LOC = "/eos/home-m/mswiatlo/images/truthPerCell/rho_full.root"
+GEO_FILE_LOC = "/eos/home-m/mswiatlo/images/truthPerCell/cell_geo.root"
+
+# JETS DATA
+# FILE_LOC = "/data/atlas/mltree_2000_fixedHits.root"
+# GEO_FILE_LOC = "/data/atlas/data/rho_delta/rho_small.root"
 
 
-SAVE_LOC = '/data/mjovanovic/jets/processed_files/' + OUTPUT_DIRECTORY_NAME + "AwkwardArrs/"
-NPZ_SAVE_LOC = "/data/mjovanovic/jets/processed_files/" + OUTPUT_DIRECTORY_NAME + "SavedNpz/"
-
+AWK_SAVE_LOC = (
+    REPO_PATH
+    / "pnet_data/processed_files"
+    / OUTPUT_DIRECTORY_NAME
+    / "AwkwardArrs"
+    / f"deltaR={MAX_DISTANCE}"
+)
+NPZ_SAVE_LOC = (
+    REPO_PATH
+    / "pnet_data/processed_files"
+    / OUTPUT_DIRECTORY_NAME
+    / "SavedNpz"
+    / f"deltaR={MAX_DISTANCE}"
+)
