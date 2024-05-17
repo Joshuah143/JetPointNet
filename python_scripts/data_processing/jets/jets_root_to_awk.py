@@ -9,9 +9,16 @@ from pathlib import Path
 from multiprocessing import Manager, Pool
 import os
 
+import sys
 
-from preprocessing_header import *
-from util_functs import *
+# CERNBOX = os.environ["CERNBOX"]
+REPO_PATH = Path.home() / "workspace/jetpointnet"
+SCRIPT_PATH = REPO_PATH / "python_scripts"
+sys.path.append(str(SCRIPT_PATH))
+
+
+from data_processing.jets.preprocessing_header import *
+from data_processing.jets.util_functs import *
 
 
 manager = Manager()
