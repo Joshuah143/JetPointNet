@@ -756,3 +756,54 @@ def process_associated_tracks(
 
 # =======================================================================================================================
 # =======================================================================================================================
+
+
+# ============ train/val/test split: this works on eventNumber as index to subset data ================================================================================
+
+
+def train_val_test_split_events(
+    all_events_ids, train_pct=TRAIN_SPLIT_RATIO, val_pct=VAL_SPLIT_RATIO
+):
+    from sklearn.model_selection import train_test_split
+
+    split_seed = np.random.choice(range(100), size=1)[0]
+    train_ids, val_ids = train_test_split(
+        all_events_ids, test_size=1 - train_pct, random_state=split_seed
+    )
+    val_ids, test_ids = train_test_split(
+        val_ids, test_size=1 - (val_pct) / (1 - train_pct), random_state=split_seed
+    )
+
+    for event_ids, fn in zip([train_ids, val_ids, test_ids], ["train", "val", "test"]):
+        np.savetxt(
+            AWK_SAVE_LOC.parent / f"{fn}_events_{split_seed=}.txt", event_ids, fmt="%d"
+        )
+
+    return split_seed, train_ids, val_ids, test_ids
+
+
+def get_split(split_seed):
+    ids = []
+    for split in ["train", "val", "test"]:
+        ids.append(
+            np.loadtxt(AWK_SAVE_LOC.parent.parent / f"{split}_events_{split_seed=}.txt")
+        )
+    return split_seed, *ids
+
+
+def split(events, split_seed):
+    all_events_ids = events["eventNumber"].array(library="np")
+    split_seed, train_ids, val_ids, test_ids = train_val_test_split_events(
+        all_events_ids
+    )
+    return split_seed, train_ids, val_ids, test_ids
+
+
+def split_data(events, split_seed, retrieve=True):
+    if retrieve:
+        return get_split(split_seed)
+    else:
+        return split(events, split_seed)
+
+
+# =======================================================================================================================#
