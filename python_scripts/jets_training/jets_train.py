@@ -21,6 +21,7 @@ from jets_training.models.JetPointNet import (
     masked_weighted_accuracy,
 )
 from data_processing.jets.preprocessing_header import NPZ_SAVE_LOC
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Set GPU
 
 MAX_SAMPLE_LENGTH = 278
 BATCH_SIZE = 480
