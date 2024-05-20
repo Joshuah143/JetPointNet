@@ -187,40 +187,44 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
 
             track_points = []
 
-            # Gather all track, cell, and associated track points to find min and max values for normalization
-            all_points = []
-            distances = []
-            for intersection in track["track_layer_intersections"]:
-                all_points.append(
-                    (intersection["X"], intersection["Y"], intersection["Z"])
-                )
-            for cell in track["associated_cells"]:
-                all_points.append((cell["X"], cell["Y"], cell["Z"]))
-                distances.append(cell["distance_to_track"])
-            for associated_track in track["associated_tracks"]:
-                for intersection in associated_track["track_layer_intersections"]:
-                    all_points.append(
-                        (intersection["X"], intersection["Y"], intersection["Z"])
-                    )
-                    distances.append(intersection["distance_to_track"])
+            # NOTE: I think this should be better moved to preprocessing at training time and done on whole training data rather than chunk-wise
+            # # Gather all track, cell, and associated track points to find min and max values for normalization
+            # all_points = []
+            # distances = []
+            # for intersection in track["track_layer_intersections"]:
+            #     all_points.append(
+            #         (intersection["X"], intersection["Y"], intersection["Z"])
+            #     )
+            # for cell in track["associated_cells"]:
+            #     all_points.append((cell["X"], cell["Y"], cell["Z"]))
+            #     distances.append(cell["distance_to_track"])
+            # for associated_track in track["associated_tracks"]:
+            #     for intersection in associated_track["track_layer_intersections"]:
+            #         all_points.append(
+            #             (intersection["X"], intersection["Y"], intersection["Z"])
+            #         )
+            #         distances.append(intersection["distance_to_track"])
 
-            # Calculate min and max for normalization
-            min_x, min_y, min_z = np.min(all_points, axis=0)
-            max_x, max_y, max_z = np.max(all_points, axis=0)
-            max_distance = max(distances)
+            # # Calculate min and max for normalization
+            # min_x, min_y, min_z = np.min(all_points, axis=0)
+            # max_x, max_y, max_z = np.max(all_points, axis=0)
+            # max_distance = max(distances)
 
-            range_x, range_y, range_z = max_x - min_x, max_y - min_y, max_z - min_z
+            # range_x, range_y, range_z = max_x - min_x, max_y - min_y, max_z - min_z
 
             # Normalize and add points
             for intersection in track["track_layer_intersections"]:
-                normalized_x = (intersection["X"] - min_x) / range_x
-                normalized_y = (intersection["Y"] - min_y) / range_y
-                normalized_z = (intersection["Z"] - min_z) / range_z
+                # normalized_x = (intersection["X"] - min_x) / range_x
+                # normalized_y = (intersection["Y"] - min_y) / range_y
+                # normalized_z = (intersection["Z"] - min_z) / range_z
                 track_points.append(
                     [
-                        normalized_x,
-                        normalized_y,
-                        normalized_z,
+                        # normalized_x,
+                        # normalized_y,
+                        # normalized_z,
+                        intersection["X"],
+                        intersection["Y"],
+                        intersection["Z"],
                         0,
                         track["trackPt"],
                         1,
@@ -231,16 +235,20 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                 )
 
             for cell in track["associated_cells"]:
-                normalized_x = (cell["X"] - min_x) / range_x
-                normalized_y = (cell["Y"] - min_y) / range_y
-                normalized_z = (cell["Z"] - min_z) / range_z
-                normalized_distance = cell["distance_to_track"] / max_distance
+                # normalized_x = (cell["X"] - min_x) / range_x
+                # normalized_y = (cell["Y"] - min_y) / range_y
+                # normalized_z = (cell["Z"] - min_z) / range_z
+                # normalized_distance = cell["distance_to_track"] / max_distance
                 track_points.append(
                     [
-                        normalized_x,
-                        normalized_y,
-                        normalized_z,
-                        normalized_distance,
+                        # normalized_x,
+                        # normalized_y,
+                        # normalized_z,
+                        # normalized_distance,
+                        cell["X"],
+                        cell["Y"],
+                        cell["Z"],
+                        cell["distance_to_track"],
                         cell["E"] * energy_scale,
                         0,
                         1,
@@ -251,18 +259,22 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
 
             for track_idx, associated_track in enumerate(track["associated_tracks"]):
                 for intersection in associated_track["track_layer_intersections"]:
-                    normalized_x = (intersection["X"] - min_x) / range_x
-                    normalized_y = (intersection["Y"] - min_y) / range_y
-                    normalized_z = (intersection["Z"] - min_z) / range_z
-                    normalized_distance = (
-                        intersection["distance_to_track"] / max_distance
-                    )
+                    # normalized_x = (intersection["X"] - min_x) / range_x
+                    # normalized_y = (intersection["Y"] - min_y) / range_y
+                    # normalized_z = (intersection["Z"] - min_z) / range_z
+                    # normalized_distance = (
+                    #     intersection["distance_to_track"] / max_distance
+                    # )
                     track_points.append(
                         [
-                            normalized_x,
-                            normalized_y,
-                            normalized_z,
-                            normalized_distance,
+                            # normalized_x,
+                            # normalized_y,
+                            # normalized_z,
+                            # normalized_distance,
+                            intersection["X"],
+                            intersection["Y"],
+                            intersection["Z"],
+                            intersection["distance_to_track"],
                             associated_track["trackPt"],
                             0,
                             0,
