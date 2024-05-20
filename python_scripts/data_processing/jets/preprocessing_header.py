@@ -29,7 +29,9 @@ VAL_SPLIT_RATIO = 0.3
 NUM_THREAD_PER_CHUNK = 25  # root to awk
 NUM_CHUNK_THREADS = 16  # awk to npz
 # OUTPUT_DIRECTORY_NAME = "rho_full/"
-OUTPUT_DIRECTORY_NAME = "ttbar/"
+OUTPUT_DIRECTORY_NAME = "ttbar"
+# DATASET_NAME = "benchmark"
+DATASET_NAME = "raw"
 # ============================
 
 
@@ -60,6 +62,7 @@ NPZ_SAVE_LOC = (
     REPO_PATH
     / "pnet_data/processed_files"
     / OUTPUT_DIRECTORY_NAME
+    / DATASET_NAME
     / "SavedNpz"
     / f"deltaR={MAX_DISTANCE}"
 )
