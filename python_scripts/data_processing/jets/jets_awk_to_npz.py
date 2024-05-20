@@ -82,7 +82,8 @@ def build_arrays(data_folder_path, chunk_file_name):
         ak_array, global_max_sample_length, "Total_Truth_Energy"
     )
 
-    feats = build_input_array(ak_array, global_max_sample_length, energy_scale=1000)
+    # NOTE: energy_scale affects only cells energy; set to 1 to maintain same scale for track hits and cells
+    feats = build_input_array(ak_array, global_max_sample_length, energy_scale=1)
 
     # Save the feats and labels arrays to an NPZ file for each chunk
     npz_save_path = os.path.join(
@@ -113,7 +114,7 @@ print(f"{global_max_sample_length = }")
 # global_max_sample_length = 278  # placeholder for now
 
 start_time = time.time()
-for data_folder in DATA_FOLDERS[-1:]:
+for data_folder in DATA_FOLDERS:
     npz_data_folder_path = os.path.join(NPZ_SAVE_LOC, data_folder)
     os.makedirs(npz_data_folder_path, exist_ok=True)  # Ensure the directory exists
     print(f"Processing data for: {data_folder}")
