@@ -142,7 +142,7 @@ for epoch in range(EPOCHS):
     print(f"Validation loss: {val_loss_tracker.result():.4f}")
     print(f"Time taken for validation: {time.time() - start_time:.2f} sec")
 
-    model.save(f"saved_model/PointNetModel.keras")
+    model.save(f"{MODELS_PATH}/PointNetModel.keras")
     print("Model saved.")
 
 print("Training completed!")
