@@ -29,6 +29,7 @@ from multiprocessing import Pool
 
 
 DATA_FOLDERS = ["train", "val", "test"]
+ENERGY_SCALE = 1
 
 
 def read_parquet(filename):
@@ -83,7 +84,9 @@ def build_arrays(data_folder_path, chunk_file_name):
     )
 
     # NOTE: energy_scale affects only cells energy; set to 1 to maintain same scale for track hits and cells
-    feats = build_input_array(ak_array, global_max_sample_length, energy_scale=1)
+    feats = build_input_array(
+        ak_array, global_max_sample_length, energy_scale=ENERGY_SCALE
+    )
 
     # Save the feats and labels arrays to an NPZ file for each chunk
     npz_save_path = os.path.join(
