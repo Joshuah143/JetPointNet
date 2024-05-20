@@ -762,11 +762,15 @@ def process_associated_tracks(
 
 
 def train_val_test_split_events(
-    all_events_ids, train_pct=TRAIN_SPLIT_RATIO, val_pct=VAL_SPLIT_RATIO
+    all_events_ids,
+    train_pct=TRAIN_SPLIT_RATIO,
+    val_pct=VAL_SPLIT_RATIO,
+    split_seed=None,
 ):
     from sklearn.model_selection import train_test_split
 
-    split_seed = np.random.choice(range(100), size=1)[0]
+    if not split_seed:
+        split_seed = np.random.choice(range(100), size=1)[0]
     train_ids, val_ids = train_test_split(
         all_events_ids, test_size=1 - train_pct, random_state=split_seed
     )
@@ -775,6 +779,7 @@ def train_val_test_split_events(
     )
 
     for event_ids, fn in zip([train_ids, val_ids, test_ids], ["train", "val", "test"]):
+        AWK_SAVE_LOC.mkdir(exist_ok=True, parents=True)
         np.savetxt(
             AWK_SAVE_LOC.parent / f"{fn}_events_{split_seed=}.txt", event_ids, fmt="%d"
         )
@@ -794,7 +799,7 @@ def get_split(split_seed):
 def split(events, split_seed):
     all_events_ids = events["eventNumber"].array(library="np")
     split_seed, train_ids, val_ids, test_ids = train_val_test_split_events(
-        all_events_ids
+        all_events_ids, split_seed=split_seed
     )
     return split_seed, train_ids, val_ids, test_ids
 
