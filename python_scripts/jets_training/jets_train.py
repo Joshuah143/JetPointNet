@@ -1,12 +1,26 @@
+import sys
+from pathlib import Path
+
+# CERNBOX = os.environ["CERNBOX"]
+REPO_PATH = Path.home() / "workspace/jetpointnet"
+# SCRIPT_PATH = REPO_PATH / "python_scripts/data_processing/jets"
+SCRIPT_PATH = REPO_PATH / "python_scripts"
+sys.path.append(str(SCRIPT_PATH))
+
+
 import numpy as np
 import tensorflow as tf
 import os
 import glob
 import math
 import time
-from models.JetPointNet import PointNetSegmentation, masked_weighted_bce_loss, masked_regular_accuracy, masked_weighted_accuracy
-
-os.environ['CUDA_VISIBLE_DEVICES'] = "3"  # Set GPU
+from jets_training.models.JetPointNet import (
+    PointNetSegmentation,
+    masked_weighted_bce_loss,
+    masked_regular_accuracy,
+    masked_weighted_accuracy,
+)
+from data_processing.jets.preprocessing_header import NPZ_SAVE_LOC
 
 MAX_SAMPLE_LENGTH = 278
 BATCH_SIZE = 480
