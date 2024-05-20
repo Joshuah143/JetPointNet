@@ -17,15 +17,19 @@ from data_processing.jets.preprocessing_header import AWK_SAVE_LOC, NPZ_SAVE_LOC
 import awkward as ak
 import pyarrow.parquet as pq
 import numpy as np
+import pandas as pd
 import os
 import time
+from tqdm.auto import tqdm
 
-DATA_FOLDERS =  ['train', 'test', 'val']
+DATA_FOLDERS = ["train", "test", "val"]
+
 
 def read_parquet(filename):
     table = pq.read_table(filename)
     ak_array = ak.from_arrow(table)
     return ak_array
+
 
 # Make sure this happens after SAVE_LOC is defined and created if necessary
 for folder in DATA_FOLDERS:
@@ -36,19 +40,42 @@ for folder in DATA_FOLDERS:
 
 
 def find_global_max_sample_length():
+    hits_count = np.empty(shape=(0, 5))
     global_max_sample_length = 0
+    for folder in tqdm(DATA_FOLDERS, desc="split loop"):
         folder_path = os.path.join(AWK_SAVE_LOC, folder)
+        for filename in tqdm(
+            os.listdir(folder_path), desc=f"{folder} set loop", leave=False
+        ):
             if filename.endswith(".parquet"):
                 full_path = os.path.join(folder_path, filename)
                 ak_array = read_parquet(full_path)
-                max_sample_length = calculate_max_sample_length(ak_array)
-                print("Max sample length found: ",max_sample_length)
-                global_max_sample_length = max(global_max_sample_length, max_sample_length)
+                max_sample_length, n_points = calculate_max_sample_length(ak_array)
+                hits_count = np.concatenate((hits_count, n_points), axis=0)
+                print("Max sample length found: ", max_sample_length)
+                global_max_sample_length = max(
+                    global_max_sample_length, max_sample_length
+                )
     print(f"Global Max Sample Length: {global_max_sample_length}")
+    hits_df = pd.DataFrame(
+        hits_count,
+        columns=["eventNumber", "trackID", "nHits", "nCell", "nUnfocusHits"],
+        dtype=int,
+    )
+    hits_df.sort_values(["eventNumber", "trackID"], inplace=True)
+    # hits_df["nTrack"] = hits_df.groupby(["eventNumber"]).trackID.count().values # L: don't work due to repeated eventNumbers, would need join
+
+    # dump metadata
+    metadata_path = Path(folder_path).parent / "metadata"
+    metadata_path.mkdir(exist_ok=True, parents=True)
+    hits_df.to_csv(metadata_path / f"hits_per_event.csv", index=False)
+
     return global_max_sample_length
 
-find_global_max_sample_length()
-global_max_sample_length = 278 #placeholder for now 
+
+global_max_sample_length = find_global_max_sample_length()
+print(f"{global_max_sample_length = }")
+# global_max_sample_length = 278  # placeholder for now
 
 
 for data_folder in DATA_FOLDERS:
