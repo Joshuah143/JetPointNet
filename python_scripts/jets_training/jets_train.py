@@ -86,13 +86,12 @@ for epoch in range(EPOCHS):
     print("\nStart of epoch %d" % (epoch,))
     start_time = time.time()
 
-    train_loss_tracker.reset_states()
-    val_loss_tracker.reset_states()
-    train_reg_acc.reset_states()
-    train_weighted_acc.reset_states()
-    val_reg_acc.reset_states()
-    val_weighted_acc.reset_states()
-
+    train_loss_tracker.reset_state()
+    val_loss_tracker.reset_state()
+    train_reg_acc.reset_state()
+    train_weighted_acc.reset_state()
+    val_reg_acc.reset_state()
+    val_weighted_acc.reset_state()
 
     for step, (x_batch_train, y_batch_train, e_weight_train) in enumerate(data_generator(TRAIN_DIR, BATCH_SIZE)):
         if step >= train_steps:
