@@ -21,13 +21,20 @@ from jets_training.models.JetPointNet import (
     masked_weighted_accuracy,
 )
 from data_processing.jets.preprocessing_header import NPZ_SAVE_LOC
+
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Set GPU
+
+RESULTS_PATH = REPO_PATH / "results"
+RESULTS_PATH.mkdir(exist_ok=True)
+MODELS_PATH = REPO_PATH / "models"
+MODELS_PATH.mkdir(exist_ok=True)
 
 MAX_SAMPLE_LENGTH = 278
 BATCH_SIZE = 480
-EPOCHS = 120
-TRAIN_DIR = '/data/mjovanovic/jets/processed_files/2000_events_w_fixed_hits/SavedNpz/train'
-VAL_DIR = '/data/mjovanovic/jets/processed_files/2000_events_w_fixed_hits/SavedNpz/val'
+EPOCHS = 10
+TRAIN_DIR = NPZ_SAVE_LOC / "train"
+VAL_DIR = NPZ_SAVE_LOC / "val"
+
 
 def load_data_from_npz(npz_file):
     data = np.load(npz_file)
