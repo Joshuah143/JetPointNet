@@ -103,6 +103,7 @@ def process_events(
 
         tracks_sample.begin_list()  # Start a new list for each event to hold tracks
         for track_idx in range(event["nTrack"]):
+            # NOTE: this seem to work with ttbar 2k events dataset, however it may break if nTrack is not populated correctly in MC (this seems to be the case with old version of rho_full dataset)
 
             tracks_sample.begin_record()  # Each track is a record within the event list
 
