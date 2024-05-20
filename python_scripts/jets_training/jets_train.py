@@ -38,9 +38,9 @@ VAL_DIR = NPZ_SAVE_LOC / "val"
 
 def load_data_from_npz(npz_file):
     data = np.load(npz_file)
-    feats = data['feats']
-    frac_labels = data['frac_labels']
-    energy_weights = data['tot_truth_e']
+    feats = data["feats"][:, :MAX_SAMPLE_LENGTH, 1:]  # discard eventNumber
+    frac_labels = data["frac_labels"][:, :MAX_SAMPLE_LENGTH]
+    energy_weights = data["tot_truth_e"][:, :MAX_SAMPLE_LENGTH]
     return feats, frac_labels, energy_weights
 
 def data_generator(data_dir, batch_size, drop_last=True):
