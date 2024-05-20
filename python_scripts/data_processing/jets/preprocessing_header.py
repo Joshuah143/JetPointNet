@@ -17,7 +17,7 @@ HAS_FIXED_R, FIXED_R, FIXED_Z = (
 
 # ===== FIELDS TO CHANGE =====
 add_tracks_as_labels = False
-NUM_EVENTS_PER_CHUNK = 1000
+NUM_EVENTS_PER_CHUNK = 200
 TRAIN_SPLIT_RATIO = 0.55
 VAL_SPLIT_RATIO = 0.3
 # TEST_SPLIT_RATIO is implied to be the remaining percentage
@@ -30,7 +30,7 @@ OUTPUT_DIRECTORY_NAME = "ttbar/"
 
 DEBUG_NUM_EVENTS_TO_USE = None
 UPROOT_MASK_VALUE_THRESHOLD = -100_000
-MAX_DISTANCE = 0.2
+MAX_DISTANCE = 0.1
 
 # Path to the ROOT file containing jet events
 
