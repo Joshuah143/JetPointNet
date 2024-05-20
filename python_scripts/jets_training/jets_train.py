@@ -66,14 +66,17 @@ def data_generator(data_dir, batch_size, drop_last=True):
 
 def calculate_steps(data_dir, batch_size):
     total_samples = 0
-    npz_files = glob.glob(os.path.join(data_dir, '*.npz'))
-    for npz_file in npz_files:
+    npz_files = glob.glob(os.path.join(data_dir, "*.npz"))
+    for npz_file in tqdm(npz_files):
         data = np.load(npz_file)
-        total_samples += data['feats'].shape[0]
+        total_samples += data["feats"].shape[0]
     return math.ceil(total_samples / batch_size)
 
-train_steps = calculate_steps(TRAIN_DIR, BATCH_SIZE)
-val_steps = calculate_steps(VAL_DIR, BATCH_SIZE)
+
+train_steps = calculate_steps(TRAIN_DIR, BATCH_SIZE)  # 47
+val_steps = calculate_steps(VAL_DIR, BATCH_SIZE)  # 26
+print(f"{train_steps = };\t{val_steps = }")
+
 
 model = PointNetSegmentation(MAX_SAMPLE_LENGTH, 1)
 optimizer = tf.keras.optimizers.Adam(learning_rate=(0.001))
