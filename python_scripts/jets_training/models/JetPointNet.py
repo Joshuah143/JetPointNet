@@ -34,7 +34,7 @@ class CustomMaskingLayer(tf.keras.layers.Layer):
     def compute_output_shape(self, input_shape):
         return input_shape
 
-class OrthogonalRegularizer(tf.keras.regularizers.Regularizer):
+class OrthogonalRegularizer(tf.keras.regularizers.OrthogonalRegularizer):
     # Used in Tnet in PointNet for transforming everything to same space
     def __init__(self, num_features=9, l2=0.001):
         self.num_features = num_features
@@ -129,8 +129,8 @@ def TNet(input_tensor, size, add_regularization=False):
     else:
         reg = None
     x = dense_block(x, size * size, regularizer=reg)
-    x = tf.reshape(x, (-1, size, size))
-    return x        
+    x = tf.keras.layers.Reshape((size, size))(x)
+    return x
 
 
 def PointNetSegmentation(num_points, num_classes):
