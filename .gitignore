@@ -2,6 +2,9 @@
 # ignore data files. Must manually configure
 pnet_data
 
+# debug/experimental code
+scratch
+
 # ignore containers. These are not tracked here
 containers/*
 
