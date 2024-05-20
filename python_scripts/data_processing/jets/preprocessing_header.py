@@ -3,10 +3,15 @@ from pathlib import Path
 
 # CERNBOX = os.environ["CERNBOX"]
 REPO_PATH = Path.home() / "workspace/jetpointnet"
-SCRIPT_PATH = REPO_PATH / "python_scripts/data_processing/jets"
+SCRIPT_PATH = REPO_PATH / "python_scripts"
 sys.path.append(str(SCRIPT_PATH))
 
-from track_metadata import calo_layers, has_fixed_r, fixed_r, fixed_z
+from data_processing.jets.track_metadata import (
+    calo_layers,
+    has_fixed_r,
+    fixed_r,
+    fixed_z,
+)
 
 HAS_FIXED_R, FIXED_R, FIXED_Z = (
     has_fixed_r,

@@ -1,5 +1,19 @@
-from util_functs import print_events, calculate_max_sample_length, build_labels_array, build_input_array
-from preprocessing_header import SAVE_LOC, NPZ_SAVE_LOC
+import sys
+from pathlib import Path
+
+REPO_PATH = Path.home() / "workspace/jetpointnet"
+SCRIPT_PATH = REPO_PATH / "python_scripts"
+
+sys.path.append(str(SCRIPT_PATH))
+
+
+from data_processing.jets.util_functs import (
+    print_events,
+    calculate_max_sample_length,
+    build_labels_array,
+    build_input_array,
+)
+from data_processing.jets.preprocessing_header import AWK_SAVE_LOC, NPZ_SAVE_LOC
 import awkward as ak
 import pyarrow.parquet as pq
 import numpy as np

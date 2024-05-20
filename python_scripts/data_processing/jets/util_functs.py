@@ -1,7 +1,7 @@
 import numpy as np
 import awkward as ak
 import sys
-from track_metadata import (
+from data_processing.jets.track_metadata import (
     calo_layers,
     has_fixed_r,
     fixed_r,
@@ -9,7 +9,7 @@ from track_metadata import (
 )  # Assuming these are correctly defined
 
 HAS_FIXED_R, FIXED_R, FIXED_Z = has_fixed_r, fixed_r, fixed_z
-from preprocessing_header import *
+from data_processing.jets.preprocessing_header import *
 
 # =======================================================================================================================
 # ============ UTILITY FUNCTIONS ================================================================================
