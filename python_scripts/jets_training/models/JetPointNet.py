@@ -200,9 +200,24 @@ def PointNetSegmentation(num_points, num_classes):
 # =======================================================================================================================
 # ============ Losses ===================================================================================================
 
+
+def _pad_targets(y_true, y_pred, energies):
+    if y_pred.shape[0] != y_true.shape[0]:
+        pad_size = y_pred.shape[0] - y_true.shape[0]
+        padding = tf.zeros(
+            (pad_size, y_true.shape[1], y_true.shape[2]), dtype=tf.float32
+        )
+        y_true = tf.concat([y_true, padding], axis=0)
+        energies = tf.concat([energies, padding], axis=0)
+    return y_true, energies
+
+
 def masked_weighted_bce_loss(y_true, y_pred, energies):
 
-    #energies = tf.square(energies)
+    # energies = tf.square(energies)
+
+    # pad target if needed
+    y_true, energies = _pad_targets(y_true, y_pred, energies)
 
     # Ensure valid_mask and y_true are compatible for operations
     valid_mask = tf.cast(tf.not_equal(y_true, -1.0), tf.float32)  # This should be [batch, points, 1]
@@ -264,6 +279,10 @@ def masked_weighted_bce_loss(y_true, y_pred, energies):
 
 
 def masked_regular_accuracy(y_true, y_pred, energies):
+
+    # pad target if needed
+    y_true, energies = _pad_targets(y_true, y_pred, energies)
+
     mask = tf.not_equal(y_true, -1.0)
     mask = tf.cast(mask, tf.float32)
 
@@ -281,6 +300,8 @@ def masked_regular_accuracy(y_true, y_pred, energies):
 def masked_weighted_accuracy(y_true, y_pred, energies):
     #energies = tf.square(energies)
 
+    # pad target if needed
+    y_true, energies = _pad_targets(y_true, y_pred, energies)
 
     mask = tf.not_equal(y_true, -1.0)
     mask = tf.cast(mask, tf.float32)
