@@ -11,6 +11,10 @@ from data_processing.jets.track_metadata import (
 HAS_FIXED_R, FIXED_R, FIXED_Z = has_fixed_r, fixed_r, fixed_z
 from data_processing.jets.preprocessing_header import *
 
+
+POINT_TYPE_LABELS = {0: "focus hit", 1: "cell", 2: "unfocus hit", -1: "padding"}
+POINT_TYPE_ENCODING = {v: k for k, v in POINT_TYPE_LABELS.items()}
+
 # =======================================================================================================================
 # ============ UTILITY FUNCTIONS ================================================================================
 
@@ -227,10 +231,11 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                         intersection["Z"],
                         0,
                         track["trackPt"],
-                        1,
-                        0,
-                        0,
-                        0,
+                        POINT_TYPE_ENCODING["focus hit"],
+                        # 1,
+                        # 0,
+                        # 0,
+                        # 0,
                     ]
                 )
 
@@ -250,10 +255,11 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                         cell["Z"],
                         cell["distance_to_track"],
                         cell["E"] * energy_scale,
-                        0,
-                        1,
-                        0,
-                        0,
+                        POINT_TYPE_ENCODING["cell"],
+                        # 0,
+                        # 1,
+                        # 0,
+                        # 0,
                     ]
                 )
 
@@ -276,10 +282,11 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                             intersection["Z"],
                             intersection["distance_to_track"],
                             associated_track["trackPt"],
-                            0,
-                            0,
-                            track_idx,
-                            0,
+                            POINT_TYPE_ENCODING["unfocus hit"],
+                            # 0,
+                            # 0,
+                            # track_idx,
+                            # 0,
                         ]
                     )
 
@@ -290,7 +297,7 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
             num_points = len(track_points)
             if num_points < max_sample_length:
                 padding = [
-                    [0, 0, 0, 0, 0, 0, 0, 0, 1]
+                    [0, 0, 0, 0, 0, POINT_TYPE_ENCODING["padding"]]  # 0, 0, 0, 1]
                     for _ in range(max_sample_length - num_points)
                 ]  # empty type
                 track_points.extend(padding)
