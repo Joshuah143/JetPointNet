@@ -29,15 +29,15 @@ def read_parquet(filename):
 
 # Make sure this happens after SAVE_LOC is defined and created if necessary
 for folder in DATA_FOLDERS:
-    folder_path = os.path.join(SAVE_LOC, folder)
-    os.makedirs(folder_path, exist_ok=True)  # This line ensures the SAVE_LOC directories exist
+    folder_path = os.path.join(AWK_SAVE_LOC, folder)
+    os.makedirs(
+        folder_path, exist_ok=True
+    )  # This line ensures the AWK_SAVE_LOC directories exist
 
 
 def find_global_max_sample_length():
     global_max_sample_length = 0
-    for folder in DATA_FOLDERS:
-        folder_path = os.path.join(SAVE_LOC, folder)
-        for filename in os.listdir(folder_path):
+        folder_path = os.path.join(AWK_SAVE_LOC, folder)
             if filename.endswith(".parquet"):
                 full_path = os.path.join(folder_path, filename)
                 ak_array = read_parquet(full_path)
@@ -56,8 +56,7 @@ for data_folder in DATA_FOLDERS:
     os.makedirs(npz_data_folder_path, exist_ok=True)  # Ensure the directory exists
     print(f"Processing data for: {data_folder}")
 
-    data_folder_path = os.path.join(SAVE_LOC, data_folder)
-    chunk_files = [f for f in os.listdir(data_folder_path) if f.startswith('chunk_') and f.endswith('.parquet')]
+    data_folder_path = os.path.join(AWK_SAVE_LOC, data_folder)
     num_chunks = len(chunk_files)
 
     for i in range(num_chunks):
