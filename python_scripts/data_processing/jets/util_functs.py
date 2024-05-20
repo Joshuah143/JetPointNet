@@ -84,17 +84,41 @@ def calculate_track_intersections(track_eta, track_phi):
 
 
 def calculate_max_sample_length(tracks_array):
+    """Compute maximum number of points, plus keep track of point types per event and track"""
+    n_points = np.zeros(shape=(len(ak.flatten(tracks_array)), 5))
     max_length = 0
+    current_index = 0
     for event in tracks_array:
-        for track in event:
-            length = len(track["track_layer_intersections"]) + len(
-                track["associated_cells"]
-            )
-            for associated_track in track["associated_tracks"]:
-                length += len(associated_track["track_layer_intersections"])
+        for track_idx, track in enumerate(event):
+            n_focus_track_hits = len(track["track_layer_intersections"])
+            n_associated_cells_hits = len(track["associated_cells"])
+            length = n_focus_track_hits + n_associated_cells_hits
+            if len(track["associated_tracks"]) > 0:
+                for associated_track in track["associated_tracks"]:
+                    n_associated_track_hits = len(
+                        associated_track["track_layer_intersections"]
+                    )
+                    n_points[current_index] = [
+                        event.eventNumber[0],
+                        track_idx,
+                        n_focus_track_hits,
+                        n_associated_cells_hits,
+                        n_associated_track_hits,
+                    ]
+                    length += n_associated_track_hits
+            else:
+                n_points[current_index] = [
+                    event.eventNumber[0],
+                    track_idx,
+                    n_focus_track_hits,
+                    n_associated_cells_hits,
+                    0,
+                ]
+            current_index += 1
+
             if length > max_length:
                 max_length = length
-    return max_length
+    return max_length, n_points
 
 
 # =======================================================================================================================
