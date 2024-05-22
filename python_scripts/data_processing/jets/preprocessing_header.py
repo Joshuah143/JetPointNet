@@ -30,8 +30,8 @@ NUM_THREAD_PER_CHUNK = 25  # root to awk
 NUM_CHUNK_THREADS = 16  # awk to npz
 # OUTPUT_DIRECTORY_NAME = "rho_full/"
 OUTPUT_DIRECTORY_NAME = "ttbar"
-# DATASET_NAME = "benchmark"
-DATASET_NAME = "raw"
+DATASET_NAME = "benchmark"
+# DATASET_NAME = "raw"
 # ============================
 
 

@@ -117,6 +117,7 @@ print(f"{global_max_sample_length = }")
 # global_max_sample_length = 278  # placeholder for now
 
 start_time = time.time()
+NPZ_SAVE_LOC = NPZ_SAVE_LOC / f"{ENERGY_SCALE=}".lower()
 for data_folder in DATA_FOLDERS:
     npz_data_folder_path = os.path.join(NPZ_SAVE_LOC, data_folder)
     os.makedirs(npz_data_folder_path, exist_ok=True)  # Ensure the directory exists

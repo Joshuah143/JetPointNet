@@ -1,3 +1,11 @@
+# TODO:
+# - fix data generator
+# - implement logging weights and gradients
+# - implement logging confusion matrix
+# - implement lr scheduler
+# - move to .fit instead of custom train/val loop
+# - experiment with more losses/metrics
+
 import sys
 from pathlib import Path
 
@@ -14,25 +22,46 @@ import os
 import glob
 import math
 import time
+import wandb
 from tqdm.auto import tqdm
 from jets_training.models.JetPointNet import (
     PointNetSegmentation,
     masked_weighted_bce_loss,
     masked_regular_accuracy,
     masked_weighted_accuracy,
+    set_global_determinism,
+    TF_SEED,
 )
-from data_processing.jets.preprocessing_header import NPZ_SAVE_LOC
+from data_processing.jets.preprocessing_header import MAX_DISTANCE
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Set GPU
 
-RESULTS_PATH = REPO_PATH / "results"
-RESULTS_PATH.mkdir(exist_ok=True)
-MODELS_PATH = REPO_PATH / "models"
-MODELS_PATH.mkdir(exist_ok=True)
+# SET PATHS FOR I/O AND CONFIG
+OUTPUT_DIRECTORY_NAME = "ttbar"
+DATASET_NAME = "benchmark"
+ENERGY_SCALE = 1000
+EXPERIMENT_NAME = f"{OUTPUT_DIRECTORY_NAME}/{DATASET_NAME}"
+RESULTS_PATH = REPO_PATH / "result" / EXPERIMENT_NAME
+RESULTS_PATH.mkdir(exist_ok=True, parents=True)
+MODELS_PATH = REPO_PATH / "models" / EXPERIMENT_NAME
+MODELS_PATH.mkdir(exist_ok=True, parents=True)
 
+NPZ_SAVE_LOC = (
+    REPO_PATH
+    / "pnet_data/processed_files"
+    / OUTPUT_DIRECTORY_NAME
+    / DATASET_NAME
+    / "SavedNpz"
+    / f"deltaR={MAX_DISTANCE}"
+    / f"energy_scale={ENERGY_SCALE}"
+)
+
+SPLIT_SEED = 62
 MAX_SAMPLE_LENGTH = 278
 BATCH_SIZE = 480
-EPOCHS = 10
+EPOCHS = 120
+LR = 0.001
+ES_PATIENCE = 15
 TRAIN_DIR = NPZ_SAVE_LOC / "train"
 VAL_DIR = NPZ_SAVE_LOC / "val"
 
@@ -81,9 +110,26 @@ train_steps = calculate_steps(TRAIN_DIR, BATCH_SIZE)  # 47
 val_steps = calculate_steps(VAL_DIR, BATCH_SIZE)  # 26
 print(f"{train_steps = };\t{val_steps = }")
 
+set_global_determinism(seed=TF_SEED)
+wandb.init(
+    project="pointcloud",
+    config={
+        "dataset": EXPERIMENT_NAME,
+        "split_seed": SPLIT_SEED,
+        "tf_seed": TF_SEED,
+        "delta_R": MAX_DISTANCE,
+        "energy_scale": ENERGY_SCALE,
+        "n_points_per_batch": MAX_SAMPLE_LENGTH,
+        "batch_size": BATCH_SIZE,
+        "n_epochs": EPOCHS,
+        "learning_rate": LR,
+        "early_stopping_patience": ES_PATIENCE,
+    },
+    job_type="training",
+)
 
 model = PointNetSegmentation(MAX_SAMPLE_LENGTH, 1)
-optimizer = tf.keras.optimizers.Adam(learning_rate=(0.001))
+optimizer = tf.keras.optimizers.Adam(learning_rate=(LR))
 
 
 @tf.function
@@ -95,7 +141,7 @@ def train_step(x, y, energy_weights, model, optimizer):
         weighted_acc = masked_weighted_accuracy(y, predictions, energy_weights)
     grads = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(grads, model.trainable_variables))
-    return loss, reg_acc, weighted_acc
+    return loss, reg_acc, weighted_acc, grads
 
 
 @tf.function
@@ -114,6 +160,27 @@ train_weighted_acc = tf.metrics.Mean(name="train_weighted_accuracy")
 val_reg_acc = tf.metrics.Mean(name="val_regular_accuracy")
 val_weighted_acc = tf.metrics.Mean(name="val_weighted_accuracy")
 
+# Setup ModelCheckpoint callback
+checkpoint_path = f"{MODELS_PATH}/PointNet_best.keras"
+checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+    filepath=checkpoint_path,
+    save_best_only=True,
+    monitor="val_loss",  # Monitor validation loss
+    mode="min",  # Save the model with the minimum validation loss
+    save_weights_only=False,
+    verbose=1,
+)
+checkpoint_callback.set_model(model)
+
+# Setup EarlyStopping callback
+early_stopping_callback = tf.keras.callbacks.EarlyStopping(
+    monitor="val_loss",  # Monitor validation loss
+    mode="min",  # Trigger when validation loss stops decreasing
+    patience=ES_PATIENCE,  # Number of epochs to wait before stopping if no improvement
+    verbose=1,
+)
+early_stopping_callback.set_model(model)
+
 for epoch in range(EPOCHS):
     print("\nStart of epoch %d" % (epoch,))
     start_time = time.time()
@@ -125,12 +192,13 @@ for epoch in range(EPOCHS):
     val_reg_acc.reset_state()
     val_weighted_acc.reset_state()
 
+    batch_loss_train, batch_accuracy_train, batch_weighted_accuracy_train = [], [], []
     for step, (x_batch_train, y_batch_train, e_weight_train) in enumerate(
         data_generator(TRAIN_DIR, BATCH_SIZE)
     ):
         if step >= train_steps:
             break
-        loss_value, reg_acc_value, weighted_acc_value = train_step(
+        loss_value, reg_acc_value, weighted_acc_value, grads = train_step(
             x_batch_train, y_batch_train, e_weight_train, model, optimizer
         )
         train_loss_tracker.update_state(loss_value)
@@ -140,10 +208,14 @@ for epoch in range(EPOCHS):
             f"\rEpoch {epoch + 1}, Step {step + 1}/{train_steps}, Training Loss: {train_loss_tracker.result().numpy():.4e}, Reg Acc: {train_reg_acc.result().numpy():.4f}, Weighted Acc: {train_weighted_acc.result().numpy():.4f}",
             end="",
         )
+        batch_loss_train.append(train_loss_tracker.result().numpy())
+        batch_accuracy_train.append(train_reg_acc.result().numpy())
+        batch_weighted_accuracy_train.append(train_weighted_acc.result())
 
     print(f"\nTraining loss over epoch: {train_loss_tracker.result():.4f}")
-    print(f"Time taken for training: {time.time() - start_time:.2f} sec")
+    print(f"\nTime taken for training: {time.time() - start_time:.2f} sec")
 
+    batch_loss_val, batch_accuracy_val, batch_weighted_accuracy_val = [], [], []
     for step, (x_batch_val, y_batch_val, e_weight_val) in enumerate(
         data_generator(VAL_DIR, BATCH_SIZE)
     ):
@@ -156,14 +228,46 @@ for epoch in range(EPOCHS):
         val_reg_acc.update_state(val_reg_acc_value)
         val_weighted_acc.update_state(val_weighted_acc_value)
         print(
-            f"\rEpoch {epoch + 1}, Step {step + 1}/{val_steps}, Validation Loss: {val_loss_tracker.result().numpy():.4f}, Reg Acc: {val_reg_acc.result().numpy():.4f}, Weighted Acc: {val_weighted_acc.result().numpy():.4f}",
+            f"\rEpoch {epoch + 1}, Step {step + 1}/{val_steps}, Validation Loss: {val_loss_tracker.result().numpy():.4e}, Reg Acc: {val_reg_acc.result().numpy():.4f}, Weighted Acc: {val_weighted_acc.result().numpy():.4f}",
             end="",
         )
+        batch_loss_val.append(val_loss_tracker.result().numpy())
+        batch_accuracy_val.append(val_reg_acc.result().numpy())
+        batch_weighted_accuracy_val.append(val_weighted_acc.result())
 
-    print(f"Validation loss: {val_loss_tracker.result():.4f}")
-    print(f"Time taken for validation: {time.time() - start_time:.2f} sec")
+    print(f"\nValidation loss: {val_loss_tracker.result():.4e}")
+    print(f"\nTime taken for validation: {time.time() - start_time:.2f} sec")
 
-    model.save(f"{MODELS_PATH}/PointNetModel.keras")
-    print("Model saved.")
+    wandb.log(
+        {
+            "epoch": epoch,
+            "train/loss": train_loss_tracker.result().numpy(),
+            "train/accuracy": train_reg_acc.result().numpy(),
+            "train/weighted_accuracy": train_weighted_acc.result().numpy(),
+            "val/loss": val_loss_tracker.result().numpy(),
+            "val/accuracy": val_reg_acc.result().numpy(),
+            "val/weighted_accuracy": val_weighted_acc.result().numpy(),
+            "learning_rate": optimizer.learning_rate.numpy(),
+            # "gradients": [tf.reduce_mean(tf.abs(grad)).numpy() for grad in grads],
+            # "weights": [
+            #     tf.reduce_mean(tf.abs(weight)).numpy()
+            #     for weight in model.trainable_variables
+            # ],
+        }
+    )
+    # Checkpointing the best model based on validation loss
+    checkpoint_callback.on_epoch_end(
+        epoch, logs={"val_loss": val_loss_tracker.result()}
+    )
+    early_stopping_callback.on_epoch_end(
+        epoch, logs={"val_loss": val_loss_tracker.result()}
+    )
+    if early_stopping_callback.stopped_epoch > 0:
+        print(f"Early stopping triggered at epoch {epoch}")
+        break
 
-print("Training completed!")
+
+print("\n\nTraining completed!")
+
+model.save(f"{MODELS_PATH}/PointNet_last_{epoch=}.keras")
+wandb.finish()
