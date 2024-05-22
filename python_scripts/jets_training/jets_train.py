@@ -97,6 +97,21 @@ val_steps = calculate_steps(VAL_DIR, BATCH_SIZE)  # 26
 print(f"{train_steps = };\t{val_steps = }")
 
 
+wandb.init(
+    project="pointcloud",
+    config={
+        "dataset": EXPERIMENT_NAME,
+        "seed": SPLIT_SEED,
+        "delta_R": MAX_DISTANCE,
+        "energy_scale": ENERGY_SCALE,
+        "n_points_per_batch": MAX_SAMPLE_LENGTH,
+        "batch_size": BATCH_SIZE,
+        "n_epochs": EPOCHS,
+        "learning_rate": LR,
+    },
+    job_type="training",
+)
+
 model = PointNetSegmentation(MAX_SAMPLE_LENGTH, 1)
 optimizer = tf.keras.optimizers.Adam(learning_rate=(LR))
 
@@ -140,6 +155,7 @@ for epoch in range(EPOCHS):
     val_reg_acc.reset_state()
     val_weighted_acc.reset_state()
 
+    batch_loss_train, batch_accuracy_train, batch_weighted_accuracy_train = [], [], []
     for step, (x_batch_train, y_batch_train, e_weight_train) in enumerate(
         data_generator(TRAIN_DIR, BATCH_SIZE)
     ):
@@ -155,10 +171,14 @@ for epoch in range(EPOCHS):
             f"\rEpoch {epoch + 1}, Step {step + 1}/{train_steps}, Training Loss: {train_loss_tracker.result().numpy():.4e}, Reg Acc: {train_reg_acc.result().numpy():.4f}, Weighted Acc: {train_weighted_acc.result().numpy():.4f}",
             end="",
         )
+        batch_loss_train.append(train_loss_tracker.result().numpy())
+        batch_accuracy_train.append(train_reg_acc.result().numpy())
+        batch_weighted_accuracy_train.append(train_weighted_acc.result())
 
     print(f"\nTraining loss over epoch: {train_loss_tracker.result():.4f}")
     print(f"Time taken for training: {time.time() - start_time:.2f} sec")
 
+    batch_loss_val, batch_accuracy_val, batch_weighted_accuracy_val = [], [], []
     for step, (x_batch_val, y_batch_val, e_weight_val) in enumerate(
         data_generator(VAL_DIR, BATCH_SIZE)
     ):
@@ -174,11 +194,26 @@ for epoch in range(EPOCHS):
             f"\rEpoch {epoch + 1}, Step {step + 1}/{val_steps}, Validation Loss: {val_loss_tracker.result().numpy():.4f}, Reg Acc: {val_reg_acc.result().numpy():.4f}, Weighted Acc: {val_weighted_acc.result().numpy():.4f}",
             end="",
         )
+        batch_loss_val.append(val_loss_tracker.result().numpy())
+        batch_accuracy_val.append(val_reg_acc.result().numpy())
+        batch_weighted_accuracy_val.append(val_weighted_acc.result())
 
     print(f"Validation loss: {val_loss_tracker.result():.4f}")
     print(f"Time taken for validation: {time.time() - start_time:.2f} sec")
 
-    model.save(f"{MODELS_PATH}/PointNetModel.keras")
-    print("Model saved.")
+    wandb.log(
+        {
+            "epoch": epoch,
+            "train/loss": train_loss_tracker.result().numpy(),
+            "train/accuracy": train_reg_acc.result().numpy(),
+            "train/weighted_accuracy": train_weighted_acc.result().numpy(),
+            "val/loss": val_loss_tracker.result().numpy(),
+            "val/accuracy": val_reg_acc.result().numpy(),
+            "val/weighted_accuracy": val_weighted_acc.result().numpy(),
+            "learning_rate": optimizer.learning_rate.numpy(),
+            ],
+        }
+    )
 
 print("Training completed!")
+wandb.finish()
