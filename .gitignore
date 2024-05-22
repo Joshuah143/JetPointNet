@@ -1,6 +1,14 @@
 
 # ignore data files. Must manually configure
-pnet_data/*
+pnet_data
+
+# debug/experimental code
+scratch
+
+# results/logs
+wandb
+models/
+results
 
 # ignore containers. These are not tracked here
 containers/*
