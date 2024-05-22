@@ -234,8 +234,6 @@ for epoch in range(EPOCHS):
             ],
         }
     )
-    model.save(f"{MODELS_PATH}/PointNet_last_{epoch=}.h5")
-    # print("Model saved.")
     # Checkpointing the best model based on validation loss
     checkpoint_callback.on_epoch_end(
         epoch, logs={"val_loss": val_loss_tracker.result()}

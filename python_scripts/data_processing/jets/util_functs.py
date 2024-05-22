@@ -300,8 +300,8 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
             num_points = len(track_points)
             if num_points < max_sample_length:
                 padding = [
-                    # [-1, 0, 0, 0, 0, 0, POINT_TYPE_ENCODING["padding"]]  # 0, 0, 0, 1]
                     [-1, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+                    # [-1, 0, 0, 0, 0, 0, POINT_TYPE_ENCODING["padding"]]  # 0, 0, 0, 1]
                     for _ in range(max_sample_length - num_points)
                 ]  # empty type
                 track_points.extend(padding)
