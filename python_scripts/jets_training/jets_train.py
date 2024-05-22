@@ -125,7 +125,7 @@ def train_step(x, y, energy_weights, model, optimizer):
         weighted_acc = masked_weighted_accuracy(y, predictions, energy_weights)
     grads = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(grads, model.trainable_variables))
-    return loss, reg_acc, weighted_acc
+    return loss, reg_acc, weighted_acc, grads
 
 
 @tf.function
@@ -161,7 +161,7 @@ for epoch in range(EPOCHS):
     ):
         if step >= train_steps:
             break
-        loss_value, reg_acc_value, weighted_acc_value = train_step(
+        loss_value, reg_acc_value, weighted_acc_value, grads = train_step(
             x_batch_train, y_batch_train, e_weight_train, model, optimizer
         )
         train_loss_tracker.update_state(loss_value)
@@ -211,6 +211,10 @@ for epoch in range(EPOCHS):
             "val/accuracy": val_reg_acc.result().numpy(),
             "val/weighted_accuracy": val_weighted_acc.result().numpy(),
             "learning_rate": optimizer.learning_rate.numpy(),
+            "gradients": [tf.reduce_mean(tf.abs(grad)).numpy() for grad in grads],
+            "weights": [
+                tf.reduce_mean(tf.abs(weight)).numpy()
+                for weight in model.trainable_variables
             ],
         }
     )
