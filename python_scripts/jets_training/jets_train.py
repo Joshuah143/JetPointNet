@@ -1,3 +1,11 @@
+# TODO:
+# - fix data generator
+# - implement logging weights and gradients
+# - implement logging confusion matrix
+# - implement lr scheduler
+# - move to .fit instead of custom train/val loop
+# - experiment with more losses/metrics
+
 import sys
 from pathlib import Path
 
