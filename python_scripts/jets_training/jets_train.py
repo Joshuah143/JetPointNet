@@ -21,18 +21,33 @@ from jets_training.models.JetPointNet import (
     masked_regular_accuracy,
     masked_weighted_accuracy,
 )
-from data_processing.jets.preprocessing_header import NPZ_SAVE_LOC
+from data_processing.jets.preprocessing_header import MAX_DISTANCE
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Set GPU
 
-RESULTS_PATH = REPO_PATH / "results"
+# SET PATHS FOR I/O AND CONFIG
+OUTPUT_DIRECTORY_NAME = "ttbar"
+DATASET_NAME = "benchmark"
+ENERGY_SCALE = 1000
+EXPERIMENT_NAME = f"{OUTPUT_DIRECTORY_NAME}/{DATASET_NAME}"
+RESULTS_PATH = REPO_PATH / "result" / EXPERIMENT_NAME
 RESULTS_PATH.mkdir(exist_ok=True)
-MODELS_PATH = REPO_PATH / "models"
+MODELS_PATH = REPO_PATH / "models" / EXPERIMENT_NAME
 MODELS_PATH.mkdir(exist_ok=True)
+
+NPZ_SAVE_LOC = (
+    REPO_PATH
+    / "pnet_data/processed_files"
+    / OUTPUT_DIRECTORY_NAME
+    / DATASET_NAME
+    / "SavedNpz"
+    / f"deltaR={MAX_DISTANCE}"
+)
 
 MAX_SAMPLE_LENGTH = 278
 BATCH_SIZE = 480
 EPOCHS = 10
+LR = 0.001
 TRAIN_DIR = NPZ_SAVE_LOC / "train"
 VAL_DIR = NPZ_SAVE_LOC / "val"
 
@@ -83,7 +98,7 @@ print(f"{train_steps = };\t{val_steps = }")
 
 
 model = PointNetSegmentation(MAX_SAMPLE_LENGTH, 1)
-optimizer = tf.keras.optimizers.Adam(learning_rate=(0.001))
+optimizer = tf.keras.optimizers.Adam(learning_rate=(LR))
 
 
 @tf.function
