@@ -240,11 +240,11 @@ for epoch in range(EPOCHS):
             "val/accuracy": val_reg_acc.result().numpy(),
             "val/weighted_accuracy": val_weighted_acc.result().numpy(),
             "learning_rate": optimizer.learning_rate.numpy(),
-            "gradients": [tf.reduce_mean(tf.abs(grad)).numpy() for grad in grads],
-            "weights": [
-                tf.reduce_mean(tf.abs(weight)).numpy()
-                for weight in model.trainable_variables
-            ],
+            # "gradients": [tf.reduce_mean(tf.abs(grad)).numpy() for grad in grads],
+            # "weights": [
+            #     tf.reduce_mean(tf.abs(weight)).numpy()
+            #     for weight in model.trainable_variables
+            # ],
         }
     )
     # Checkpointing the best model based on validation loss
