@@ -31,9 +31,9 @@ DATASET_NAME = "benchmark"
 ENERGY_SCALE = 1000
 EXPERIMENT_NAME = f"{OUTPUT_DIRECTORY_NAME}/{DATASET_NAME}"
 RESULTS_PATH = REPO_PATH / "result" / EXPERIMENT_NAME
-RESULTS_PATH.mkdir(exist_ok=True)
+RESULTS_PATH.mkdir(exist_ok=True, parents=True)
 MODELS_PATH = REPO_PATH / "models" / EXPERIMENT_NAME
-MODELS_PATH.mkdir(exist_ok=True)
+MODELS_PATH.mkdir(exist_ok=True, parents=True)
 
 NPZ_SAVE_LOC = (
     REPO_PATH
@@ -42,6 +42,7 @@ NPZ_SAVE_LOC = (
     / DATASET_NAME
     / "SavedNpz"
     / f"deltaR={MAX_DISTANCE}"
+    / f"energy_scale={ENERGY_SCALE}"
 )
 
 MAX_SAMPLE_LENGTH = 278
