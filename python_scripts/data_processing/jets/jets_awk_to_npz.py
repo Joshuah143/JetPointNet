@@ -29,7 +29,7 @@ from multiprocessing import Pool
 
 
 DATA_FOLDERS = ["train", "val", "test"]
-ENERGY_SCALE = 1
+ENERGY_SCALE = 1000
 
 
 def read_parquet(filename):

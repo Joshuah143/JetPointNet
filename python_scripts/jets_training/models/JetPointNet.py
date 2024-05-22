@@ -152,7 +152,7 @@ def TNet(input_tensor, size, add_regularization=False):
 
 
 def PointNetSegmentation(num_points, num_classes):
-    num_features = 6  # Number of input features per point
+    num_features = 9  # Number of input features per point
 
     """
     Input shape per point is:
