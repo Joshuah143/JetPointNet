@@ -59,7 +59,7 @@ NPZ_SAVE_LOC = (
 SPLIT_SEED = 62
 MAX_SAMPLE_LENGTH = 278
 BATCH_SIZE = 480
-EPOCHS = 10
+EPOCHS = 120
 LR = 0.001
 ES_PATIENCE = 15
 TRAIN_DIR = NPZ_SAVE_LOC / "train"
@@ -110,9 +110,9 @@ train_steps = calculate_steps(TRAIN_DIR, BATCH_SIZE)  # 47
 val_steps = calculate_steps(VAL_DIR, BATCH_SIZE)  # 26
 print(f"{train_steps = };\t{val_steps = }")
 
-set_global_determinism(TF_SEED=TF_SEED)
+set_global_determinism(seed=TF_SEED)
 wandb.init(
-    project="pointcloud_debug",
+    project="pointcloud",
     config={
         "dataset": EXPERIMENT_NAME,
         "split_seed": SPLIT_SEED,
