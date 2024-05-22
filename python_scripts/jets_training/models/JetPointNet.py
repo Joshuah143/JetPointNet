@@ -9,9 +9,37 @@ https://arxiv.org/pdf/1612.00593.pdf
 import tensorflow as tf
 import numpy as np
 import keras
+import os
+import random
 
 # =======================================================================================================================
 # ============ Weird Stuff ==============================================================================================
+
+
+TF_SEED = 2
+
+
+def _set_seeds(seed: int = TF_SEED):
+    """
+    Initialize seeds for all libraries which might have stochastic behavior
+    """
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    tf.random.set_seed(seed)
+    np.random.seed(seed)
+
+
+def set_global_determinism(seed: int = TF_SEED):
+    """
+    Activate Tensorflow deterministic behavior
+    """
+    _set_seeds(seed=seed)
+
+    os.environ["TF_DETERMINISTIC_OPS"] = "1"
+    os.environ["TF_CUDNN_DETERMINISTIC"] = "1"
+
+    tf.config.threading.set_inter_op_parallelism_threads(1)
+    tf.config.threading.set_intra_op_parallelism_threads(1)
 
 
 class SaveModel(keras.callbacks.Callback):
