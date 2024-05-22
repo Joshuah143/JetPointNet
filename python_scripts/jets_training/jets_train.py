@@ -157,6 +157,7 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
     save_weights_only=False,
     verbose=1,
 )
+checkpoint_callback.set_model(model)
 
 
 for epoch in range(EPOCHS):
