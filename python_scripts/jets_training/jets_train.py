@@ -148,7 +148,7 @@ val_reg_acc = tf.metrics.Mean(name="val_regular_accuracy")
 val_weighted_acc = tf.metrics.Mean(name="val_weighted_accuracy")
 
 # Setup ModelCheckpoint callback
-checkpoint_path = f"{MODELS_PATH}/PointNet_best"
+checkpoint_path = f"{MODELS_PATH}/PointNet_best.keras"
 checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
     filepath=checkpoint_path,
     save_best_only=True,
@@ -242,4 +242,6 @@ for epoch in range(EPOCHS):
 
 
 print("Training completed!")
+
+model.save(f"{MODELS_PATH}/PointNet_last_{epoch=}.keras")
 wandb.finish()
