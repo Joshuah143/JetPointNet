@@ -5,6 +5,11 @@ pnet_data
 # debug/experimental code
 scratch
 
+# results/logs
+wandb
+./models
+results
+
 # ignore containers. These are not tracked here
 containers/*
 
