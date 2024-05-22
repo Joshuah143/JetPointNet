@@ -1,0 +1,11 @@
+tensorflow[and-cuda]
+awkward
+uproot
+pyarrow
+scikit-learn
+numpy
+pandas
+wandb
+matplotlib
+plotly
+tqdm
