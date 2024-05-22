@@ -144,6 +144,18 @@ train_weighted_acc = tf.metrics.Mean(name="train_weighted_accuracy")
 val_reg_acc = tf.metrics.Mean(name="val_regular_accuracy")
 val_weighted_acc = tf.metrics.Mean(name="val_weighted_accuracy")
 
+# Setup ModelCheckpoint callback
+checkpoint_path = f"{MODELS_PATH}/PointNet_best"
+checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+    filepath=checkpoint_path,
+    save_best_only=True,
+    monitor="val_loss",  # Monitor validation loss
+    mode="min",  # Save the model with the minimum validation loss
+    save_weights_only=False,
+    verbose=1,
+)
+
+
 for epoch in range(EPOCHS):
     print("\nStart of epoch %d" % (epoch,))
     start_time = time.time()
@@ -218,6 +230,13 @@ for epoch in range(EPOCHS):
             ],
         }
     )
+    model.save(f"{MODELS_PATH}/PointNet_last_{epoch=}.h5")
+    # print("Model saved.")
+    # Checkpointing the best model based on validation loss
+    checkpoint_callback.on_epoch_end(
+        epoch, logs={"val_loss": val_loss_tracker.result()}
+    )
+
 
 print("Training completed!")
 wandb.finish()
