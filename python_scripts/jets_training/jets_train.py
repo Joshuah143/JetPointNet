@@ -51,6 +51,7 @@ MAX_SAMPLE_LENGTH = 278
 BATCH_SIZE = 480
 EPOCHS = 10
 LR = 0.001
+ES_PATIENCE = 15
 TRAIN_DIR = NPZ_SAVE_LOC / "train"
 VAL_DIR = NPZ_SAVE_LOC / "val"
 
@@ -111,6 +112,7 @@ wandb.init(
         "batch_size": BATCH_SIZE,
         "n_epochs": EPOCHS,
         "learning_rate": LR,
+        "early_stopping_patience": ES_PATIENCE,
     },
     job_type="training",
 )
@@ -159,6 +161,14 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
 )
 checkpoint_callback.set_model(model)
 
+# Setup EarlyStopping callback
+early_stopping_callback = tf.keras.callbacks.EarlyStopping(
+    monitor="val_loss",  # Monitor validation loss
+    mode="min",  # Trigger when validation loss stops decreasing
+    patience=ES_PATIENCE,  # Number of epochs to wait before stopping if no improvement
+    verbose=1,
+)
+early_stopping_callback.set_model(model)
 
 for epoch in range(EPOCHS):
     print("\nStart of epoch %d" % (epoch,))
@@ -192,7 +202,7 @@ for epoch in range(EPOCHS):
         batch_weighted_accuracy_train.append(train_weighted_acc.result())
 
     print(f"\nTraining loss over epoch: {train_loss_tracker.result():.4f}")
-    print(f"Time taken for training: {time.time() - start_time:.2f} sec")
+    print(f"\nTime taken for training: {time.time() - start_time:.2f} sec")
 
     batch_loss_val, batch_accuracy_val, batch_weighted_accuracy_val = [], [], []
     for step, (x_batch_val, y_batch_val, e_weight_val) in enumerate(
@@ -214,8 +224,8 @@ for epoch in range(EPOCHS):
         batch_accuracy_val.append(val_reg_acc.result().numpy())
         batch_weighted_accuracy_val.append(val_weighted_acc.result())
 
-    print(f"Validation loss: {val_loss_tracker.result():.4e}")
-    print(f"Time taken for validation: {time.time() - start_time:.2f} sec")
+    print(f"\nValidation loss: {val_loss_tracker.result():.4e}")
+    print(f"\nTime taken for validation: {time.time() - start_time:.2f} sec")
 
     wandb.log(
         {
@@ -238,9 +248,15 @@ for epoch in range(EPOCHS):
     checkpoint_callback.on_epoch_end(
         epoch, logs={"val_loss": val_loss_tracker.result()}
     )
+    early_stopping_callback.on_epoch_end(
+        epoch, logs={"val_loss": val_loss_tracker.result()}
+    )
+    if early_stopping_callback.stopped_epoch > 0:
+        print(f"Early stopping triggered at epoch {epoch}")
+        break
 
 
-print("Training completed!")
+print("\n\nTraining completed!")
 
 model.save(f"{MODELS_PATH}/PointNet_last_{epoch=}.keras")
 wandb.finish()
