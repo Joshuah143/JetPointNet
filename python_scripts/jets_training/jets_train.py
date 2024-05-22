@@ -21,6 +21,8 @@ from jets_training.models.JetPointNet import (
     masked_weighted_bce_loss,
     masked_regular_accuracy,
     masked_weighted_accuracy,
+    set_global_determinism,
+    TF_SEED,
 )
 from data_processing.jets.preprocessing_header import MAX_DISTANCE
 
@@ -100,12 +102,13 @@ train_steps = calculate_steps(TRAIN_DIR, BATCH_SIZE)  # 47
 val_steps = calculate_steps(VAL_DIR, BATCH_SIZE)  # 26
 print(f"{train_steps = };\t{val_steps = }")
 
-
+set_global_determinism(TF_SEED=TF_SEED)
 wandb.init(
-    project="pointcloud",
+    project="pointcloud_debug",
     config={
         "dataset": EXPERIMENT_NAME,
-        "seed": SPLIT_SEED,
+        "split_seed": SPLIT_SEED,
+        "tf_seed": TF_SEED,
         "delta_R": MAX_DISTANCE,
         "energy_scale": ENERGY_SCALE,
         "n_points_per_batch": MAX_SAMPLE_LENGTH,
