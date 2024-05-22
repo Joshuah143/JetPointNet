@@ -14,6 +14,7 @@ import os
 import glob
 import math
 import time
+import wandb
 from tqdm.auto import tqdm
 from jets_training.models.JetPointNet import (
     PointNetSegmentation,
@@ -45,6 +46,7 @@ NPZ_SAVE_LOC = (
     / f"energy_scale={ENERGY_SCALE}"
 )
 
+SPLIT_SEED = 62
 MAX_SAMPLE_LENGTH = 278
 BATCH_SIZE = 480
 EPOCHS = 10
@@ -204,14 +206,14 @@ for epoch in range(EPOCHS):
         val_reg_acc.update_state(val_reg_acc_value)
         val_weighted_acc.update_state(val_weighted_acc_value)
         print(
-            f"\rEpoch {epoch + 1}, Step {step + 1}/{val_steps}, Validation Loss: {val_loss_tracker.result().numpy():.4f}, Reg Acc: {val_reg_acc.result().numpy():.4f}, Weighted Acc: {val_weighted_acc.result().numpy():.4f}",
+            f"\rEpoch {epoch + 1}, Step {step + 1}/{val_steps}, Validation Loss: {val_loss_tracker.result().numpy():.4e}, Reg Acc: {val_reg_acc.result().numpy():.4f}, Weighted Acc: {val_weighted_acc.result().numpy():.4f}",
             end="",
         )
         batch_loss_val.append(val_loss_tracker.result().numpy())
         batch_accuracy_val.append(val_reg_acc.result().numpy())
         batch_weighted_accuracy_val.append(val_weighted_acc.result())
 
-    print(f"Validation loss: {val_loss_tracker.result():.4f}")
+    print(f"Validation loss: {val_loss_tracker.result():.4e}")
     print(f"Time taken for validation: {time.time() - start_time:.2f} sec")
 
     wandb.log(
