@@ -259,7 +259,7 @@ for epoch in range(EPOCHS):
     )
 
     # discard first epochs to trigger callbacks
-    if epoch > 5:
+    if epoch > 5 & (val_weighted_acc.result() < 1):
         checkpoint_callback.on_epoch_end(
             epoch,
             logs={
