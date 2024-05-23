@@ -110,13 +110,15 @@ train_steps = calculate_steps(TRAIN_DIR, BATCH_SIZE)  # 47
 val_steps = calculate_steps(VAL_DIR, BATCH_SIZE)  # 26
 print(f"{train_steps = };\t{val_steps = }")
 
-set_global_determinism(seed=TF_SEED)
+seed = np.random.randint(0, 100)  # TF_SEED
+print(f"Setting training determinism based on {seed=}")
+set_global_determinism(seed=seed)
 wandb.init(
     project="pointcloud",
     config={
         "dataset": EXPERIMENT_NAME,
         "split_seed": SPLIT_SEED,
-        "tf_seed": TF_SEED,
+        "tf_seed": seed,
         "delta_R": MAX_DISTANCE,
         "energy_scale": ENERGY_SCALE,
         "n_points_per_batch": MAX_SAMPLE_LENGTH,
