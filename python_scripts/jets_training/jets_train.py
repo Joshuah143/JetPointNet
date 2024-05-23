@@ -283,4 +283,14 @@ print("\n\nTraining completed!")
 
 last_checkpoint_path = f"{MODELS_PATH}/PointNet_last_{epoch=}.keras"
 model.save(last_checkpoint_path)
+
+# Log the best and last models to wandb
+best_model_artifact = wandb.Artifact("best_baseline", type="model")
+best_model_artifact.add_file(best_checkpoint_path)
+wandb.log_artifact(best_model_artifact)
+
+final_model_artifact = wandb.Artifact("last_epoch_baseline", type="model")
+final_model_artifact.add_file(last_checkpoint_path)
+wandb.log_artifact(final_model_artifact)
+
 wandb.finish()
