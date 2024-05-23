@@ -175,13 +175,13 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
 checkpoint_callback.set_model(model)
 
 # Setup EarlyStopping callback
-early_stopping_callback = tf.keras.callbacks.EarlyStopping(
-    monitor="val_weighted_accuracy",  # Monitor validation loss
-    mode="max",  # Trigger when validation loss stops decreasing
-    patience=ES_PATIENCE,  # Number of epochs to wait before stopping if no improvement
-    verbose=1,
-)
-early_stopping_callback.set_model(model)
+# early_stopping_callback = tf.keras.callbacks.EarlyStopping(
+#     monitor="val_weighted_accuracy",  # Monitor validation loss
+#     mode="max",  # Trigger when validation loss stops decreasing
+#     patience=ES_PATIENCE,  # Number of epochs to wait before stopping if no improvement
+#     verbose=1,
+# )
+# early_stopping_callback.set_model(model)
 
 for epoch in range(EPOCHS):
     print("\nStart of epoch %d" % (epoch,))
@@ -267,16 +267,16 @@ for epoch in range(EPOCHS):
                 "val_weighted_accuracy": val_weighted_acc.result(),
             },
         )
-        early_stopping_callback.on_epoch_end(
-            epoch,
-            logs={
-                "val_loss": val_loss_tracker.result(),
-                "val_weighted_accuracy": val_weighted_acc.result(),
-            },
-        )
-        if early_stopping_callback.stopped_epoch > 0:
-            print(f"Early stopping triggered at epoch {epoch}")
-            break
+        # early_stopping_callback.on_epoch_end(
+        #     epoch,
+        #     logs={
+        #         "val_loss": val_loss_tracker.result(),
+        #         "val_weighted_accuracy": val_weighted_acc.result(),
+        #     },
+        # )
+        # if early_stopping_callback.stopped_epoch > 0:
+        #     print(f"Early stopping triggered at epoch {epoch}")
+        #     break
 
 
 print("\n\nTraining completed!")
