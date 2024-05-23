@@ -165,8 +165,8 @@ checkpoint_path = f"{MODELS_PATH}/PointNet_best.keras"
 checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
     filepath=checkpoint_path,
     save_best_only=True,
-    monitor="val_loss",  # Monitor validation loss
-    mode="min",  # Save the model with the minimum validation loss
+    monitor="val_weighted_accuracy",  # Monitor validation loss
+    mode="max",  # Save the model with the minimum validation loss
     save_weights_only=False,
     verbose=1,
 )
@@ -174,8 +174,8 @@ checkpoint_callback.set_model(model)
 
 # Setup EarlyStopping callback
 early_stopping_callback = tf.keras.callbacks.EarlyStopping(
-    monitor="val_loss",  # Monitor validation loss
-    mode="min",  # Trigger when validation loss stops decreasing
+    monitor="val_weighted_accuracy",  # Monitor validation loss
+    mode="max",  # Trigger when validation loss stops decreasing
     patience=ES_PATIENCE,  # Number of epochs to wait before stopping if no improvement
     verbose=1,
 )
@@ -255,16 +255,26 @@ for epoch in range(EPOCHS):
             # ],
         }
     )
-    # Checkpointing the best model based on validation loss
-    checkpoint_callback.on_epoch_end(
-        epoch, logs={"val_loss": val_loss_tracker.result()}
-    )
-    early_stopping_callback.on_epoch_end(
-        epoch, logs={"val_loss": val_loss_tracker.result()}
-    )
-    if early_stopping_callback.stopped_epoch > 0:
-        print(f"Early stopping triggered at epoch {epoch}")
-        break
+
+    # discard first epochs to trigger callbacks
+    if epoch > 5:
+        checkpoint_callback.on_epoch_end(
+            epoch,
+            logs={
+                "val_loss": val_loss_tracker.result(),
+                "val_weighted_accuracy": val_weighted_acc.result(),
+            },
+        )
+        early_stopping_callback.on_epoch_end(
+            epoch,
+            logs={
+                "val_loss": val_loss_tracker.result(),
+                "val_weighted_accuracy": val_weighted_acc.result(),
+            },
+        )
+        if early_stopping_callback.stopped_epoch > 0:
+            print(f"Early stopping triggered at epoch {epoch}")
+            break
 
 
 print("\n\nTraining completed!")
