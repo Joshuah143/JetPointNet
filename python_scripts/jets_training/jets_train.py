@@ -128,6 +128,8 @@ wandb.init(
         "early_stopping_patience": ES_PATIENCE,
     },
     job_type="training",
+    tags=["baseline"],
+    notes="This run reproduces Marko's setting. Consider this as the starting jet ML baseline.",
 )
 
 model = PointNetSegmentation(MAX_SAMPLE_LENGTH, 1)
@@ -259,7 +261,7 @@ for epoch in range(EPOCHS):
     )
 
     # discard first epochs to trigger callbacks
-    if epoch > 5 & (val_weighted_acc.result() < 1):
+    if epoch > 5 & (val_weighted_acc.result().numpy() < 1):
         checkpoint_callback.on_epoch_end(
             epoch,
             logs={
