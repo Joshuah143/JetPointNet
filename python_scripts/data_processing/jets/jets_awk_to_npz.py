@@ -3,11 +3,11 @@ from pathlib import Path
 import os
 import threading
 
-REPO_PATH = Path.home() / "jetpointnet"
+REPO_PATH = Path.home() / "workspace/jetpointnet"
 SCRIPT_PATH = REPO_PATH / "python_scripts"
 
 sys.path.append(str(SCRIPT_PATH))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))) # this fixed it??
+
 
 from data_processing.jets.util_functs import (
     print_events,
@@ -39,6 +39,7 @@ def read_parquet(filename):
     ak_array = ak.from_arrow(table)
     return ak_array
 
+
 def max_calculation_wrapper(folder_path, filename, max_sample_len_list, n_points_list):
     full_path = os.path.join(folder_path, filename)
     ak_array = read_parquet(full_path)
@@ -47,6 +48,7 @@ def max_calculation_wrapper(folder_path, filename, max_sample_len_list, n_points
 
     max_sample_len_list.append(max_sample_length)
     n_points_list.append(n_points)
+
 
 def find_global_max_sample_length():
     max_sample_len_manager = Manager()
@@ -81,6 +83,7 @@ def find_global_max_sample_length():
     hits_df.to_csv(metadata_path / f"hits_per_event.csv", index=False)
 
     return global_max_sample_length
+
 
 def build_arrays(data_folder_path, chunk_file_name):
     ak_array = read_parquet(os.path.join(data_folder_path, chunk_file_name))
@@ -161,7 +164,8 @@ def update_progress(progress_dict, pbar):
         if pbar.n == pbar.total:
             break
         time.sleep(0.2)
-        
+
+
 if __name__ == "__main__":
     progress_manager = Manager()
     progress_dict = progress_manager.dict()
