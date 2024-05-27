@@ -85,7 +85,7 @@ def find_global_max_sample_length():
     return global_max_sample_length
 
 
-def build_arrays(data_folder_path, chunk_file_name):
+def build_arrays(data_folder_path, chunk_file_name, npz_save_path):
     ak_array = read_parquet(os.path.join(data_folder_path, chunk_file_name))
 
     frac_labels = build_labels_array(
@@ -103,7 +103,7 @@ def build_arrays(data_folder_path, chunk_file_name):
 
     # Save the feats and labels arrays to an NPZ file for each chunk
     npz_save_path = os.path.join(
-        npz_data_folder_path, f"{chunk_file_name.split('.')[0]}.npz"
+        npz_save_path, f"{chunk_file_name.split('.')[0]}.npz"
     )
     np.savez(
         npz_save_path,
@@ -112,6 +112,7 @@ def build_arrays(data_folder_path, chunk_file_name):
         tot_labels=tot_labels,
         tot_truth_e=tot_truth_e,
     )
+    return # multiproccessing must return to join processes
 
 def build_arrays_wrapper(args):
     return build_arrays(*args)
@@ -126,11 +127,11 @@ if __name__ == "__main__":
         )  # This line ensures the AWK_SAVE_LOC directories exist
 
 global_max_sample_length = find_global_max_sample_length()
-print(f"{global_max_sample_length = }")
 # global_max_sample_length = 278  # placeholder for now
 
 all_directory_chunk_folders = []
 all_directory_chunk_files = []
+all_directory_save_folders = []
 all_directory_num_chunks = 0
 if __name__ == "__main__":
     global_max_sample_length = find_global_max_sample_length()
@@ -154,14 +155,14 @@ if __name__ == "__main__":
     all_directory_num_chunks += num_chunks
     all_directory_chunk_files += sorted(chunk_files)
     all_directory_chunk_folders += [data_folder_path] * num_chunks
+    all_directory_save_folders += [npz_data_folder_path] * num_chunks
 
 
-def update_progress(progress_dict, pbar):
+def update_progress(progress_dict, pbar, all_directory_num_chunks):
     while True:
-        completed = progress_dict["completed"]
-        pbar.n = completed
+        pbar.n = progress_dict["completed"]
         pbar.refresh()
-        if pbar.n == pbar.total:
+        if progress_dict["completed"] == all_directory_num_chunks:
             break
         time.sleep(0.2)
 
@@ -176,13 +177,13 @@ if __name__ == "__main__":
     def on_task_complete(_):
         progress_dict["completed"] += 1
 
-    progress_thread = threading.Thread(target=update_progress, args=(progress_dict, pbar,))
+    progress_thread = threading.Thread(target=update_progress, args=(progress_dict, pbar, all_directory_num_chunks,))
     progress_thread.start()
     data_folder_path = os.path.join(AWK_SAVE_LOC, data_folder)
 
     with Pool(processes=NUM_CHUNK_THREADS) as pool:
-        for folder, file in zip(all_directory_chunk_folders, all_directory_chunk_files):
-            pool.apply_async(build_arrays, (folder, file), callback=on_task_complete)
+        for awk_folder, awk_file, npz_folder in zip(all_directory_chunk_folders, all_directory_chunk_files, all_directory_save_folders):
+            pool.apply_async(build_arrays, (awk_folder, awk_file, npz_folder), callback=on_task_complete)
             
         pool.close()
         pool.join()
