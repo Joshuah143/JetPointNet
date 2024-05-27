@@ -31,6 +31,7 @@ from jets_training.models.JetPointNet import (
     masked_weighted_accuracy,
     set_global_determinism,
     TF_SEED,
+    CustomLRScheduler,
 )
 from data_processing.jets.preprocessing_header import MAX_DISTANCE
 
@@ -188,57 +189,6 @@ checkpoint_callback.set_model(model)
 
 
 # Learning Rate Scheduler
-class CustomLRScheduler(tf.keras.callbacks.Callback):
-
-    def __init__(
-        self,
-        optim_lr,  # =LR,
-        lr_max,  # =0.000015 * train_steps * BATCH_SIZE,
-        lr_min,  # =1e-7,
-        lr_ramp_ep,  # =3,
-        lr_sus_ep,  # =0,
-        lr_decay,  # =0.7,
-        verbose,
-        **kwargs,
-    ):
-        super(CustomLRScheduler, self).__init__()
-
-        self.optim_lr = optim_lr
-        # self.lr_start = lr_start
-        self.lr_max = lr_max
-        self.lr_min = lr_min
-        self.lr_ramp_ep = lr_ramp_ep
-        self.lr_sus_ep = lr_sus_ep
-        self.lr_decay = lr_decay
-        self.verbose = verbose
-
-    def _update_lr(self, epoch):
-        if epoch < self.lr_ramp_ep:
-            lr = (self.lr_max - self.optim_lr) / self.lr_ramp_ep * epoch + self.optim_lr
-
-        elif epoch < self.lr_ramp_ep + self.lr_sus_ep:
-            lr = self.lr_max
-
-        else:
-            lr = (self.lr_max - self.lr_min) * self.lr_decay ** (
-                epoch - self.lr_ramp_ep - self.lr_sus_ep
-            ) + self.lr_min
-
-        return lr
-
-    def on_epoch_begin(self, epoch, logs=None):
-
-        logs = logs or {}
-        logs["lr"] = float(self.optim_lr.numpy())
-
-        new_lr = self._update_lr(epoch)
-        if self.verbose > 0:
-            print(
-                f"\nEpoch{epoch}: Updating learning rate from {self.optim_lr.numpy()} to {new_lr}"
-            )
-        self.optim_lr.assign(new_lr)
-
-
 lr_callback = CustomLRScheduler(
     optim_lr=optimizer.learning_rate,
     lr_max=0.000015 * train_steps * BATCH_SIZE,
