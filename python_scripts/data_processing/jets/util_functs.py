@@ -404,6 +404,8 @@ def process_and_filter_cells(
     - track_phis: A dictionary of phi values for each track, organized by layer.
     """
 
+    # L: I don't think this has any impact. 1) may need to filter out empty cluster_ID elements; 2) the actual dimension is determined by the filtered cell_IDs later anyway;
+    # NOTE: running without step 1 seems to produce same results
     # Extracting cell IDs and energies, assuming they are part of clusters
 
     # TODO use hitsE_EM for trucating so that it matches Jessica's code
@@ -637,6 +639,8 @@ def process_associated_cell_info(
     track_intersection_points = [
         (x, y, z) for layer, (x, y, z) in track_intersections.items()
     ]
+    # NOTE: same as above but easier
+    # list(track_intersections.values())
 
     for cell_idx in range(len(filtered_cells)):
         # TODO: MAKE IT ONLY ADD CELLS THAT HAVE ANY TRUTH_HIT_INDEX IN THEM
@@ -653,6 +657,16 @@ def process_associated_cell_info(
             filtered_cells[cell_idx]["Y"],
             filtered_cells[cell_idx]["Z"],
         )
+        # NOTE: the following should reproduce min_dist calculation but more readable (even faster?)
+        # np.sqrt(np.array(track_intersection_points) - np.array([cell_x, cell_y, cell_z]) )
+
+        # dists = [np.sqrt((x - cell_x) ** 2 + (y - cell_y) ** 2 + (z - cell_z) ** 2)
+        #     for x, y, z in track_intersection_points]
+        # np.linalg.norm(np.array(track_intersection_points)[0] - np.array([cell_x, cell_y, cell_z]))
+
+        # a_min_b = np.array(track_intersection_points) - np.array([cell_x, cell_y, cell_z])
+        # min(np.sqrt(np.einsum('ij,ij->i', a_min_b, a_min_b)))
+
         min_distance = min(
             np.sqrt((x - cell_x) ** 2 + (y - cell_y) ** 2 + (z - cell_z) ** 2)
             for x, y, z in track_intersection_points
@@ -677,6 +691,7 @@ def process_associated_cell_info(
                 found_index
             ]  # Retrieve corresponding energy deposit
             energy_fraction = part_energy / total_energy  # Calculate energy fraction
+            # L: NOTE should we refer to measured rather than truth energy instead?
             tracks_sample.field("Fraction_Label").real(energy_fraction)
             tracks_sample.field("Total_Label").real(total_energy)
         else:
