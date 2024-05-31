@@ -288,7 +288,7 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                             # POINT_TYPE_ENCODING["unfocus hit"],
                             0,
                             0,
-                            track_idx,
+                            track_idx + 1,
                             0,
                         ]
                     )
