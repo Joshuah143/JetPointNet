@@ -1,10 +1,10 @@
 # TODO:
-# - fix data generator
+# - fix data generator: MINOR PRIORITY (last bit discarded, try to include into next batch)
 # - implement logging weights and gradients
-# - implement logging confusion matrix
-# - implement lr scheduler
+# - implement logging confusion matrix: MINOR
+# - implement lr scheduler: DONE, but need experimenting with more schedulers
 # - move to .fit instead of custom train/val loop
-# - experiment with more losses/metrics
+# - experiment with more losses/metrics: ATTEMPTED, doesn't seem feasible because of per-point weighted loss (can't pass weights to loss during .fit) --> TO CHECK BETTER?
 
 import sys
 from pathlib import Path
@@ -111,7 +111,7 @@ train_steps = calculate_steps(TRAIN_DIR, BATCH_SIZE)  # 47
 val_steps = calculate_steps(VAL_DIR, BATCH_SIZE)  # 26
 print(f"{train_steps = };\t{val_steps = }")
 
-seed = 82  # np.random.randint(0, 100)  # TF_SEED
+seed = np.random.randint(0, 100)  # TF_SEED
 print(f"Setting training determinism based on {seed=}")
 set_global_determinism(seed=seed)
 wandb.init(
@@ -134,6 +134,14 @@ wandb.init(
 )
 
 model = PointNetSegmentation(MAX_SAMPLE_LENGTH, 1)
+import tensorflow.keras.backend as K
+
+trainable_count = np.sum([K.count_params(w) for w in model.trainable_weights])
+non_trainable_count = np.sum([K.count_params(w) for w in model.non_trainable_weights])
+
+print("Total params: {:,}".format(trainable_count + non_trainable_count))
+print("Trainable params: {:,}".format(trainable_count))
+print("Non-trainable params: {:,}".format(non_trainable_count))
 optimizer = tf.keras.optimizers.Adam(learning_rate=(LR))
 
 
