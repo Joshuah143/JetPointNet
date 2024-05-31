@@ -8,19 +8,23 @@
 
 import sys
 from pathlib import Path
+import os
+import json
 
-# CERNBOX = os.environ["CERNBOX"]
 REPO_PATH = Path.home() / "workspace/jetpointnet"
-# SCRIPT_PATH = REPO_PATH / "python_scripts/data_processing/jets"
+SCRIPT_PATH = REPO_PATH / "python_scripts/data_processing/jets"
+sys.path.append(str(SCRIPT_PATH))
 SCRIPT_PATH = REPO_PATH / "python_scripts"
 sys.path.append(str(SCRIPT_PATH))
 
+os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # Set GPU
 
 import numpy as np
 import tensorflow as tf
-import os
 import glob
 import math
+import wandb
 import time
 import wandb
 from tqdm.auto import tqdm
@@ -65,6 +69,20 @@ LR = 0.001
 ES_PATIENCE = 15
 TRAIN_DIR = NPZ_SAVE_LOC / "train"
 VAL_DIR = NPZ_SAVE_LOC / "val"
+LEARNING_RATE = 0.001
+USE_WANDB = True
+
+if USE_WANDB:
+    wandb.init(project="atlas", entity="caloqvae", 
+            config={
+                "learning_rate": 0.02,
+                "max_sample_length": MAX_SAMPLE_LENGTH,
+                "epochs": EPOCHS,
+                "output_activation": "softmax",
+                "learning_rate": LEARNING_RATE,
+                "detlaR": 10,
+                "min_hits_per_track": 25
+            })
 
 
 def load_data_from_npz(npz_file):
@@ -87,9 +105,14 @@ def data_generator(data_dir, batch_size, drop_last=True):
                 if end_index > dataset_size:
                     if drop_last:
                         continue  # Drop last smaller batch
-                batch_feats = feats[i:end_index]
-                batch_labels = frac_labels[i:end_index]
-                batch_e_weights = e_weights[i:end_index]
+                    else:
+                        batch_feats = feats[i:]
+                        batch_labels = frac_labels[i:]
+                        batch_e_weights = e_weights[i:]
+                else:
+                    batch_feats = feats[i:end_index]
+                    batch_labels = frac_labels[i:end_index]
+                    batch_e_weights = e_weights[i:end_index]
 
                 yield (
                     batch_feats,
@@ -97,6 +120,26 @@ def data_generator(data_dir, batch_size, drop_last=True):
                     batch_e_weights.reshape(*batch_e_weights.shape, 1),
                 )
 
+
+def no_batch_limit(data_dir, batch_size=0):
+    npz_files = glob.glob(os.path.join(data_dir, "*.npz"))
+    
+    while True:
+        np.random.shuffle(npz_files)
+        for npz_file in npz_files:
+            #print("file proccessing")
+            feats, frac_labels, e_weights = load_data_from_npz(npz_file)
+            dataset_size = feats.shape[0]
+            print(f"DATASIZE={dataset_size}")
+            batch_feats = feats[:-1]
+            batch_labels = frac_labels[:-1]
+            batch_e_weights = e_weights[:-1]
+
+            yield (
+                batch_feats,
+                batch_labels.reshape(*batch_labels.shape, 1),
+                batch_e_weights.reshape(*batch_e_weights.shape, 1),
+            )
 
 def calculate_steps(data_dir, batch_size):
     total_samples = 0
@@ -223,7 +266,7 @@ for epoch in range(EPOCHS):
 
     batch_loss_train, batch_accuracy_train, batch_weighted_accuracy_train = [], [], []
     for step, (x_batch_train, y_batch_train, e_weight_train) in enumerate(
-        data_generator(TRAIN_DIR, BATCH_SIZE)
+        no_batch_limit(TRAIN_DIR, BATCH_SIZE)
     ):
         if step >= train_steps:
             break
@@ -246,12 +289,12 @@ for epoch in range(EPOCHS):
 
     batch_loss_val, batch_accuracy_val, batch_weighted_accuracy_val = [], [], []
     for step, (x_batch_val, y_batch_val, e_weight_val) in enumerate(
-        data_generator(VAL_DIR, BATCH_SIZE)
+        no_batch_limit(VAL_DIR, BATCH_SIZE)
     ):
         if step >= val_steps:
             break
         val_loss_value, val_reg_acc_value, val_weighted_acc_value = val_step(
-            x_batch_val, y_batch_val, e_weight_train, model
+            x_batch_val, y_batch_val, e_weight_val, model
         )
         val_loss_tracker.update_state(val_loss_value)
         val_reg_acc.update_state(val_reg_acc_value)
