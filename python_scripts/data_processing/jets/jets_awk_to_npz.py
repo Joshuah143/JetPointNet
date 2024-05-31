@@ -105,43 +105,45 @@ def build_arrays_wrapper(args):
     return build_arrays(*args)
 
 
-# Make sure this happens after SAVE_LOC is defined and created if necessary
-for folder in DATA_FOLDERS:
-    folder_path = os.path.join(AWK_SAVE_LOC, folder)
-    os.makedirs(
-        folder_path, exist_ok=True
-    )  # This line ensures the AWK_SAVE_LOC directories exist
+if __name__ == "__main__":
 
-global_max_sample_length = find_global_max_sample_length()
-print(f"{global_max_sample_length = }")
-# global_max_sample_length = 278  # placeholder for now
+    # Make sure this happens after SAVE_LOC is defined and created if necessary
+    for folder in DATA_FOLDERS:
+        folder_path = os.path.join(AWK_SAVE_LOC, folder)
+        os.makedirs(
+            folder_path, exist_ok=True
+        )  # This line ensures the AWK_SAVE_LOC directories exist
 
-start_time = time.time()
-NPZ_SAVE_LOC = NPZ_SAVE_LOC / f"{ENERGY_SCALE=}".lower()
-for data_folder in DATA_FOLDERS:
-    npz_data_folder_path = os.path.join(NPZ_SAVE_LOC, data_folder)
-    os.makedirs(npz_data_folder_path, exist_ok=True)  # Ensure the directory exists
-    print(f"Processing data for: {data_folder}")
+    global_max_sample_length = find_global_max_sample_length()
+    print(f"{global_max_sample_length = }")
+    # global_max_sample_length = 278  # placeholder for now
 
-    data_folder_path = os.path.join(AWK_SAVE_LOC, data_folder)
-    chunk_files = [
-        f
-        for f in os.listdir(data_folder_path)
-        if f.startswith("chunk_") and f.endswith(".parquet")
-    ]
-    num_chunks = len(chunk_files)
+    start_time = time.time()
+    NPZ_SAVE_LOC = NPZ_SAVE_LOC / f"{ENERGY_SCALE=}".lower()
+    for data_folder in DATA_FOLDERS:
+        npz_data_folder_path = os.path.join(NPZ_SAVE_LOC, data_folder)
+        os.makedirs(npz_data_folder_path, exist_ok=True)  # Ensure the directory exists
+        print(f"Processing data for: {data_folder}")
 
-    with Pool(processes=NUM_CHUNK_THREADS) as pool:
-        results = list(
-            tqdm(
-                pool.imap_unordered(
-                    build_arrays_wrapper,
-                    zip([data_folder_path] * num_chunks, sorted(chunk_files)),
-                ),
-                total=num_chunks,
+        data_folder_path = os.path.join(AWK_SAVE_LOC, data_folder)
+        chunk_files = [
+            f
+            for f in os.listdir(data_folder_path)
+            if f.startswith("chunk_") and f.endswith(".parquet")
+        ]
+        num_chunks = len(chunk_files)
+
+        with Pool(processes=NUM_CHUNK_THREADS) as pool:
+            results = list(
+                tqdm(
+                    pool.imap_unordered(
+                        build_arrays_wrapper,
+                        zip([data_folder_path] * num_chunks, sorted(chunk_files)),
+                    ),
+                    total=num_chunks,
+                )
             )
-        )
-    print(f"Completed processing data for: {data_folder}")
+        print(f"Completed processing data for: {data_folder}")
 
-end_time = time.time()
-print(f"Processing took: {(end_time - start_time):.2f} seconds")
+    end_time = time.time()
+    print(f"Processing took: {(end_time - start_time):.2f} seconds")
