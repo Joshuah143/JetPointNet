@@ -38,11 +38,19 @@ from data_processing.jets.preprocessing_header import MAX_DISTANCE
 
 
 # os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Set GPU
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # Set GPU
 
 # SET PATHS FOR I/O AND CONFIG
-OUTPUT_DIRECTORY_NAME = "ttbar"
-DATASET_NAME = "benchmark"
+USER = Path.home().name
+if USER == "jhimmens":
+    OUTPUT_DIRECTORY_NAME = "2000_events_w_fixed_hits"
+    DATASET_NAME = "raw"
+elif USER == "luclissa":
+    OUTPUT_DIRECTORY_NAME = "ttbar"
+    DATASET_NAME = "benchmark"
+else:
+    raise Exception("UNKOWN USER")
+
 ENERGY_SCALE = 1000
 EXPERIMENT_NAME = f"{OUTPUT_DIRECTORY_NAME}/{DATASET_NAME}"
 RESULTS_PATH = REPO_PATH / "result" / EXPERIMENT_NAME
@@ -62,13 +70,12 @@ NPZ_SAVE_LOC = (
 
 SPLIT_SEED = 62
 MAX_SAMPLE_LENGTH = 278
-BATCH_SIZE = 480
+BATCH_SIZE = 2000
 EPOCHS = 1
 LR = 0.001
 ES_PATIENCE = 15
 TRAIN_DIR = NPZ_SAVE_LOC / "train"
 VAL_DIR = NPZ_SAVE_LOC / "val"
-LEARNING_RATE = 0.001
 USE_WANDB = True
 
 
@@ -82,6 +89,8 @@ def load_data_from_npz(npz_file):
 
 def data_generator(data_dir, batch_size, drop_last=True):
     npz_files = glob.glob(os.path.join(data_dir, "*.npz"))
+    if len(npz_files) == 0:
+        raise Exception(f'{data_dir} does not contain npz files!')
     while True:
         np.random.shuffle(npz_files)
         for npz_file in npz_files:
@@ -106,28 +115,6 @@ def data_generator(data_dir, batch_size, drop_last=True):
                     batch_labels.reshape(*batch_labels.shape, 1),
                     batch_e_weights.reshape(*batch_e_weights.shape, 1),
                 )
-
-
-# NOTE: this does return chunk as batch, which gives batches of different length irrespectively of BATCH_SIZE
-# def no_batch_limit(data_dir, batch_size=0):
-#     npz_files = glob.glob(os.path.join(data_dir, "*.npz"))
-
-#     while True:
-#         np.random.shuffle(npz_files)
-#         for npz_file in npz_files:
-#             # print("file proccessing")
-#             feats, frac_labels, e_weights = load_data_from_npz(npz_file)
-#             dataset_size = feats.shape[0]
-#             print(f"DATASIZE={dataset_size}")
-#             batch_feats = feats[:-1]
-#             batch_labels = frac_labels[:-1]
-#             batch_e_weights = e_weights[:-1]
-
-#             yield (
-#                 batch_feats,
-#                 batch_labels.reshape(*batch_labels.shape, 1),
-#                 batch_e_weights.reshape(*batch_e_weights.shape, 1),
-#             )
 
 
 def calculate_steps(data_dir, batch_size):
@@ -170,7 +157,7 @@ if USE_WANDB:
         notes="This run reproduces Marko's setting. Consider this as the starting jet ML baseline.",
     )
 
-model = PointNetSegmentation(MAX_SAMPLE_LENGTH, num_features=6, num_classes=1)
+model = PointNetSegmentation(MAX_SAMPLE_LENGTH, num_features=9, num_classes=1) # swappeed back to 9 to work with one hot encoding
 import tensorflow.keras.backend as K
 
 trainable_count = np.sum([K.count_params(w) for w in model.trainable_weights])
