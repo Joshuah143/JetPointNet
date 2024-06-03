@@ -105,9 +105,11 @@ def rectified_TSSR_Activation(x):
         tf.where(small_positive_condition, small_positive_part, large_positive_part),
     )
 
+
 # Never used
 def custom_sigmoid(x, a=3.0):
     return 1 / (1 + tf.exp(-a * x))
+
 
 # Never used
 def hard_sigmoid(x):
@@ -246,7 +248,7 @@ def PointNetSegmentation(num_points, num_classes):
     c = conv_mlp(c, 128, dropout_rate=0.3)
 
     segmentation_output = tf.keras.layers.Conv1D(
-        num_classes, kernel_size=1, activation="softmax", name="SEG"
+        num_classes, kernel_size=1, activation="sigmoid", name="SEG"
     )(c)
 
     model = tf.keras.Model(inputs=input_points, outputs=segmentation_output)
@@ -260,6 +262,7 @@ def PointNetSegmentation(num_points, num_classes):
 
 # =======================================================================================================================
 # ============ Losses ===================================================================================================
+
 
 # Never used
 def _pad_targets(y_true, y_pred, energies):
@@ -291,7 +294,8 @@ def masked_weighted_bce_loss(y_true, y_pred, energies):
 
     y_pred_masked = y_pred * valid_mask
     bce_loss = tf.keras.losses.binary_crossentropy(
-        y_true_adjusted, y_pred_masked #, from_logits=True # - this is if range in -inf to inf but we use softmax
+        y_true_adjusted,
+        y_pred_masked,  # , from_logits=True # - this is if range in -inf to inf but we use softmax
     )
     bce_loss = tf.expand_dims(
         bce_loss, axis=-1
@@ -308,8 +312,8 @@ def masked_weighted_bce_loss(y_true, y_pred, energies):
     total_num_points = tf.reduce_sum(
         valid_mask, axis=1, keepdims=True
     )  # Keep dimensions with 'keepdims'
-    normalized_bce_loss = (
-        (weighted_bce_loss / (total_num_points + 1)) / (total_energy_weight + 1)
+    normalized_bce_loss = (weighted_bce_loss / (total_num_points + 1)) / (
+        total_energy_weight + 1
     )
 
     # Combine the mean losses from both labels
