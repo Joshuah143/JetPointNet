@@ -39,6 +39,8 @@ from jets_training.models.JetPointNet import (
 )
 from data_processing.jets.preprocessing_header import MAX_DISTANCE
 
+
+# os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Set GPU
 
 # SET PATHS FOR I/O AND CONFIG
