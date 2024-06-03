@@ -60,7 +60,7 @@ NPZ_SAVE_LOC = (
 SPLIT_SEED = 62
 MAX_SAMPLE_LENGTH = 278
 BATCH_SIZE = 480
-EPOCHS = 5
+EPOCHS = 1
 LR = 0.001
 ES_PATIENCE = 15
 TRAIN_DIR = NPZ_SAVE_LOC / "train"
@@ -133,7 +133,7 @@ wandb.init(
     notes="This run reproduces Marko's setting. Consider this as the starting jet ML baseline.",
 )
 
-model = PointNetSegmentation(MAX_SAMPLE_LENGTH, 1)
+model = PointNetSegmentation(MAX_SAMPLE_LENGTH, num_features=9, num_classes=1)
 import tensorflow.keras.backend as K
 
 trainable_count = np.sum([K.count_params(w) for w in model.trainable_weights])
