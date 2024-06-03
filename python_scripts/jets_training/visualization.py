@@ -45,9 +45,9 @@ TRAIN_DIR = NPZ_SAVE_LOC / "train"
 VAL_DIR = NPZ_SAVE_LOC / "val"
 CELLS_PER_TRACK_CUTOFF = 25
 
-model = PointNetSegmentation(MAX_SAMPLE_LENGTH, 1)
+model = PointNetSegmentation(MAX_SAMPLE_LENGTH, num_features=9, num_classes=1)
 
-model.load_weights(MODELS_PATH / "PointNetModel_epochs=200.keras")
+model.load_weights("/home/jhimmens/workspace/jetpointnet/models/2000_events_w_fixed_hits/raw/PointNet_last_epoch=29.keras")
 
 def load_data_from_npz(npz_file):
     data = np.load(npz_file)
@@ -57,7 +57,7 @@ def load_data_from_npz(npz_file):
     tot_truth_e = data['tot_truth_e'][:, :MAX_SAMPLE_LENGTH]  # Shape: (num_samples, 859) (This is the true total energy deposited by particles into this cell)
     return feats, frac_labels, tot_labels, tot_truth_e
 
-filename_npz = "/home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/2000_events_w_fixed_hits/raw/SavedNpz/deltaR=0.1/val/chunk_0_val.npz"
+filename_npz = "/home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/2000_events_w_fixed_hits/raw/SavedNpz/deltaR=0.1/energy_scale=1000/train/chunk_0_train.npz"
 feats, frac_labels, tot_labels, tot_truth_e = load_data_from_npz(filename_npz)
 x, y, weight = feats, frac_labels, tot_truth_e # this just uses the first event
 
@@ -73,7 +73,7 @@ print(len(segmentation_logits[0]))
 frac_labels
 
 # get source from awk
-ak_file = "/home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/2000_events_w_fixed_hits/AwkwardArrs/deltaR=0.1/val/chunk_0_val.parquet"
+ak_file = "/home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/2000_events_w_fixed_hits/AwkwardArrs/deltaR=0.1/train/chunk_0_train.parquet"
 ak_array = ak.from_arrow(pq.read_table(ak_file))
 
 

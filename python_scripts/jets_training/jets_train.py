@@ -71,7 +71,7 @@ NPZ_SAVE_LOC = (
 SPLIT_SEED = 62
 MAX_SAMPLE_LENGTH = 278
 BATCH_SIZE = 2000
-EPOCHS = 1
+EPOCHS = 30
 LR = 0.001
 ES_PATIENCE = 15
 TRAIN_DIR = NPZ_SAVE_LOC / "train"
@@ -91,30 +91,30 @@ def data_generator(data_dir, batch_size, drop_last=True):
     npz_files = glob.glob(os.path.join(data_dir, "*.npz"))
     if len(npz_files) == 0:
         raise Exception(f'{data_dir} does not contain npz files!')
-    while True:
-        np.random.shuffle(npz_files)
-        for npz_file in npz_files:
-            feats, frac_labels, e_weights = load_data_from_npz(npz_file)
-            dataset_size = feats.shape[0]
-            for i in range(0, dataset_size, batch_size):
-                end_index = i + batch_size
-                if end_index > dataset_size:
-                    if drop_last:
-                        continue  # Drop last smaller batch
-                    else:
-                        batch_feats = feats[i:]
-                        batch_labels = frac_labels[i:]
-                        batch_e_weights = e_weights[i:]
+    
+    np.random.shuffle(npz_files)
+    for npz_file in npz_files:
+        feats, frac_labels, e_weights = load_data_from_npz(npz_file)
+        dataset_size = feats.shape[0]
+        for i in range(0, dataset_size, batch_size):
+            end_index = i + batch_size
+            if end_index > dataset_size:
+                if drop_last:
+                    continue  # Drop last smaller batch
                 else:
-                    batch_feats = feats[i:end_index]
-                    batch_labels = frac_labels[i:end_index]
-                    batch_e_weights = e_weights[i:end_index]
+                    batch_feats = feats[i:]
+                    batch_labels = frac_labels[i:]
+                    batch_e_weights = e_weights[i:]
+            else:
+                batch_feats = feats[i:end_index]
+                batch_labels = frac_labels[i:end_index]
+                batch_e_weights = e_weights[i:end_index]
 
-                yield (
-                    batch_feats,
-                    batch_labels.reshape(*batch_labels.shape, 1),
-                    batch_e_weights.reshape(*batch_e_weights.shape, 1),
-                )
+            yield (
+                batch_feats,
+                batch_labels.reshape(*batch_labels.shape, 1),
+                batch_e_weights.reshape(*batch_e_weights.shape, 1),
+            )
 
 
 def calculate_steps(data_dir, batch_size):
@@ -221,6 +221,7 @@ checkpoint_callback.set_model(model)
 
 
 # Learning Rate Scheduler
+""" We dont use -- can delete?
 lr_callback = CustomLRScheduler(
     optim_lr=optimizer.learning_rate,
     lr_max=0.000015 * train_steps * BATCH_SIZE,
@@ -230,13 +231,14 @@ lr_callback = CustomLRScheduler(
     lr_decay=0.7,
     verbose=1,
 )
+"""
 
 for epoch in range(EPOCHS):
     print("\nStart of epoch %d" % (epoch,))
     start_time = time.time()
 
     # LR scheduler
-    lr_callback.on_epoch_begin(epoch)
+    # lr_callback.on_epoch_begin(epoch)
 
     train_loss_tracker.reset_state()
     val_loss_tracker.reset_state()
@@ -270,7 +272,7 @@ for epoch in range(EPOCHS):
 
     batch_loss_val, batch_accuracy_val, batch_weighted_accuracy_val = [], [], []
     for step, (x_batch_val, y_batch_val, e_weight_val) in enumerate(
-        data_generator(VAL_DIR, BATCH_SIZE)
+        data_generator(VAL_DIR, BATCH_SIZE, False)
     ):
         if step >= val_steps:
             break
@@ -312,6 +314,9 @@ for epoch in range(EPOCHS):
 
     # callbacks
     # lr_callback.on_epoch_end(epoch)
+
+    if epoch == 0:
+        model.save(best_checkpoint_path)
 
     # discard first epochs to trigger callbacks
     if epoch > 5 & (val_weighted_acc.result().numpy() < 1):

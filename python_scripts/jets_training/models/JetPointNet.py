@@ -490,7 +490,7 @@ class CustomLRScheduler(tf.keras.callbacks.Callback):
         self.optim_lr.assign(new_lr)
         if self.verbose > 0:
             print(
-                f"\nEpoch{epoch}: Updating learning rate from {old_lr:.4e} to {self.optim_lr.numpy():.4e}"
+                f"\nEpoch {epoch}: Updating learning rate from {old_lr:.4e} to {self.optim_lr.numpy():.4e}"
             )
 
 
