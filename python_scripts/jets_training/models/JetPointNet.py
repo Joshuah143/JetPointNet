@@ -447,12 +447,13 @@ class CustomLRScheduler(tf.keras.callbacks.Callback):
         logs = logs or {}
         logs["lr"] = float(self.optim_lr.numpy())
 
+        old_lr = self.optim_lr.numpy()
         new_lr = self._update_lr(epoch)
+        self.optim_lr.assign(new_lr)
         if self.verbose > 0:
             print(
-                f"\nEpoch{epoch}: Updating learning rate from {self.optim_lr.numpy()} to {new_lr}"
+                f"\nEpoch{epoch}: Updating learning rate from {old_lr:.4e} to {self.optim_lr.numpy():.4e}"
             )
-        self.optim_lr.assign(new_lr)
 
 
 # =======================================================================================================================
