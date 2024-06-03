@@ -181,8 +181,8 @@ def TNet(input_tensor, size, add_regularization=False):
     return x
 
 
-def PointNetSegmentation(num_points, num_classes):
-    num_features = 9  # Number of input features per point
+def PointNetSegmentation(num_points, num_features, num_classes):
+    # num_features = 9  # Number of input features per point
 
     """
     Input shape per point is:
@@ -192,7 +192,7 @@ def PointNetSegmentation(num_points, num_classes):
         minimum_of_distance_to_focused_track (mm),
         energy (GeV),
         type (focused track, cells, associated track, masked out)
-    
+
     Note that in awk_to_npz.py, if add_tracks_as_labels == False then the labels for the tracks is "-1" (to be masked of the loss and not predicted on)
 
     """
