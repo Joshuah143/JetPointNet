@@ -8,19 +8,20 @@
 
 import sys
 from pathlib import Path
+import os
+import json
 
-# CERNBOX = os.environ["CERNBOX"]
 REPO_PATH = Path.home() / "workspace/jetpointnet"
-# SCRIPT_PATH = REPO_PATH / "python_scripts/data_processing/jets"
+SCRIPT_PATH = REPO_PATH / "python_scripts/data_processing/jets"
+sys.path.append(str(SCRIPT_PATH))
 SCRIPT_PATH = REPO_PATH / "python_scripts"
 sys.path.append(str(SCRIPT_PATH))
 
-
 import numpy as np
 import tensorflow as tf
-import os
 import glob
 import math
+import wandb
 import time
 import wandb
 from tqdm.auto import tqdm
@@ -35,6 +36,8 @@ from jets_training.models.JetPointNet import (
 )
 from data_processing.jets.preprocessing_header import MAX_DISTANCE
 
+
+# os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Set GPU
 
 # SET PATHS FOR I/O AND CONFIG
@@ -65,6 +68,8 @@ LR = 0.001
 ES_PATIENCE = 15
 TRAIN_DIR = NPZ_SAVE_LOC / "train"
 VAL_DIR = NPZ_SAVE_LOC / "val"
+LEARNING_RATE = 0.001
+USE_WANDB = True
 
 
 def load_data_from_npz(npz_file):
@@ -87,15 +92,42 @@ def data_generator(data_dir, batch_size, drop_last=True):
                 if end_index > dataset_size:
                     if drop_last:
                         continue  # Drop last smaller batch
-                batch_feats = feats[i:end_index]
-                batch_labels = frac_labels[i:end_index]
-                batch_e_weights = e_weights[i:end_index]
+                    else:
+                        batch_feats = feats[i:]
+                        batch_labels = frac_labels[i:]
+                        batch_e_weights = e_weights[i:]
+                else:
+                    batch_feats = feats[i:end_index]
+                    batch_labels = frac_labels[i:end_index]
+                    batch_e_weights = e_weights[i:end_index]
 
                 yield (
                     batch_feats,
                     batch_labels.reshape(*batch_labels.shape, 1),
                     batch_e_weights.reshape(*batch_e_weights.shape, 1),
                 )
+
+
+# NOTE: this does return chunk as batch, which gives batches of different length irrespectively of BATCH_SIZE
+# def no_batch_limit(data_dir, batch_size=0):
+#     npz_files = glob.glob(os.path.join(data_dir, "*.npz"))
+
+#     while True:
+#         np.random.shuffle(npz_files)
+#         for npz_file in npz_files:
+#             # print("file proccessing")
+#             feats, frac_labels, e_weights = load_data_from_npz(npz_file)
+#             dataset_size = feats.shape[0]
+#             print(f"DATASIZE={dataset_size}")
+#             batch_feats = feats[:-1]
+#             batch_labels = frac_labels[:-1]
+#             batch_e_weights = e_weights[:-1]
+
+#             yield (
+#                 batch_feats,
+#                 batch_labels.reshape(*batch_labels.shape, 1),
+#                 batch_e_weights.reshape(*batch_e_weights.shape, 1),
+#             )
 
 
 def calculate_steps(data_dir, batch_size):
@@ -114,26 +146,31 @@ print(f"{train_steps = };\t{val_steps = }")
 seed = np.random.randint(0, 100)  # TF_SEED
 print(f"Setting training determinism based on {seed=}")
 set_global_determinism(seed=seed)
-wandb.init(
-    project="pointcloud",
-    config={
-        "dataset": EXPERIMENT_NAME,
-        "split_seed": SPLIT_SEED,
-        "tf_seed": seed,
-        "delta_R": MAX_DISTANCE,
-        "energy_scale": ENERGY_SCALE,
-        "n_points_per_batch": MAX_SAMPLE_LENGTH,
-        "batch_size": BATCH_SIZE,
-        "n_epochs": EPOCHS,
-        "learning_rate": LR,
-        "early_stopping_patience": ES_PATIENCE,
-    },
-    job_type="training",
-    tags=["baseline"],
-    notes="This run reproduces Marko's setting. Consider this as the starting jet ML baseline.",
-)
 
-model = PointNetSegmentation(MAX_SAMPLE_LENGTH, num_features=9, num_classes=1)
+if USE_WANDB:
+    wandb.init(
+        project="pointcloud",
+        config={
+            "dataset": EXPERIMENT_NAME,
+            "split_seed": SPLIT_SEED,
+            "tf_seed": seed,
+            "delta_R": MAX_DISTANCE,
+            "energy_scale": ENERGY_SCALE,
+            "n_points_per_batch": MAX_SAMPLE_LENGTH,
+            "batch_size": BATCH_SIZE,
+            "n_epochs": EPOCHS,
+            "learning_rate": LR,
+            "early_stopping_patience": ES_PATIENCE,
+            "output_activation": "softmax",
+            "detlaR": MAX_DISTANCE,
+            "min_hits_per_track": 25,
+        },
+        job_type="training",
+        tags=["baseline"],
+        notes="This run reproduces Marko's setting. Consider this as the starting jet ML baseline.",
+    )
+
+model = PointNetSegmentation(MAX_SAMPLE_LENGTH, num_features=6, num_classes=1)
 import tensorflow.keras.backend as K
 
 trainable_count = np.sum([K.count_params(w) for w in model.trainable_weights])
@@ -251,7 +288,7 @@ for epoch in range(EPOCHS):
         if step >= val_steps:
             break
         val_loss_value, val_reg_acc_value, val_weighted_acc_value = val_step(
-            x_batch_val, y_batch_val, e_weight_train, model
+            x_batch_val, y_batch_val, e_weight_val, model
         )
         val_loss_tracker.update_state(val_loss_value)
         val_reg_acc.update_state(val_reg_acc_value)
@@ -267,23 +304,24 @@ for epoch in range(EPOCHS):
     print(f"\nValidation loss: {val_loss_tracker.result():.4e}")
     print(f"\nTime taken for validation: {time.time() - start_time:.2f} sec")
 
-    wandb.log(
-        {
-            "epoch": epoch,
-            "train/loss": train_loss_tracker.result().numpy(),
-            "train/accuracy": train_reg_acc.result().numpy(),
-            "train/weighted_accuracy": train_weighted_acc.result().numpy(),
-            "val/loss": val_loss_tracker.result().numpy(),
-            "val/accuracy": val_reg_acc.result().numpy(),
-            "val/weighted_accuracy": val_weighted_acc.result().numpy(),
-            "learning_rate": optimizer.learning_rate.numpy(),
-            # "gradients": [tf.reduce_mean(tf.abs(grad)).numpy() for grad in grads],
-            # "weights": [
-            #     tf.reduce_mean(tf.abs(weight)).numpy()
-            #     for weight in model.trainable_variables
-            # ],
-        }
-    )
+    if USE_WANDB:
+        wandb.log(
+            {
+                "epoch": epoch,
+                "train/loss": train_loss_tracker.result().numpy(),
+                "train/accuracy": train_reg_acc.result().numpy(),
+                "train/weighted_accuracy": train_weighted_acc.result().numpy(),
+                "val/loss": val_loss_tracker.result().numpy(),
+                "val/accuracy": val_reg_acc.result().numpy(),
+                "val/weighted_accuracy": val_weighted_acc.result().numpy(),
+                "learning_rate": optimizer.learning_rate.numpy(),
+                # "gradients": [tf.reduce_mean(tf.abs(grad)).numpy() for grad in grads],
+                # "weights": [
+                #     tf.reduce_mean(tf.abs(weight)).numpy()
+                #     for weight in model.trainable_variables
+                # ],
+            }
+        )
 
     # callbacks
     # lr_callback.on_epoch_end(epoch)
@@ -315,12 +353,13 @@ last_checkpoint_path = f"{MODELS_PATH}/PointNet_last_{epoch=}.keras"
 model.save(last_checkpoint_path)
 
 # Log the best and last models to wandb
-best_model_artifact = wandb.Artifact("best_baseline", type="model")
-best_model_artifact.add_file(best_checkpoint_path)
-wandb.log_artifact(best_model_artifact)
+if USE_WANDB:
+    best_model_artifact = wandb.Artifact("best_baseline", type="model")
+    best_model_artifact.add_file(best_checkpoint_path)
+    wandb.log_artifact(best_model_artifact)
 
-final_model_artifact = wandb.Artifact("last_epoch_baseline", type="model")
-final_model_artifact.add_file(last_checkpoint_path)
-wandb.log_artifact(final_model_artifact)
+    final_model_artifact = wandb.Artifact("last_epoch_baseline", type="model")
+    final_model_artifact.add_file(last_checkpoint_path)
+    wandb.log_artifact(final_model_artifact)
 
-wandb.finish()
+    wandb.finish()

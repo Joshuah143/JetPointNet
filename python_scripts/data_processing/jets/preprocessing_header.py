@@ -55,6 +55,8 @@ elif USER == "luclissa":
     FILE_LOC = "/eos/home-m/mswiatlo/forLuca/mltree_large.root"
     GEO_FILE_LOC = "/eos/home-m/mswiatlo/images/truthPerCell/cell_geo.root"
 # ============================
+else:
+    raise Exception("UNKOWN USER")
 
 
 DEBUG_NUM_EVENTS_TO_USE = None
@@ -70,8 +72,8 @@ MAX_DISTANCE = 0.1
 # JETS DATA
 # FILE_LOC = "/data/atlas/mltree_2000_fixedHits.root"
 # GEO_FILE_LOC = "/data/atlas/data/rho_delta/rho_small.root"
-FILE_LOC = "/eos/home-m/mswiatlo/forLuca/mltree_large.root"
-GEO_FILE_LOC = "/eos/home-m/mswiatlo/images/truthPerCell/cell_geo.root"
+# FILE_LOC = "/eos/home-m/mswiatlo/forLuca/mltree_large.root"
+# GEO_FILE_LOC = "/eos/home-m/mswiatlo/images/truthPerCell/cell_geo.root"
 
 AWK_SAVE_LOC = (
     REPO_PATH
