@@ -383,10 +383,11 @@ def masked_weighted_accuracy(y_true, y_pred, energies, transform: None | str = N
         - "absolute": absolute value.
         - "square": square.
         - "normalize": batch-normalize to zero mean and unit variance.
+        - "standardize": batch-standardize to zero mean and unit variance.
         - "threshold": threshold at 0 --> discard contributions by negative energies.
 
     Returns:
-    tf.Tensor: Normalized accuracy.
+    tf.Tensor: standardized accuracy.
     """
     # Transform energy weights
     match transform:
@@ -395,6 +396,10 @@ def masked_weighted_accuracy(y_true, y_pred, energies, transform: None | str = N
         case "square":
             energies = tf.square(energies)
         case "normalize":
+            energies = (energies - tf.reduce_min(energies)) / (
+                tf.reduce_max(energies) - tf.reduce_min(energies) + 1e-5
+            )
+        case "standardize":
             energies = (energies - tf.reduce_mean(energies)) / (
                 tf.math.reduce_std(energies) + 1e-5
             )
