@@ -21,18 +21,41 @@ HAS_FIXED_R, FIXED_R, FIXED_Z = (
 
 
 # ===== FIELDS TO CHANGE =====
-add_tracks_as_labels = False
-NUM_EVENTS_PER_CHUNK = 200
-TRAIN_SPLIT_RATIO = 0.55
-VAL_SPLIT_RATIO = 0.3
-# TEST_SPLIT_RATIO is implied to be the remaining percentage
-NUM_THREAD_PER_CHUNK = 25  # root to awk
-NUM_CHUNK_THREADS = 16  # awk to npz
-# OUTPUT_DIRECTORY_NAME = "rho_full/"
-OUTPUT_DIRECTORY_NAME = "ttbar"
-DATASET_NAME = "benchmark"
-# DATASET_NAME = "raw"
+USER = Path.home().name
+if USER == "jhimmens":
+    FRACTIONAL_ENERGY_CUTOFF = 0.5
+    add_tracks_as_labels = False
+    NUM_EVENTS_PER_CHUNK = 200
+    TRAIN_SPLIT_RATIO = 0.55
+    VAL_SPLIT_RATIO = 0.3
+    # TEST_SPLIT_RATIO is implied to be the remaining percentage
+    NUM_THREAD_PER_CHUNK = 25  # root to awk
+    NUM_CHUNK_THREADS = 30  # awk to npz
+    # OUTPUT_DIRECTORY_NAME = "rho_full/"
+    # OUTPUT_DIRECTORY_NAME = "ttbar"
+    OUTPUT_DIRECTORY_NAME = "2000_events_w_fixed_hits/"
+    # DATASET_NAME = "benchmark"
+    DATASET_NAME = "raw"
+    FILE_LOC = "/fast_scratch_1/atlas/pflow/mltree_2000_fixedHits.root"
+    GEO_FILE_LOC = "/fast_scratch_1/atlas/pflow/rho_small.root"
+elif USER == "luclissa":
+    FRACTIONAL_ENERGY_CUTOFF = 0.5
+    add_tracks_as_labels = False
+    NUM_EVENTS_PER_CHUNK = 200
+    TRAIN_SPLIT_RATIO = 0.55
+    VAL_SPLIT_RATIO = 0.3
+    # TEST_SPLIT_RATIO is implied to be the remaining percentage
+    NUM_THREAD_PER_CHUNK = 25  # root to awk
+    NUM_CHUNK_THREADS = 30  # awk to npz
+    # OUTPUT_DIRECTORY_NAME = "rho_full/"
+    OUTPUT_DIRECTORY_NAME = "ttbar"
+    DATASET_NAME = "benchmark"
+    # DATASET_NAME = "raw"
+    FILE_LOC = "/eos/home-m/mswiatlo/forLuca/mltree_large.root"
+    GEO_FILE_LOC = "/eos/home-m/mswiatlo/images/truthPerCell/cell_geo.root"
 # ============================
+else:
+    raise Exception("UNKOWN USER")
 
 
 DEBUG_NUM_EVENTS_TO_USE = None
@@ -48,8 +71,8 @@ MAX_DISTANCE = 0.1
 # JETS DATA
 # FILE_LOC = "/data/atlas/mltree_2000_fixedHits.root"
 # GEO_FILE_LOC = "/data/atlas/data/rho_delta/rho_small.root"
-FILE_LOC = "/eos/home-m/mswiatlo/forLuca/mltree_large.root"
-GEO_FILE_LOC = "/eos/home-m/mswiatlo/images/truthPerCell/cell_geo.root"
+# FILE_LOC = "/eos/home-m/mswiatlo/forLuca/mltree_large.root"
+# GEO_FILE_LOC = "/eos/home-m/mswiatlo/images/truthPerCell/cell_geo.root"
 
 AWK_SAVE_LOC = (
     REPO_PATH
