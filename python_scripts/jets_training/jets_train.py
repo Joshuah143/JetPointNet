@@ -70,18 +70,19 @@ NPZ_SAVE_LOC = (
 
 SPLIT_SEED = 62
 MAX_SAMPLE_LENGTH = 278
-BATCH_SIZE = 2000
-EPOCHS = 30
-LR = 0.001
+BATCH_SIZE = 480
+EPOCHS = 100
+LR = 0.002
 ES_PATIENCE = 15
 TRAIN_DIR = NPZ_SAVE_LOC / "train"
 VAL_DIR = NPZ_SAVE_LOC / "val"
 USE_WANDB = True
+ENERGY_WEIGHTING = "square"
 
 
 def load_data_from_npz(npz_file):
     data = np.load(npz_file)
-    feats = data["feats"][:, :MAX_SAMPLE_LENGTH, 1:]  # discard eventNumber
+    feats = data["feats"][:, :MAX_SAMPLE_LENGTH, 4:]  # discard tracking information
     frac_labels = data["frac_labels"][:, :MAX_SAMPLE_LENGTH]
     energy_weights = data["tot_truth_e"][:, :MAX_SAMPLE_LENGTH]
     return feats, frac_labels, energy_weights
@@ -149,6 +150,7 @@ if USE_WANDB:
             "learning_rate": LR,
             "early_stopping_patience": ES_PATIENCE,
             "output_activation": "softmax",
+            "energy_weight_scheme": ENERGY_WEIGHTING,
             "detlaR": MAX_DISTANCE,
             "min_hits_per_track": 25,
         },
@@ -173,9 +175,9 @@ optimizer = tf.keras.optimizers.Adam(learning_rate=(LR))
 def train_step(x, y, energy_weights, model, optimizer):
     with tf.GradientTape() as tape:
         predictions = model(x, training=True)
-        loss = masked_weighted_bce_loss(y, predictions, energy_weights)
+        loss = masked_weighted_bce_loss(y, predictions, energy_weights, ENERGY_WEIGHTING)
         reg_acc = masked_regular_accuracy(y, predictions, energy_weights)
-        weighted_acc = masked_weighted_accuracy(y, predictions, energy_weights)
+        weighted_acc = masked_weighted_accuracy(y, predictions, energy_weights, ENERGY_WEIGHTING)
     grads = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(grads, model.trainable_variables))
     return loss, reg_acc, weighted_acc, grads
@@ -184,9 +186,9 @@ def train_step(x, y, energy_weights, model, optimizer):
 @tf.function
 def val_step(x, y, energy_weights, model):
     predictions = model(x, training=False)
-    v_loss = masked_weighted_bce_loss(y, predictions, energy_weights)
+    v_loss = masked_weighted_bce_loss(y, predictions, energy_weights, ENERGY_WEIGHTING)
     reg_acc = masked_regular_accuracy(y, predictions, energy_weights)
-    weighted_acc = masked_weighted_accuracy(y, predictions, energy_weights)
+    weighted_acc = masked_weighted_accuracy(y, predictions, energy_weights, ENERGY_WEIGHTING)
     return v_loss, reg_acc, weighted_acc
 
 
@@ -221,7 +223,6 @@ checkpoint_callback.set_model(model)
 
 
 # Learning Rate Scheduler
-""" We dont use -- can delete?
 lr_callback = CustomLRScheduler(
     optim_lr=optimizer.learning_rate,
     lr_max=0.000015 * train_steps * BATCH_SIZE,
@@ -231,14 +232,14 @@ lr_callback = CustomLRScheduler(
     lr_decay=0.7,
     verbose=1,
 )
-"""
+
 
 for epoch in range(EPOCHS):
     print("\nStart of epoch %d" % (epoch,))
     start_time = time.time()
 
     # LR scheduler
-    # lr_callback.on_epoch_begin(epoch)
+    lr_callback.on_epoch_begin(epoch)
 
     train_loss_tracker.reset_state()
     val_loss_tracker.reset_state()

@@ -80,7 +80,7 @@ def calculate_track_intersections(track_eta, track_phi):
             raise Exception(
                 "Error: cell layers must either be fixed R or fixed Z, and not neither"
             )
-        intersections[layer] = (x, y, z)
+        intersections[layer] = (x, y, z, eta, phi)
     return intersections
 
 
@@ -179,6 +179,43 @@ def print_events(tracks_sample_array, NUM_EVENTS_TO_PRINT):
 
 
 # =======================================================================================================================
+def add_train_label_record(
+        *, # ensures that all arguments must be named
+        track_points: list,
+        event_number: int,
+        category: int | str,
+        delta_R: float,
+        normalized_x: float,
+        normalized_y: float,
+        normalized_z: float,
+        normalized_distance: float,
+        cell_E: float = -1,
+        track_pt: float = -1,
+        cell_ID: int = -1,
+        track_ID: int = -1,
+        track_num: int = -1,
+):
+    
+    category = category if type(category) is int else POINT_TYPE_ENCODING[category]
+    track_points.append(
+                    [
+                        event_number,
+                        cell_ID,
+                        track_ID,
+                        delta_R,
+                        ## above is only for traceability, should not be included in training data
+                        category,
+                        track_num, # used to associate non focal track interactions without track ID leakage
+                        normalized_x,
+                        normalized_y,
+                        normalized_z,
+                        normalized_distance,
+                        cell_E,
+                        track_pt
+                    ]
+                )
+    
+
 
 
 def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
@@ -214,30 +251,27 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
             max_x, max_y, max_z = np.max(all_points, axis=0)
             max_distance = max(distances)
 
-            range_x, range_y, range_z = max_x - min_x, max_y - min_y, max_z - min_z
+            range_x, range_y, range_z = abs(max_x - min_x), abs(max_y - min_y), abs(max_z - min_z)
 
             # Normalize and add points
             for intersection in track["track_layer_intersections"]:
                 normalized_x = (intersection["X"] - min_x) / range_x
                 normalized_y = (intersection["Y"] - min_y) / range_y
                 normalized_z = (intersection["Z"] - min_z) / range_z
-                track_points.append(
-                    [
-                        track["eventNumber"],
-                        normalized_x,
-                        normalized_y,
-                        normalized_z,
-                        # intersection["X"],
-                        # intersection["Y"],
-                        # intersection["Z"],
-                        0,
-                        track["trackPt"],
-                        # POINT_TYPE_ENCODING["focus hit"],
-                        1,
-                        0,
-                        0,
-                        0,
-                    ]
+                add_train_label_record(
+                    track_points=track_points,
+                    event_number=track["eventNumber"],
+                    track_ID=track["trackID"],
+                    category=POINT_TYPE_ENCODING["focus hit"],
+                    delta_R=calculate_delta_r(track["trackEta"], track["trackPhi"], intersection["eta"], intersection["phi"]),
+                    normalized_x=normalized_x,
+                    normalized_y=normalized_y,
+                    normalized_z=normalized_z,
+                    normalized_distance=0,
+                    track_pt=track["trackPt"],
+                    cell_E=-1,
+                    cell_ID=-1,
+                    track_num=0
                 )
 
             for cell in track["associated_cells"]:
@@ -245,24 +279,20 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                 normalized_y = (cell["Y"] - min_y) / range_y
                 normalized_z = (cell["Z"] - min_z) / range_z
                 normalized_distance = cell["distance_to_track"] / max_distance
-                track_points.append(
-                    [
-                        track["eventNumber"],
-                        normalized_x,
-                        normalized_y,
-                        normalized_z,
-                        normalized_distance,
-                        # cell["X"],
-                        # cell["Y"],
-                        # cell["Z"],
-                        # cell["distance_to_track"],
-                        cell["E"] * energy_scale,
-                        # POINT_TYPE_ENCODING["cell"],
-                        0,
-                        1,
-                        0,
-                        0,
-                    ]
+                add_train_label_record(
+                    track_points=track_points,
+                    event_number=track["eventNumber"],
+                    track_ID=-1,
+                    category=POINT_TYPE_ENCODING["cell"],
+                    delta_R=calculate_delta_r(track["trackEta"], track["trackPhi"], cell["eta"], cell["phi"]),
+                    normalized_x=normalized_x,
+                    normalized_y=normalized_y,
+                    normalized_z=normalized_z,
+                    normalized_distance=normalized_distance,
+                    track_pt=-1,
+                    cell_E=cell["E"] * energy_scale,
+                    cell_ID=cell["ID"],
+                    track_num=-1
                 )
 
             for track_idx, associated_track in enumerate(track["associated_tracks"]):
@@ -273,24 +303,20 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                     normalized_distance = (
                         intersection["distance_to_track"] / max_distance
                     )
-                    track_points.append(
-                        [
-                            track["eventNumber"],
-                            normalized_x,
-                            normalized_y,
-                            normalized_z,
-                            normalized_distance,
-                            # intersection["X"],
-                            # intersection["Y"],
-                            # intersection["Z"],
-                            # intersection["distance_to_track"],
-                            associated_track["trackPt"],
-                            # POINT_TYPE_ENCODING["unfocus hit"],
-                            0,
-                            0,
-                            track_idx + 1,
-                            0,
-                        ]
+                    add_train_label_record(
+                        track_points=track_points,
+                        event_number=track["eventNumber"],
+                        track_ID=associated_track["trackId"],
+                        category=POINT_TYPE_ENCODING["unfocus hit"],
+                        delta_R=intersection["delta_R_adj"],
+                        normalized_x=normalized_x,
+                        normalized_y=normalized_y,
+                        normalized_z=normalized_z,
+                        normalized_distance=normalized_distance,
+                        track_pt=associated_track["trackPt"],
+                        cell_E=-1,
+                        cell_ID=-1,
+                        track_num=track_idx + 1
                     )
 
             # Now, the sample is truncated to max_sample_length before padding is considered
@@ -299,16 +325,44 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
             # Pad with zeros and -1 for class identity if needed
             num_points = len(track_points)
             if num_points < max_sample_length:
-                padding = [
-                    [-1, 0, 0, 0, 0, 0, 0, 0, 0, 1]
-                    # [-1, 0, 0, 0, 0, 0, POINT_TYPE_ENCODING["padding"]]  # 0, 0, 0, 1]
-                    for _ in range(max_sample_length - num_points)
-                ]  # empty type
-                track_points.extend(padding)
-
+                for _ in range(max_sample_length - num_points):
+                    add_train_label_record(
+                        track_points=track_points,
+                        event_number=-1,
+                        track_ID=-1,
+                        category=POINT_TYPE_ENCODING["padding"],
+                        delta_R=-1,
+                        normalized_x=-1,
+                        normalized_y=-1,
+                        normalized_z=-1,
+                        normalized_distance=-1,
+                        track_pt=-1,
+                        cell_E=-1,
+                        cell_ID=-1,
+                        track_num=-1
+                    )
             samples.append(track_points)
+    """
+    I think this should gte saved as a tensorflow dataset, we could save them all as tensorflow datasets to be honest, merge them into one large file and let tensorflow handel the memory issues of that
+    sample_features_dtype = np.dtype([ # none can be unsigned because -1 is used as a pad for all, see above
+        ('event_number', np.int64),
+        ('cell_ID', np.int64),
+        ('track_ID', np.int64),
+        ('delta_R', np.float32),             
+        ('category', np.int8),
+        ('track_num', np.int16),
+        ('normalized_x', np.float32),
+        ('normalized_y', np.float32),
+        ('normalized_z', np.float32),
+        ('normalized_distance', np.float32),
+        ('cell_E', np.float32),
+        ('track_pt', np.float32),
+    ])
+    """
 
     samples_array = np.array(samples, dtype=np.float32)
+
+    # samples_array = np.array(samples, dtype=sample_features_dtype)
 
     # Replace NaN values with 0
     samples_array = np.nan_to_num(samples_array, nan=0.0)
@@ -570,10 +624,12 @@ def add_track_intersection_info(tracks_sample, track_idx, track_eta, track_phi):
         {layer: phi[track_idx] for layer, phi in track_phi.items()},
     )
 
+
+
     # Add track intersection information
     tracks_sample.field("track_layer_intersections")
     tracks_sample.begin_list()  # Start list of intersection points for this track
-    for layer, (x, y, z) in track_intersections.items():
+    for layer, (x, y, z, eta, phi) in track_intersections.items():
         tracks_sample.begin_record()  # Each intersection point is a record
         tracks_sample.field("layer")
         tracks_sample.string(layer)
@@ -583,6 +639,10 @@ def add_track_intersection_info(tracks_sample, track_idx, track_eta, track_phi):
         tracks_sample.real(y)
         tracks_sample.field("Z")
         tracks_sample.real(z)
+        tracks_sample.field("eta")
+        tracks_sample.real(eta)
+        tracks_sample.field("phi")
+        tracks_sample.real(phi)
         tracks_sample.field("Label").real(1)
         tracks_sample.end_record()  # End the record for this intersection point
     tracks_sample.end_list()  # End list of intersection points
@@ -637,7 +697,7 @@ def process_associated_cell_info(
     tracks_sample.begin_list()
 
     track_intersection_points = [
-        (x, y, z) for layer, (x, y, z) in track_intersections.items()
+        (x, y, z) for layer, (x, y, z, eta, phi) in track_intersections.items()
     ]
     # NOTE: same as above but easier
     # list(track_intersections.values())
@@ -755,7 +815,7 @@ def process_associated_tracks(
         {layer: eta[track_idx] for layer, eta in track_etas.items()},
         {layer: phi[track_idx] for layer, phi in track_phis.items()},
     )
-    focal_points = [(x, y, z) for _, (x, y, z) in focal_track_intersections.items()]
+    focal_points = [(x, y, z) for _, (x, y, z, eta, phi) in focal_track_intersections.items()]
 
     # Iterate over all tracks in the event to find adjacent tracks
     for adj_track_idx in range(nTrack):
@@ -795,7 +855,7 @@ def process_associated_tracks(
                 {layer: phi[adj_track_idx] for layer, phi in track_phis.items()},
             )
 
-            for layer, (x, y, z) in adj_track_intersections.items():
+            for layer, (x, y, z, eta, phi) in adj_track_intersections.items():
                 min_distance_to_focal = min(
                     np.sqrt((fx - x) ** 2 + (fy - y) ** 2 + (fz - z) ** 2)
                     for fx, fy, fz in focal_points
@@ -806,6 +866,7 @@ def process_associated_tracks(
                 tracks_sample.field("X").real(x)
                 tracks_sample.field("Y").real(y)
                 tracks_sample.field("Z").real(z)
+                tracks_sample.field("delta_R_adj").real(delta_r_adj) # same for all layers
                 tracks_sample.field("distance_to_track").real(min_distance_to_focal)
                 tracks_sample.field("Label").real(0)
                 tracks_sample.end_record()
@@ -853,7 +914,7 @@ def get_split(split_seed):
     ids = []
     for split in ["train", "val", "test"]:
         ids.append(
-            np.loadtxt(AWK_SAVE_LOC.parent.parent / f"{split}_events_{split_seed=}.txt")
+            np.loadtxt(AWK_SAVE_LOC.parent.parent / "AwkwardArrs" / f"{split}_events_{split_seed=}.txt")
         )
     return split_seed, *ids
 

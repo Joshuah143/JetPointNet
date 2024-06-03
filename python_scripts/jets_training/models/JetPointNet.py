@@ -276,9 +276,45 @@ def _pad_targets(y_true, y_pred, energies):
     return y_true, energies
 
 
-def masked_weighted_bce_loss(y_true, y_pred, energies):
+def masked_weighted_bce_loss(y_true: tf.Tensor, y_pred: tf.Tensor, energies: tf.Tensor, transform: None | str = None):
+    """
+    Computes the masked weighted loss of predictions.
 
-    # energies = tf.square(energies)
+    Parameters:
+    y_true (tf.Tensor): True labels.
+    y_pred (tf.Tensor): Predicted labels.
+    energies (tf.Tensor): Weights for each prediction.
+    transform (str, optional): Transformation to apply to energies. Possible values:
+        - None: no transformation (default).
+        - "absolute": absolute value.
+        - "square": square.
+        - "normalize": batch-normalize to zero mean and unit variance.
+        - "standardize": batch-standardize to zero mean and unit variance.
+        - "threshold": threshold at 0 --> discard contributions by negative energies.
+
+    Returns:
+    tf.Tensor: standardized accuracy.
+    """
+    # Transform energy weights
+    match transform:
+        case "absolute":
+            energies = tf.abs(energies)
+        case "square":
+            energies = tf.square(energies)
+        case "normalize":
+            energies = (energies - tf.reduce_min(energies)) / (
+                tf.reduce_max(energies) - tf.reduce_min(energies) + 1e-5
+            )
+        case "standardize":
+            energies = (energies - tf.reduce_mean(energies)) / (
+                tf.math.reduce_std(energies) + 1e-5
+            )
+        case "threshold":
+            energies = tf.cast(tf.greater(energies, 0), tf.float32)
+        case None | "none":
+            pass
+        case _:
+            raise ValueError(f"Unknown transform value: {transform}")
 
     # Ensure valid_mask and y_true are compatible for operations
     valid_mask = tf.cast(
@@ -288,14 +324,12 @@ def masked_weighted_bce_loss(y_true, y_pred, energies):
     # Adjust y_true based on the threshold, maintain dimensions as [batch, points, 1]
     y_true_adjusted = tf.cast(tf.greater_equal(y_true, 0.5), tf.float32) * valid_mask
 
-    # ^^ should we be doing this converstion
-
     # Calculate binary cross-entropy loss, ensuring to keep the dimensions consistent
 
     y_pred_masked = y_pred * valid_mask
     bce_loss = tf.keras.losses.binary_crossentropy(
         y_true_adjusted,
-        y_pred_masked,  # , from_logits=True # - this is if range in -inf to inf but we use softmax
+        y_pred_masked, from_logits=True # - this is if range in -inf to inf
     )
     bce_loss = tf.expand_dims(
         bce_loss, axis=-1
@@ -373,7 +407,7 @@ def masked_regular_accuracy(y_true, y_pred, energies):
     return accuracy
 
 
-def masked_weighted_accuracy(y_true, y_pred, energies, transform: None | str = None):
+def masked_weighted_accuracy(y_true: tf.Tensor, y_pred: tf.Tensor, energies: tf.Tensor, transform: None | str = None):
     """
     Computes the masked weighted accuracy of predictions.
 
@@ -408,7 +442,7 @@ def masked_weighted_accuracy(y_true, y_pred, energies, transform: None | str = N
             )
         case "threshold":
             energies = tf.cast(tf.greater(energies, 0), tf.float32)
-        case None:
+        case None | "none":
             pass
         case _:
             raise ValueError(f"Unknown transform value: {transform}")
