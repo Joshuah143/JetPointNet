@@ -48,10 +48,10 @@ elif USER == "luclissa":
     NUM_THREAD_PER_CHUNK = 25  # root to awk
     NUM_CHUNK_THREADS = 30  # awk to npz
     # OUTPUT_DIRECTORY_NAME = "rho_full/"
-    # OUTPUT_DIRECTORY_NAME = "ttbar"
-    OUTPUT_DIRECTORY_NAME = "2000_events_w_fixed_hits/"
-    # DATASET_NAME = "benchmark"
-    DATASET_NAME = "test"
+    OUTPUT_DIRECTORY_NAME = "ttbar"
+    # OUTPUT_DIRECTORY_NAME = "2000_events_w_fixed_hits/"
+    DATASET_NAME = "benchmark"
+    # DATASET_NAME = "raw"
     FILE_LOC = "/eos/home-m/mswiatlo/forLuca/mltree_large.root"
     GEO_FILE_LOC = "/eos/home-m/mswiatlo/images/truthPerCell/cell_geo.root"
 # ============================
