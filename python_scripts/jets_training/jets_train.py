@@ -178,7 +178,7 @@ wandb.init(
     notes="This run reproduces Marko's setting. Consider this as the starting jet ML baseline.",
 )
 
-model = PointNetSegmentation(MAX_SAMPLE_LENGTH, 1)
+model = PointNetSegmentation(MAX_SAMPLE_LENGTH, num_features=6, num_classes=1)
 import tensorflow.keras.backend as K
 
 trainable_count = np.sum([K.count_params(w) for w in model.trainable_weights])
