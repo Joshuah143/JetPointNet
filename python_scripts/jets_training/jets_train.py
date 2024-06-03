@@ -17,9 +17,6 @@ sys.path.append(str(SCRIPT_PATH))
 SCRIPT_PATH = REPO_PATH / "python_scripts"
 sys.path.append(str(SCRIPT_PATH))
 
-os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # Set GPU
-
 import numpy as np
 import tensorflow as tf
 import glob
@@ -111,25 +108,26 @@ def data_generator(data_dir, batch_size, drop_last=True):
                 )
 
 
-def no_batch_limit(data_dir, batch_size=0):
-    npz_files = glob.glob(os.path.join(data_dir, "*.npz"))
-    
-    while True:
-        np.random.shuffle(npz_files)
-        for npz_file in npz_files:
-            #print("file proccessing")
-            feats, frac_labels, e_weights = load_data_from_npz(npz_file)
-            dataset_size = feats.shape[0]
-            print(f"DATASIZE={dataset_size}")
-            batch_feats = feats[:-1]
-            batch_labels = frac_labels[:-1]
-            batch_e_weights = e_weights[:-1]
+# NOTE: this does return chunk as batch, which gives batches of different length irrespectively of BATCH_SIZE
+# def no_batch_limit(data_dir, batch_size=0):
+#     npz_files = glob.glob(os.path.join(data_dir, "*.npz"))
 
-            yield (
-                batch_feats,
-                batch_labels.reshape(*batch_labels.shape, 1),
-                batch_e_weights.reshape(*batch_e_weights.shape, 1),
-            )
+#     while True:
+#         np.random.shuffle(npz_files)
+#         for npz_file in npz_files:
+#             # print("file proccessing")
+#             feats, frac_labels, e_weights = load_data_from_npz(npz_file)
+#             dataset_size = feats.shape[0]
+#             print(f"DATASIZE={dataset_size}")
+#             batch_feats = feats[:-1]
+#             batch_labels = frac_labels[:-1]
+#             batch_e_weights = e_weights[:-1]
+
+#             yield (
+#                 batch_feats,
+#                 batch_labels.reshape(*batch_labels.shape, 1),
+#                 batch_e_weights.reshape(*batch_e_weights.shape, 1),
+#             )
 
 
 def calculate_steps(data_dir, batch_size):
@@ -262,7 +260,7 @@ for epoch in range(EPOCHS):
 
     batch_loss_train, batch_accuracy_train, batch_weighted_accuracy_train = [], [], []
     for step, (x_batch_train, y_batch_train, e_weight_train) in enumerate(
-        no_batch_limit(TRAIN_DIR, BATCH_SIZE)
+        data_generator(TRAIN_DIR, BATCH_SIZE)
     ):
         if step >= train_steps:
             break
@@ -285,7 +283,7 @@ for epoch in range(EPOCHS):
 
     batch_loss_val, batch_accuracy_val, batch_weighted_accuracy_val = [], [], []
     for step, (x_batch_val, y_batch_val, e_weight_val) in enumerate(
-        no_batch_limit(VAL_DIR, BATCH_SIZE)
+        data_generator(VAL_DIR, BATCH_SIZE)
     ):
         if step >= val_steps:
             break
