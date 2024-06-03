@@ -49,6 +49,7 @@ elif USER == "luclissa":
     NUM_CHUNK_THREADS = 30  # awk to npz
     # OUTPUT_DIRECTORY_NAME = "rho_full/"
     OUTPUT_DIRECTORY_NAME = "ttbar"
+    # OUTPUT_DIRECTORY_NAME = "2000_events_w_fixed_hits/"
     DATASET_NAME = "benchmark"
     # DATASET_NAME = "raw"
     FILE_LOC = "/eos/home-m/mswiatlo/forLuca/mltree_large.root"

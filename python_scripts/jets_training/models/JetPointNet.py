@@ -353,6 +353,7 @@ def masked_weighted_bce_loss(y_true, y_pred, energies):
 """
 
 
+# TODO: update without energies as it is not used
 def masked_regular_accuracy(y_true, y_pred, energies):
 
     # pad target if needed
@@ -372,8 +373,45 @@ def masked_regular_accuracy(y_true, y_pred, energies):
     return accuracy
 
 
-def masked_weighted_accuracy(y_true, y_pred, energies):
-    # energies = tf.square(energies)
+def masked_weighted_accuracy(y_true, y_pred, energies, transform: None | str = None):
+    """
+    Computes the masked weighted accuracy of predictions.
+
+    Parameters:
+    y_true (tf.Tensor): True labels.
+    y_pred (tf.Tensor): Predicted labels.
+    energies (tf.Tensor): Weights for each prediction.
+    transform (str, optional): Transformation to apply to energies. Possible values:
+        - None: no transformation (default).
+        - "absolute": absolute value.
+        - "square": square.
+        - "normalize": batch-normalize to zero mean and unit variance.
+        - "standardize": batch-standardize to zero mean and unit variance.
+        - "threshold": threshold at 0 --> discard contributions by negative energies.
+
+    Returns:
+    tf.Tensor: standardized accuracy.
+    """
+    # Transform energy weights
+    match transform:
+        case "absolute":
+            energies = tf.abs(energies)
+        case "square":
+            energies = tf.square(energies)
+        case "normalize":
+            energies = (energies - tf.reduce_min(energies)) / (
+                tf.reduce_max(energies) - tf.reduce_min(energies) + 1e-5
+            )
+        case "standardize":
+            energies = (energies - tf.reduce_mean(energies)) / (
+                tf.math.reduce_std(energies) + 1e-5
+            )
+        case "threshold":
+            energies = tf.cast(tf.greater(energies, 0), tf.float32)
+        case None:
+            pass
+        case _:
+            raise ValueError(f"Unknown transform value: {transform}")
 
     # pad target if needed
     y_true, energies = _pad_targets(y_true, y_pred, energies)
