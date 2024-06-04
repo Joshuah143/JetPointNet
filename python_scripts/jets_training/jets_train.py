@@ -161,25 +161,16 @@ if USE_WANDB:
         notes="This run reproduces Marko's setting. Consider this as the starting jet ML baseline.",
     )
 
-model = PointNetSegmentation(MAX_SAMPLE_LENGTH, num_features=8, num_classes=1) # swappeed back to 9 to work with one hot encoding
-import tensorflow.keras.backend as K
-
-trainable_count = np.sum([K.count_params(w) for w in model.trainable_weights])
-non_trainable_count = np.sum([K.count_params(w) for w in model.non_trainable_weights])
-
-print("Total params: {:,}".format(trainable_count + non_trainable_count))
-print("Trainable params: {:,}".format(trainable_count))
-print("Non-trainable params: {:,}".format(non_trainable_count))
-optimizer = tf.keras.optimizers.Adam(learning_rate=(LR))
-
 
 @tf.function
 def train_step(x, y, energy_weights, model, optimizer):
     with tf.GradientTape() as tape:
         predictions = model(x, training=True)
-        loss = masked_weighted_bce_loss(y, predictions, energy_weights, ENERGY_WEIGHTING)
+        loss = masked_weighted_bce_loss(y, predictions, energy_weights, transform=None)
         reg_acc = masked_regular_accuracy(y, predictions, energy_weights)
-        weighted_acc = masked_weighted_accuracy(y, predictions, energy_weights, ENERGY_WEIGHTING)
+        weighted_acc = masked_weighted_accuracy(
+            y, predictions, energy_weights, transform=ENERGY_WEIGHTING
+        )
     grads = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(grads, model.trainable_variables))
     return loss, reg_acc, weighted_acc, grads
@@ -188,9 +179,11 @@ def train_step(x, y, energy_weights, model, optimizer):
 @tf.function
 def val_step(x, y, energy_weights, model):
     predictions = model(x, training=False)
-    v_loss = masked_weighted_bce_loss(y, predictions, energy_weights, ENERGY_WEIGHTING)
+    v_loss = masked_weighted_bce_loss(y, predictions, energy_weights, transform=None)
     reg_acc = masked_regular_accuracy(y, predictions, energy_weights)
-    weighted_acc = masked_weighted_accuracy(y, predictions, energy_weights, ENERGY_WEIGHTING)
+    weighted_acc = masked_weighted_accuracy(
+        y, predictions, energy_weights, transform=ENERGY_WEIGHTING
+    )
     return v_loss, reg_acc, weighted_acc
 
 
