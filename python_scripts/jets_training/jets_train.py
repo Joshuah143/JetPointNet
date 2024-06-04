@@ -60,7 +60,7 @@ NPZ_SAVE_LOC = (
 SPLIT_SEED = 62
 MAX_SAMPLE_LENGTH = 278
 BATCH_SIZE = 480
-EPOCHS = 1
+EPOCHS = 120
 LR = 0.001
 ES_PATIENCE = 15
 TRAIN_DIR = NPZ_SAVE_LOC / "train"
@@ -111,7 +111,7 @@ train_steps = calculate_steps(TRAIN_DIR, BATCH_SIZE)  # 47
 val_steps = calculate_steps(VAL_DIR, BATCH_SIZE)  # 26
 print(f"{train_steps = };\t{val_steps = }")
 
-seed = np.random.randint(0, 100)  # TF_SEED
+seed = 55  # np.random.randint(0, 100)  # TF_SEED
 print(f"Setting training determinism based on {seed=}")
 set_global_determinism(seed=seed)
 wandb.init(
@@ -197,22 +197,22 @@ checkpoint_callback.set_model(model)
 
 
 # Learning Rate Scheduler
-lr_callback = CustomLRScheduler(
-    optim_lr=optimizer.learning_rate,
-    lr_max=0.000015 * train_steps * BATCH_SIZE,
-    lr_min=1e-7,
-    lr_ramp_ep=2,
-    lr_sus_ep=0,
-    lr_decay=0.7,
-    verbose=1,
-)
+# lr_callback = CustomLRScheduler(
+#     optim_lr=optimizer.learning_rate,
+#     lr_max=0.000015 * train_steps * BATCH_SIZE,
+#     lr_min=1e-7,
+#     lr_ramp_ep=2,
+#     lr_sus_ep=0,
+#     lr_decay=0.7,
+#     verbose=1,
+# )
 
 for epoch in range(EPOCHS):
     print("\nStart of epoch %d" % (epoch,))
     start_time = time.time()
 
     # LR scheduler
-    lr_callback.on_epoch_begin(epoch)
+    # lr_callback.on_epoch_begin(epoch)
 
     train_loss_tracker.reset_state()
     val_loss_tracker.reset_state()
