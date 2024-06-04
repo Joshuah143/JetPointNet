@@ -25,6 +25,7 @@ import wandb
 import time
 import wandb
 from tqdm.auto import tqdm
+from numpy.lib import recfunctions as rfn
 from jets_training.models.JetPointNet import (
     PointNetSegmentation,
     masked_weighted_bce_loss,
@@ -34,8 +35,9 @@ from jets_training.models.JetPointNet import (
     TF_SEED,
     CustomLRScheduler,
 )
-from data_processing.jets.preprocessing_header import MAX_DISTANCE
+from data_processing.jets.preprocessing_header import MAX_DISTANCE, NPZ_SAVE_LOC, ENERGY_SCALE
 
+tf.config.run_functions_eagerly(True)
 
 # SET PATHS FOR I/O AND CONFIG
 USER = Path.home().name
@@ -53,22 +55,11 @@ else:
 # os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID  # Set GPU
 
-ENERGY_SCALE = 1000
 EXPERIMENT_NAME = f"{OUTPUT_DIRECTORY_NAME}/{DATASET_NAME}"
 RESULTS_PATH = REPO_PATH / "result" / EXPERIMENT_NAME
 RESULTS_PATH.mkdir(exist_ok=True, parents=True)
 MODELS_PATH = REPO_PATH / "models" / EXPERIMENT_NAME
 MODELS_PATH.mkdir(exist_ok=True, parents=True)
-
-NPZ_SAVE_LOC = (
-    REPO_PATH
-    / "pnet_data/processed_files"
-    / OUTPUT_DIRECTORY_NAME
-    / DATASET_NAME
-    / "SavedNpz"
-    / f"deltaR={MAX_DISTANCE}"
-    / f"energy_scale={ENERGY_SCALE}"
-)
 
 SPLIT_SEED = 62
 MAX_SAMPLE_LENGTH = 278
@@ -79,12 +70,29 @@ ES_PATIENCE = 15
 TRAIN_DIR = NPZ_SAVE_LOC / "train"
 VAL_DIR = NPZ_SAVE_LOC / "val"
 USE_WANDB = True
-ENERGY_WEIGHTING = "square"
+ACC_ENERGY_WEIGHTING = "square"
+LOSS_ENERGY_WEIGHTING = "none"
+OUTPUT_ACTIVATION_FUNCTION = "sigmoid" # softmax, linear (requires changes to the BCE fucntion in the loss function)
+
+TRAIN_INPUTS = [
+    #'event_number', 
+    #'cell_ID', 
+    #'track_ID', 
+    #'delta_R',           
+    'category', 
+    'track_num', 
+    'normalized_x', 
+    'normalized_y', 
+    'normalized_z', 
+    'normalized_distance',
+    'cell_E',
+    'track_pt',
+]
 
 
 def load_data_from_npz(npz_file):
     data = np.load(npz_file)
-    feats = data["feats"][:, :MAX_SAMPLE_LENGTH, 4:]  # discard tracking information
+    feats = data["feats"][:, :MAX_SAMPLE_LENGTH][TRAIN_INPUTS] # discard tracking information
     frac_labels = data["frac_labels"][:, :MAX_SAMPLE_LENGTH]
     energy_weights = data["tot_truth_e"][:, :MAX_SAMPLE_LENGTH]
     return feats, frac_labels, energy_weights
@@ -139,8 +147,8 @@ print(f"Setting training determinism based on {seed=}")
 set_global_determinism(seed=seed)
 
 model = PointNetSegmentation(
-    MAX_SAMPLE_LENGTH, num_features=6, num_classes=1
-)  # swappeed back to 9 to work with one hot encoding
+    MAX_SAMPLE_LENGTH, num_features=len(TRAIN_INPUTS), num_classes=1, output_activation_function=OUTPUT_ACTIVATION_FUNCTION
+)  # swapped back to 9 to work with one hot encoding
 import tensorflow.keras.backend as K
 
 trainable_count = np.sum([K.count_params(w) for w in model.trainable_weights])
@@ -165,8 +173,9 @@ if USE_WANDB:
             "n_epochs": EPOCHS,
             "learning_rate": LR,
             "early_stopping_patience": ES_PATIENCE,
-            "output_activation": "sigmoid",  # TODO: get this automatically from model
-            "energy_weight_scheme": ENERGY_WEIGHTING,
+            "output_activation": OUTPUT_ACTIVATION_FUNCTION,
+            "accuracy_energy_weight_scheme": ACC_ENERGY_WEIGHTING,
+            "loss_energy_weight_scheme": ACC_ENERGY_WEIGHTING,
             "detlaR": MAX_DISTANCE,
             "min_hits_per_track": 25,
         },
@@ -180,10 +189,10 @@ if USE_WANDB:
 def train_step(x, y, energy_weights, model, optimizer):
     with tf.GradientTape() as tape:
         predictions = model(x, training=True)
-        loss = masked_weighted_bce_loss(y, predictions, energy_weights, transform=None)
+        loss = masked_weighted_bce_loss(y, predictions, energy_weights, transform=LOSS_ENERGY_WEIGHTING)
         reg_acc = masked_regular_accuracy(y, predictions, energy_weights)
         weighted_acc = masked_weighted_accuracy(
-            y, predictions, energy_weights, transform=ENERGY_WEIGHTING
+            y, predictions, energy_weights, transform=ACC_ENERGY_WEIGHTING
         )
     grads = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(grads, model.trainable_variables))
@@ -193,10 +202,10 @@ def train_step(x, y, energy_weights, model, optimizer):
 @tf.function
 def val_step(x, y, energy_weights, model):
     predictions = model(x, training=False)
-    v_loss = masked_weighted_bce_loss(y, predictions, energy_weights, transform=None)
+    v_loss = masked_weighted_bce_loss(y, predictions, energy_weights, transform=LOSS_ENERGY_WEIGHTING)
     reg_acc = masked_regular_accuracy(y, predictions, energy_weights)
     weighted_acc = masked_weighted_accuracy(
-        y, predictions, energy_weights, transform=ENERGY_WEIGHTING
+        y, predictions, energy_weights, transform=ACC_ENERGY_WEIGHTING
     )
     return v_loss, reg_acc, weighted_acc
 
@@ -261,6 +270,7 @@ for epoch in range(EPOCHS):
     for step, (x_batch_train, y_batch_train, e_weight_train) in enumerate(
         data_generator(TRAIN_DIR, BATCH_SIZE)
     ):
+        x_batch_train = rfn.structured_to_unstructured(x_batch_train)
         if step >= train_steps:
             break
         loss_value, reg_acc_value, weighted_acc_value, grads = train_step(
@@ -284,6 +294,7 @@ for epoch in range(EPOCHS):
     for step, (x_batch_val, y_batch_val, e_weight_val) in enumerate(
         data_generator(VAL_DIR, BATCH_SIZE, False)
     ):
+        x_batch_val = rfn.structured_to_unstructured(x_batch_val)
         if step >= val_steps:
             break
         val_loss_value, val_reg_acc_value, val_weighted_acc_value = val_step(

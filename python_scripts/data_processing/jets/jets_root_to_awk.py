@@ -9,7 +9,6 @@ from tqdm.auto import tqdm
 
 import sys
 
-# CERNBOX = os.environ["CERNBOX"]
 REPO_PATH = Path.home() / "workspace/jetpointnet"
 SCRIPT_PATH = REPO_PATH / "python_scripts"
 sys.path.append(str(SCRIPT_PATH))

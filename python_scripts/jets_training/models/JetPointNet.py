@@ -181,7 +181,7 @@ def TNet(input_tensor, size, add_regularization=False):
     return x
 
 
-def PointNetSegmentation(num_points, num_features, num_classes):
+def PointNetSegmentation(num_points, num_features, num_classes, output_activation_function):
     """
     Input shape per point is:
        [x (mm),
@@ -246,7 +246,7 @@ def PointNetSegmentation(num_points, num_features, num_classes):
     c = conv_mlp(c, 128, dropout_rate=0.3)
 
     segmentation_output = tf.keras.layers.Conv1D(
-        num_classes, kernel_size=1, activation="sigmoid", name="SEG"
+        num_classes, kernel_size=1, activation=output_activation_function, name="SEG"
     )(c)
 
     model = tf.keras.Model(inputs=input_points, outputs=segmentation_output)

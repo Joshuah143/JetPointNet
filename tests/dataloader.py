@@ -10,7 +10,7 @@ sys.path.append(str(SCRIPT_PATH))
 
 import numpy as np
 import glob
-from data_processing.jets.preprocessing_header import MAX_DISTANCE
+from data_processing.jets.preprocessing_header import MAX_DISTANCE, NPZ_SAVE_LOC
 
 
 # SET PATHS FOR I/O AND CONFIG
@@ -32,16 +32,6 @@ RESULTS_PATH = REPO_PATH / "result" / EXPERIMENT_NAME
 RESULTS_PATH.mkdir(exist_ok=True, parents=True)
 MODELS_PATH = REPO_PATH / "models" / EXPERIMENT_NAME
 MODELS_PATH.mkdir(exist_ok=True, parents=True)
-
-NPZ_SAVE_LOC = (
-    REPO_PATH
-    / "pnet_data/processed_files"
-    / OUTPUT_DIRECTORY_NAME
-    / DATASET_NAME
-    / "SavedNpz"
-    / f"deltaR={MAX_DISTANCE}"
-    / f"energy_scale={ENERGY_SCALE}"
-)
 
 MAX_SAMPLE_LENGTH = 278
 BATCH_SIZE = 480
@@ -91,7 +81,7 @@ def data_generator(data_dir, batch_size, drop_last=True):
 
 # ============ CHECK LOAD_NPZ ================================================================================
 
-
+print(TRAIN_DIR)
 npz_file = glob.glob(os.path.join(TRAIN_DIR, "*.npz"))[0]
 print(f"Inspecting file: {npz_file}")
 data = np.load(npz_file)

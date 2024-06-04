@@ -10,5 +10,8 @@ Delta R fr tracks is defined by thier interaction with EMB2, for the delta R tha
 
 - Very low priority, but the awk arrays have really hard to read naming with a mix of Id, ID, and other confusing names
 
--   `LR` gets overwritten in `jets_train` because of the `CustomLRScheduler`
+- `LR` gets overwritten in `jets_train` because of the `CustomLRScheduler`
+
+- If the chunk size is small then is increased, the files orignially created will not be overwritten causing data duplication
+
 

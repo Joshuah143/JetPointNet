@@ -198,7 +198,7 @@ def add_train_label_record(
     
     category = category if type(category) is int else POINT_TYPE_ENCODING[category]
     track_points.append(
-                    [
+                    (
                         event_number,
                         cell_ID,
                         track_ID,
@@ -212,7 +212,7 @@ def add_train_label_record(
                         normalized_distance,
                         cell_E,
                         track_pt
-                    ]
+                    )
                 )
     
 
@@ -226,7 +226,7 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
             if len(track["associated_cells"]) < 25:
                 continue
 
-            track_points = []
+            event_array = []
 
             # NOTE: I think this should be better moved to preprocessing at training time and done on whole training data rather than chunk-wise
             # Gather all track, cell, and associated track points to find min and max values for normalization
@@ -259,7 +259,7 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                 normalized_y = (intersection["Y"] - min_y) / range_y
                 normalized_z = (intersection["Z"] - min_z) / range_z
                 add_train_label_record(
-                    track_points=track_points,
+                    track_points=event_array,
                     event_number=track["eventNumber"],
                     track_ID=track["trackID"],
                     category=POINT_TYPE_ENCODING["focus hit"],
@@ -280,7 +280,7 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                 normalized_z = (cell["Z"] - min_z) / range_z
                 normalized_distance = cell["distance_to_track"] / max_distance
                 add_train_label_record(
-                    track_points=track_points,
+                    track_points=event_array,
                     event_number=track["eventNumber"],
                     track_ID=-1,
                     category=POINT_TYPE_ENCODING["cell"],
@@ -304,7 +304,7 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                         intersection["distance_to_track"] / max_distance
                     )
                     add_train_label_record(
-                        track_points=track_points,
+                        track_points=event_array,
                         event_number=track["eventNumber"],
                         track_ID=associated_track["trackId"],
                         category=POINT_TYPE_ENCODING["unfocus hit"],
@@ -320,14 +320,14 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                     )
 
             # Now, the sample is truncated to max_sample_length before padding is considered
-            track_points = track_points[:max_sample_length]
+            event_array = event_array[:max_sample_length]
 
             # Pad with zeros and -1 for class identity if needed
-            num_points = len(track_points)
+            num_points = len(event_array)
             if num_points < max_sample_length:
                 for _ in range(max_sample_length - num_points):
                     add_train_label_record(
-                        track_points=track_points,
+                        track_points=event_array,
                         event_number=-1,
                         track_ID=-1,
                         category=POINT_TYPE_ENCODING["padding"],
@@ -341,30 +341,32 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                         cell_ID=-1,
                         track_num=-1
                     )
-            samples.append(track_points)
-    """
-    I think this should gte saved as a tensorflow dataset, we could save them all as tensorflow datasets to be honest, merge them into one large file and let tensorflow handel the memory issues of that
-    sample_features_dtype = np.dtype([ # none can be unsigned because -1 is used as a pad for all, see above
-        ('event_number', np.int64),
-        ('cell_ID', np.int64),
-        ('track_ID', np.int64),
-        ('delta_R', np.float32),             
-        ('category', np.int8),
-        ('track_num', np.int16),
-        ('normalized_x', np.float32),
-        ('normalized_y', np.float32),
-        ('normalized_z', np.float32),
-        ('normalized_distance', np.float32),
-        ('cell_E', np.float32),
-        ('track_pt', np.float32),
-    ])
-    """
+            
+    # I think this should gte saved as a tensorflow dataset, we could save them all as tensorflow datasets to be honest, merge them into one large file and let tensorflow handel the memory issues of that
+            event_array_dtype = np.dtype([ # none can be unsigned because -1 is used as a pad for all, see above
+                ('event_number', np.int32), # NOTE: there is a bug in tensorflow, all must conform to the same type
+                ('cell_ID', np.int32),
+                ('track_ID', np.int32),
+                ('delta_R', np.float32),             
+                ('category', np.int8),
+                ('track_num', np.int32),
+                ('normalized_x', np.float32),
+                ('normalized_y', np.float32),
+                ('normalized_z', np.float32),
+                ('normalized_distance', np.float32),
+                ('cell_E', np.float32),
+                ('track_pt', np.float32),
+            ])
+            event_array_np = np.array(event_array, dtype=event_array_dtype)
+            # Replace NaN values with 0
+            event_array_np = np.nan_to_num(event_array_np, nan=0.0)
+            samples.append(event_array_np)
 
-    samples_array = np.array(samples, dtype=np.float32)
 
-    # samples_array = np.array(samples, dtype=sample_features_dtype)
+    samples_array = np.array(samples)
 
-    # Replace NaN values with 0
+    # samples_array = np.array(samples, dtype=np.float32)
+
     samples_array = np.nan_to_num(samples_array, nan=0.0)
 
     return samples_array

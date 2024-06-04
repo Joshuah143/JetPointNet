@@ -25,7 +25,7 @@ from jets_training.models.JetPointNet import (
     TF_SEED,
     CustomLRScheduler,
 )
-from data_processing.jets.preprocessing_header import MAX_DISTANCE
+from data_processing.jets.preprocessing_header import MAX_DISTANCE, NPZ_SAVE_LOC
 
 
 # SET PATHS FOR I/O AND CONFIG
@@ -50,16 +50,6 @@ RESULTS_PATH = REPO_PATH / "result" / EXPERIMENT_NAME
 RESULTS_PATH.mkdir(exist_ok=True, parents=True)
 MODELS_PATH = REPO_PATH / "models" / EXPERIMENT_NAME
 MODELS_PATH.mkdir(exist_ok=True, parents=True)
-
-NPZ_SAVE_LOC = (
-    REPO_PATH
-    / "pnet_data/processed_files"
-    / OUTPUT_DIRECTORY_NAME
-    / DATASET_NAME
-    / "SavedNpz"
-    / f"deltaR={MAX_DISTANCE}"
-    / f"energy_scale={ENERGY_SCALE}"
-)
 
 SPLIT_SEED = 62
 MAX_SAMPLE_LENGTH = 278
