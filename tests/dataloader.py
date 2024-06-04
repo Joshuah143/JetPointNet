@@ -10,19 +10,6 @@ sys.path.append(str(SCRIPT_PATH))
 
 import numpy as np
 import glob
-
-# import math
-# import time
-# from tqdm.auto import tqdm
-# from jets_training.models.JetPointNet import (
-#     PointNetSegmentation,
-#     masked_weighted_bce_loss,
-#     masked_regular_accuracy,
-#     masked_weighted_accuracy,
-#     set_global_determinism,
-#     TF_SEED,
-#     CustomLRScheduler,
-# )
 from data_processing.jets.preprocessing_header import MAX_DISTANCE
 
 
@@ -101,19 +88,6 @@ def data_generator(data_dir, batch_size, drop_last=True):
                 batch_e_weights.reshape(*batch_e_weights.shape, 1),
             )
 
-
-# def calculate_steps(data_dir, batch_size):
-#     total_samples = 0
-#     npz_files = glob.glob(os.path.join(data_dir, "*.npz"))
-#     for npz_file in tqdm(npz_files):
-#         data = np.load(npz_file)
-#         total_samples += data["feats"].shape[0]
-#     return math.ceil(total_samples / batch_size)
-
-
-# train_steps = calculate_steps(TRAIN_DIR, BATCH_SIZE)  # 47
-# val_steps = calculate_steps(VAL_DIR, BATCH_SIZE)  # 26
-# print(f"{train_steps = };\t{val_steps = }")
 
 # ============ CHECK LOAD_NPZ ================================================================================
 
