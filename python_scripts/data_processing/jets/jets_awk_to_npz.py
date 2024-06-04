@@ -115,8 +115,8 @@ if __name__ == "__main__":
         )  # This line ensures the AWK_SAVE_LOC directories exist
 
     global_max_sample_length = find_global_max_sample_length()
-    print(f"{global_max_sample_length = }")
     # global_max_sample_length = 278  # placeholder for now
+    print(f"{global_max_sample_length = }")
 
     start_time = time.time()
     NPZ_SAVE_LOC = NPZ_SAVE_LOC / f"{ENERGY_SCALE=}".lower()
