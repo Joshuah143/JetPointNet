@@ -90,11 +90,12 @@ def load_data_from_npz(npz_file):
     return feats, frac_labels, energy_weights
 
 
+#NOTE: works with BATCH_SIZE but don't fix last batch size issue
 def data_generator(data_dir, batch_size, drop_last=True):
     npz_files = glob.glob(os.path.join(data_dir, "*.npz"))
     if len(npz_files) == 0:
-        raise Exception(f'{data_dir} does not contain npz files!')
-    
+        raise Exception(f"{data_dir} does not contain npz files!")
+
     np.random.shuffle(npz_files)
     for npz_file in npz_files:
         feats, frac_labels, e_weights = load_data_from_npz(npz_file)
