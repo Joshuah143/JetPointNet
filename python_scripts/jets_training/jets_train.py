@@ -139,7 +139,7 @@ print(f"Setting training determinism based on {seed=}")
 set_global_determinism(seed=seed)
 
 model = PointNetSegmentation(
-    MAX_SAMPLE_LENGTH, num_features=9, num_classes=1
+    MAX_SAMPLE_LENGTH, num_features=6, num_classes=1
 )  # swappeed back to 9 to work with one hot encoding
 import tensorflow.keras.backend as K
 
