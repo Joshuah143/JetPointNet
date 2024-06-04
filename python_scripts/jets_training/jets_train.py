@@ -37,19 +37,21 @@ from jets_training.models.JetPointNet import (
 from data_processing.jets.preprocessing_header import MAX_DISTANCE
 
 
-# os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # Set GPU
-
 # SET PATHS FOR I/O AND CONFIG
 USER = Path.home().name
 if USER == "jhimmens":
     OUTPUT_DIRECTORY_NAME = "2000_events_w_fixed_hits"
     DATASET_NAME = "raw"
+    GPU_ID = "1"
 elif USER == "luclissa":
     OUTPUT_DIRECTORY_NAME = "ttbar"
     DATASET_NAME = "benchmark"
+    GPU_ID = "0"
 else:
     raise Exception("UNKOWN USER")
+
+# os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
+os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID  # Set GPU
 
 ENERGY_SCALE = 1000
 EXPERIMENT_NAME = f"{OUTPUT_DIRECTORY_NAME}/{DATASET_NAME}"
