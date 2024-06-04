@@ -370,6 +370,7 @@ def masked_regular_accuracy(y_true, y_pred, energies):
     return accuracy
 
 
+@tf.autograph.experimental.do_not_convert
 def masked_weighted_accuracy(y_true, y_pred, energies, transform: None | str = None):
     """
     Computes the masked weighted accuracy of predictions.
