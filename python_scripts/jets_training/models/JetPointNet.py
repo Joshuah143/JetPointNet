@@ -182,8 +182,6 @@ def TNet(input_tensor, size, add_regularization=False):
 
 
 def PointNetSegmentation(num_points, num_features, num_classes):
-    # num_features = 9  # Number of input features per point
-
     """
     Input shape per point is:
        [x (mm),
@@ -276,7 +274,12 @@ def _pad_targets(y_true, y_pred, energies):
     return y_true, energies
 
 
-def masked_weighted_bce_loss(y_true: tf.Tensor, y_pred: tf.Tensor, energies: tf.Tensor, transform: None | str = None):
+def masked_weighted_bce_loss(
+    y_true: tf.Tensor,
+    y_pred: tf.Tensor,
+    energies: tf.Tensor,
+    transform: None | str = None,
+):
     """
     Computes the masked weighted loss of predictions.
 
@@ -410,7 +413,12 @@ def masked_regular_accuracy(y_true, y_pred, energies):
     return accuracy
 
 
-def masked_weighted_accuracy(y_true: tf.Tensor, y_pred: tf.Tensor, energies: tf.Tensor, transform: None | str = None):
+def masked_weighted_accuracy(
+    y_true: tf.Tensor,
+    y_pred: tf.Tensor,
+    energies: tf.Tensor,
+    transform: None | str = None,
+):
     """
     Computes the masked weighted accuracy of predictions.
 
