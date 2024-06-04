@@ -137,6 +137,19 @@ seed = np.random.randint(0, 100)  # TF_SEED
 print(f"Setting training determinism based on {seed=}")
 set_global_determinism(seed=seed)
 
+model = PointNetSegmentation(
+    MAX_SAMPLE_LENGTH, num_features=8, num_classes=1
+)  # swappeed back to 9 to work with one hot encoding
+import tensorflow.keras.backend as K
+
+trainable_count = np.sum([K.count_params(w) for w in model.trainable_weights])
+non_trainable_count = np.sum([K.count_params(w) for w in model.non_trainable_weights])
+
+print("Total params: {:,}".format(trainable_count + non_trainable_count))
+print("Trainable params: {:,}".format(trainable_count))
+print("Non-trainable params: {:,}".format(non_trainable_count))
+optimizer = tf.keras.optimizers.Adam(learning_rate=(LR))
+
 if USE_WANDB:
     wandb.init(
         project="pointcloud",
@@ -151,7 +164,7 @@ if USE_WANDB:
             "n_epochs": EPOCHS,
             "learning_rate": LR,
             "early_stopping_patience": ES_PATIENCE,
-            "output_activation": "softmax",
+            "output_activation": "sigmoid",  # TODO: get this automatically from model
             "energy_weight_scheme": ENERGY_WEIGHTING,
             "detlaR": MAX_DISTANCE,
             "min_hits_per_track": 25,
