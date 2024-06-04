@@ -295,6 +295,8 @@ def masked_weighted_bce_loss(y_true: tf.Tensor, y_pred: tf.Tensor, energies: tf.
     Returns:
     tf.Tensor: standardized accuracy.
     """
+    y_true, energies = _pad_targets(y_true, y_pred, energies)
+
     # Transform energy weights
     match transform:
         case "absolute":
