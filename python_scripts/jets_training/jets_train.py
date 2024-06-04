@@ -41,6 +41,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Set GPU
 OUTPUT_DIRECTORY_NAME = "ttbar"
 DATASET_NAME = "benchmark"
 ENERGY_SCALE = 1000
+ENERGY_WEIGHTS_TRANSFORM = "threshold"
 EXPERIMENT_NAME = f"{OUTPUT_DIRECTORY_NAME}/{DATASET_NAME}"
 RESULTS_PATH = REPO_PATH / "result" / EXPERIMENT_NAME
 RESULTS_PATH.mkdir(exist_ok=True, parents=True)
@@ -127,6 +128,7 @@ wandb.init(
         "n_epochs": EPOCHS,
         "learning_rate": LR,
         "early_stopping_patience": ES_PATIENCE,
+        "energy_weights_transform": ENERGY_WEIGHTS_TRANSFORM,
     },
     job_type="training",
     tags=["baseline"],
@@ -151,7 +153,9 @@ def train_step(x, y, energy_weights, model, optimizer):
         predictions = model(x, training=True)
         loss = masked_weighted_bce_loss(y, predictions, energy_weights)
         reg_acc = masked_regular_accuracy(y, predictions, energy_weights)
-        weighted_acc = masked_weighted_accuracy(y, predictions, energy_weights)
+        weighted_acc = masked_weighted_accuracy(
+            y, predictions, energy_weights, transform=ENERGY_WEIGHTS_TRANSFORM
+        )
     grads = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(grads, model.trainable_variables))
     return loss, reg_acc, weighted_acc, grads
@@ -162,7 +166,9 @@ def val_step(x, y, energy_weights, model):
     predictions = model(x, training=False)
     v_loss = masked_weighted_bce_loss(y, predictions, energy_weights)
     reg_acc = masked_regular_accuracy(y, predictions, energy_weights)
-    weighted_acc = masked_weighted_accuracy(y, predictions, energy_weights)
+    weighted_acc = masked_weighted_accuracy(
+        y, predictions, energy_weights, transform=ENERGY_WEIGHTS_TRANSFORM
+    )
     return v_loss, reg_acc, weighted_acc
 
 
