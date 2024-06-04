@@ -90,7 +90,7 @@ def load_data_from_npz(npz_file):
     return feats, frac_labels, energy_weights
 
 
-#NOTE: works with BATCH_SIZE but don't fix last batch size issue
+# NOTE: works with BATCH_SIZE but don't fix last batch size issue
 def data_generator(data_dir, batch_size, drop_last=True):
     npz_files = glob.glob(os.path.join(data_dir, "*.npz"))
     if len(npz_files) == 0:
@@ -139,7 +139,7 @@ print(f"Setting training determinism based on {seed=}")
 set_global_determinism(seed=seed)
 
 model = PointNetSegmentation(
-    MAX_SAMPLE_LENGTH, num_features=8, num_classes=1
+    MAX_SAMPLE_LENGTH, num_features=9, num_classes=1
 )  # swappeed back to 9 to work with one hot encoding
 import tensorflow.keras.backend as K
 
