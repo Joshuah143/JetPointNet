@@ -208,7 +208,7 @@ checkpoint_callback.set_model(model)
 # )
 
 for epoch in range(EPOCHS):
-    print("\nStart of epoch %d" % (epoch,))
+    print(f"\nStart of epoch {epoch+1} of {EPOCHS}")
     start_time = time.time()
 
     # LR scheduler
@@ -241,7 +241,7 @@ for epoch in range(EPOCHS):
         batch_accuracy_train.append(train_reg_acc.result().numpy())
         batch_weighted_accuracy_train.append(train_weighted_acc.result())
 
-    print(f"\nTraining loss over epoch: {train_loss_tracker.result():.4f}")
+    print(f"\nTraining loss over epoch: {train_loss_tracker.result():.4e}")
     print(f"\nTime taken for training: {time.time() - start_time:.2f} sec")
 
     batch_loss_val, batch_accuracy_val, batch_weighted_accuracy_val = [], [], []
