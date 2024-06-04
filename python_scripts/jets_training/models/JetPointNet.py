@@ -329,7 +329,8 @@ def masked_weighted_bce_loss(y_true: tf.Tensor, y_pred: tf.Tensor, energies: tf.
     y_pred_masked = y_pred * valid_mask
     bce_loss = tf.keras.losses.binary_crossentropy(
         y_true_adjusted,
-        y_pred_masked, from_logits=True # - this is if range in -inf to inf
+        y_pred_masked,
+        from_logits=False,  # NOTE: False for "sigmoid", True for "linear"
     )
     bce_loss = tf.expand_dims(
         bce_loss, axis=-1
