@@ -268,6 +268,7 @@ def masked_weighted_bce_loss(
     energies: tf.Tensor,
     fractional_energy_cutoff: float,
     transform: None | str = None,
+    energy_threshold: float = 0
 ):
     """
     Computes the masked weighted loss of predictions.
@@ -283,6 +284,7 @@ def masked_weighted_bce_loss(
         - "normalize": batch-normalize to zero mean and unit variance.
         - "standardize": batch-standardize to zero mean and unit variance.
         - "threshold": threshold at 0 --> discard contributions by negative energies.
+    energy_threshold (float, optional): the threshold to cutoff energy weighting is "threshold" is the transform
 
     Returns:
     tf.Tensor: standardized accuracy.
@@ -303,7 +305,7 @@ def masked_weighted_bce_loss(
                 tf.math.reduce_std(energies) + 1e-5
             )
         case "threshold":
-            energies = tf.cast(tf.greater(energies, 0), tf.float32)
+            energies = tf.cast(tf.greater(energies, energy_threshold), tf.float32)
         case None | "none":
             pass
         case _:
@@ -387,8 +389,9 @@ def masked_regular_accuracy(y_true, y_pred, fractional_energy_cutoff: float):
     mask = tf.cast(mask, tf.float32)
 
     adjusted_y_true = tf.cast(tf.greater(y_true, fractional_energy_cutoff), tf.float32)
+    adjusted_y_predicted = tf.cast(tf.greater(y_pred, 0.5), tf.float32) # should this cutoff be 0.5?
 
-    correct_predictions = tf.equal(y_pred, adjusted_y_true)
+    correct_predictions = tf.equal(adjusted_y_predicted, adjusted_y_true)
 
     masked_correct_predictions = tf.cast(correct_predictions, tf.float32) * mask
 
@@ -403,6 +406,7 @@ def masked_weighted_accuracy(
     energies: tf.Tensor,
     fractional_energy_cutoff: float,
     transform: None | str = None,
+    energy_threshold: float = 0
 ):
     """
     Computes the masked weighted accuracy of predictions.
@@ -418,6 +422,8 @@ def masked_weighted_accuracy(
         - "normalize": batch-normalize to zero mean and unit variance.
         - "standardize": batch-standardize to zero mean and unit variance.
         - "threshold": threshold at 0 --> discard contributions by negative energies.
+    energy_threshold (float, optional): the threshold to cutoff energy weighting is "threshold" is the transform
+
 
     Returns:
     tf.Tensor: standardized accuracy.
@@ -437,7 +443,7 @@ def masked_weighted_accuracy(
                 tf.math.reduce_std(energies) + 1e-5
             )
         case "threshold":
-            energies = tf.cast(tf.greater(energies, 0), tf.float32)
+            energies = tf.cast(tf.greater(energies, energy_threshold), tf.float32)
         case None | "none":
             pass
         case _:
@@ -447,8 +453,9 @@ def masked_weighted_accuracy(
     mask = tf.cast(mask, tf.float32)
 
     adjusted_y_true = tf.cast(tf.greater(y_true, fractional_energy_cutoff), tf.float32)
+    adjusted_y_predicted = tf.cast(tf.greater(y_pred, 0.5), tf.float32) # should this cutoff be 0.5?
     
-    correct_predictions = tf.equal(y_pred, adjusted_y_true)
+    correct_predictions = tf.equal(adjusted_y_predicted, adjusted_y_true)
 
     masked_correct_predictions = tf.cast(correct_predictions, tf.float32) * mask
 
