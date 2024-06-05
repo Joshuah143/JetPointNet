@@ -17,6 +17,7 @@ from data_processing.jets.preprocessing_header import (
     AWK_SAVE_LOC,
     NPZ_SAVE_LOC,
     NUM_CHUNK_THREADS,
+    ENERGY_SCALE
 )
 import awkward as ak
 import pyarrow.parquet as pq
@@ -29,7 +30,7 @@ from multiprocessing import Pool
 
 
 DATA_FOLDERS = ["train", "val", "test"]
-ENERGY_SCALE = 1000
+
 
 
 def read_parquet(filename):
@@ -114,12 +115,12 @@ if __name__ == "__main__":
             folder_path, exist_ok=True
         )  # This line ensures the AWK_SAVE_LOC directories exist
 
-    global_max_sample_length = find_global_max_sample_length()
+    global_max_sample_length = 278 # find_global_max_sample_length()
     print(f"{global_max_sample_length = }")
     # global_max_sample_length = 278  # placeholder for now
 
     start_time = time.time()
-    NPZ_SAVE_LOC = NPZ_SAVE_LOC / f"{ENERGY_SCALE=}".lower()
+    NPZ_SAVE_LOC = NPZ_SAVE_LOC
     for data_folder in DATA_FOLDERS:
         npz_data_folder_path = os.path.join(NPZ_SAVE_LOC, data_folder)
         os.makedirs(npz_data_folder_path, exist_ok=True)  # Ensure the directory exists

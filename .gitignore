@@ -8,8 +8,9 @@ scratch
 # results/logs
 wandb
 models/
-results
+result/
 images/
+visualizations/
 
 # ignore containers. These are not tracked here
 containers/*

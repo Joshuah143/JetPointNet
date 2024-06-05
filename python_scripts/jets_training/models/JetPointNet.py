@@ -181,9 +181,7 @@ def TNet(input_tensor, size, add_regularization=False):
     return x
 
 
-def PointNetSegmentation(num_points, num_features, num_classes):
-    # num_features = 9  # Number of input features per point
-
+def PointNetSegmentation(num_points, num_features, num_classes, output_activation_function):
     """
     Input shape per point is:
        [x (mm),
@@ -248,7 +246,7 @@ def PointNetSegmentation(num_points, num_features, num_classes):
     c = conv_mlp(c, 128, dropout_rate=0.3)
 
     segmentation_output = tf.keras.layers.Conv1D(
-        num_classes, kernel_size=1, activation="sigmoid", name="SEG"
+        num_classes, kernel_size=1, activation=output_activation_function, name="SEG"
     )(c)
 
     model = tf.keras.Model(inputs=input_points, outputs=segmentation_output)
@@ -264,7 +262,7 @@ def PointNetSegmentation(num_points, num_features, num_classes):
 # ============ Losses ===================================================================================================
 
 
-# Never used
+"""
 def _pad_targets(y_true, y_pred, energies):
     if y_pred.shape[0] != y_true.shape[0]:
         pad_size = y_pred.shape[0] - y_true.shape[0]
@@ -274,11 +272,57 @@ def _pad_targets(y_true, y_pred, energies):
         y_true = tf.concat([y_true, padding], axis=0)
         energies = tf.concat([energies, padding], axis=0)
     return y_true, energies
+"""
 
 
-def masked_weighted_bce_loss(y_true, y_pred, energies):
+def masked_weighted_bce_loss(
+    y_true: tf.Tensor,
+    y_pred: tf.Tensor,
+    energies: tf.Tensor,
+    fractional_energy_cutoff: float,
+    transform: None | str = None,
+    energy_threshold: float = 0
+):
+    """
+    Computes the masked weighted loss of predictions.
 
-    # energies = tf.square(energies)
+    Parameters:
+    y_true (tf.Tensor): True labels.
+    y_pred (tf.Tensor): Predicted labels.
+    energies (tf.Tensor): Weights for each prediction.
+    transform (str, optional): Transformation to apply to energies. Possible values:
+        - None: no transformation (default).
+        - "absolute": absolute value.
+        - "square": square.
+        - "normalize": batch-normalize to zero mean and unit variance.
+        - "standardize": batch-standardize to zero mean and unit variance.
+        - "threshold": threshold at 0 --> discard contributions by negative energies.
+    energy_threshold (float, optional): the threshold to cutoff energy weighting is "threshold" is the transform
+
+    Returns:
+    tf.Tensor: standardized accuracy.
+    """
+
+    # Transform energy weights
+    match transform:
+        case "absolute":
+            energies = tf.abs(energies)
+        case "square":
+            energies = tf.square(energies)
+        case "normalize":
+            energies = (energies - tf.reduce_min(energies)) / (
+                tf.reduce_max(energies) - tf.reduce_min(energies) + 1e-5
+            )
+        case "standardize":
+            energies = (energies - tf.reduce_mean(energies)) / (
+                tf.math.reduce_std(energies) + 1e-5
+            )
+        case "threshold":
+            energies = tf.cast(tf.greater(energies, energy_threshold), tf.float32)
+        case None | "none":
+            pass
+        case _:
+            raise ValueError(f"Unknown transform value: {transform}")
 
     # Ensure valid_mask and y_true are compatible for operations
     valid_mask = tf.cast(
@@ -286,16 +330,15 @@ def masked_weighted_bce_loss(y_true, y_pred, energies):
     )  # This should be [batch, points, 1]
 
     # Adjust y_true based on the threshold, maintain dimensions as [batch, points, 1]
-    y_true_adjusted = tf.cast(tf.greater_equal(y_true, 0.5), tf.float32) * valid_mask
-
-    # ^^ should we be doing this converstion
+    y_true_adjusted = tf.cast(tf.greater_equal(y_true, fractional_energy_cutoff), tf.float32) * valid_mask
 
     # Calculate binary cross-entropy loss, ensuring to keep the dimensions consistent
 
     y_pred_masked = y_pred * valid_mask
     bce_loss = tf.keras.losses.binary_crossentropy(
         y_true_adjusted,
-        y_pred_masked,  # , from_logits=True # - this is if range in -inf to inf but we use softmax
+        y_pred_masked,
+        from_logits=False,  # NOTE: False for "sigmoid", True for "linear"
     )
     bce_loss = tf.expand_dims(
         bce_loss, axis=-1
@@ -353,19 +396,18 @@ def masked_weighted_bce_loss(y_true, y_pred, energies):
 """
 
 
-# TODO: update without energies as it is not used
-def masked_regular_accuracy(y_true, y_pred, energies):
-
-    # pad target if needed
-    y_true, energies = _pad_targets(y_true, y_pred, energies)
+def masked_regular_accuracy(y_true: tf.Tensor, 
+                            y_pred: tf.Tensor, 
+                            output_layer_segmentation_cutoff: str,
+                            fractional_energy_cutoff: float):
 
     mask = tf.not_equal(y_true, -1.0)
     mask = tf.cast(mask, tf.float32)
 
-    adjusted_y_true = tf.cast(tf.greater(y_true, 0.5), tf.float32)
-    adjusted_y_pred = tf.cast(tf.greater(y_pred, 0.0), tf.float32)
+    adjusted_y_true = tf.cast(tf.greater(y_true, fractional_energy_cutoff), tf.float32)
+    adjusted_y_predicted = tf.cast(tf.greater(y_pred, output_layer_segmentation_cutoff), tf.float32) # should this cutoff be 0.5?
 
-    correct_predictions = tf.equal(adjusted_y_pred, adjusted_y_true)
+    correct_predictions = tf.equal(adjusted_y_predicted, adjusted_y_true)
 
     masked_correct_predictions = tf.cast(correct_predictions, tf.float32) * mask
 
@@ -373,7 +415,16 @@ def masked_regular_accuracy(y_true, y_pred, energies):
     return accuracy
 
 
-def masked_weighted_accuracy(y_true, y_pred, energies, transform: None | str = None):
+@tf.autograph.experimental.do_not_convert
+def masked_weighted_accuracy(
+    y_true: tf.Tensor,
+    y_pred: tf.Tensor,
+    energies: tf.Tensor,
+    fractional_energy_cutoff: float,
+    output_layer_segmentation_cutoff: str,
+    transform: None | str = None,
+    energy_threshold: float = 0
+):
     """
     Computes the masked weighted accuracy of predictions.
 
@@ -388,6 +439,8 @@ def masked_weighted_accuracy(y_true, y_pred, energies, transform: None | str = N
         - "normalize": batch-normalize to zero mean and unit variance.
         - "standardize": batch-standardize to zero mean and unit variance.
         - "threshold": threshold at 0 --> discard contributions by negative energies.
+    energy_threshold (float, optional): the threshold to cutoff energy weighting is "threshold" is the transform
+
 
     Returns:
     tf.Tensor: standardized accuracy.
@@ -407,22 +460,19 @@ def masked_weighted_accuracy(y_true, y_pred, energies, transform: None | str = N
                 tf.math.reduce_std(energies) + 1e-5
             )
         case "threshold":
-            energies = tf.cast(tf.greater(energies, 0), tf.float32)
-        case None:
+            energies = tf.cast(tf.greater(energies, energy_threshold), tf.float32)
+        case None | "none":
             pass
         case _:
             raise ValueError(f"Unknown transform value: {transform}")
 
-    # pad target if needed
-    y_true, energies = _pad_targets(y_true, y_pred, energies)
-
     mask = tf.not_equal(y_true, -1.0)
     mask = tf.cast(mask, tf.float32)
 
-    adjusted_y_true = tf.cast(tf.greater(y_true, 0.5), tf.float32)
-    adjusted_y_pred = tf.cast(tf.greater(y_pred, 0.0), tf.float32)
-
-    correct_predictions = tf.equal(adjusted_y_pred, adjusted_y_true)
+    adjusted_y_true = tf.cast(tf.greater(y_true, fractional_energy_cutoff), tf.float32)
+    adjusted_y_predicted = tf.cast(tf.greater(y_pred, output_layer_segmentation_cutoff), tf.float32) 
+    
+    correct_predictions = tf.equal(adjusted_y_predicted, adjusted_y_true)
 
     masked_correct_predictions = tf.cast(correct_predictions, tf.float32) * mask
 
@@ -490,7 +540,7 @@ class CustomLRScheduler(tf.keras.callbacks.Callback):
         self.optim_lr.assign(new_lr)
         if self.verbose > 0:
             print(
-                f"\nEpoch{epoch}: Updating learning rate from {old_lr:.4e} to {self.optim_lr.numpy():.4e}"
+                f"\nEpoch {epoch}: Updating learning rate from {old_lr:.4e} to {self.optim_lr.numpy():.4e}"
             )
 
 
