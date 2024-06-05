@@ -14,4 +14,7 @@ Delta R fr tracks is defined by thier interaction with EMB2, for the delta R tha
 
 - If the chunk size is small then is increased, the files orignially created will not be overwritten causing data duplication
 
+- 4 arrays are saved to the npz files, only 3 of them are ever used and only 2 are actually relivant to the model, could be low hanging fruit for speed improvment.
+
+- `NUM_CHUNK_THREADS` is always used by awk_to_npz, but we could actually use the `min(NUM_CHUNK_THREADS, num_chunks)` to avoid empty proccesses
 

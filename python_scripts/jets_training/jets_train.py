@@ -37,7 +37,7 @@ from jets_training.models.JetPointNet import (
 )
 from data_processing.jets.preprocessing_header import MAX_DISTANCE, NPZ_SAVE_LOC, ENERGY_SCALE
 
-tf.config.run_functions_eagerly(True)
+# tf.config.run_functions_eagerly(True) - Useful when using the debugger - dont delete, but should not be used in production
 
 # SET PATHS FOR I/O AND CONFIG
 USER = Path.home().name
@@ -64,7 +64,7 @@ MODELS_PATH.mkdir(exist_ok=True, parents=True)
 SPLIT_SEED = 62
 MAX_SAMPLE_LENGTH = 278
 BATCH_SIZE = 480
-EPOCHS = 100
+EPOCHS = 5
 LR = 0.002
 ES_PATIENCE = 15
 TRAIN_DIR = NPZ_SAVE_LOC / "train"
@@ -73,6 +73,7 @@ USE_WANDB = True
 ACC_ENERGY_WEIGHTING = "square"
 LOSS_ENERGY_WEIGHTING = "none"
 OUTPUT_ACTIVATION_FUNCTION = "sigmoid" # softmax, linear (requires changes to the BCE fucntion in the loss function)
+FRACTIONAL_ENERGY_CUTOFF = 0.5
 
 TRAIN_INPUTS = [
     #'event_number', 
@@ -147,7 +148,10 @@ print(f"Setting training determinism based on {seed=}")
 set_global_determinism(seed=seed)
 
 model = PointNetSegmentation(
-    MAX_SAMPLE_LENGTH, num_features=len(TRAIN_INPUTS), num_classes=1, output_activation_function=OUTPUT_ACTIVATION_FUNCTION
+    MAX_SAMPLE_LENGTH, 
+    num_features=len(TRAIN_INPUTS), 
+    num_classes=1, 
+    output_activation_function=OUTPUT_ACTIVATION_FUNCTION,
 )  # swapped back to 9 to work with one hot encoding
 import tensorflow.keras.backend as K
 
@@ -178,6 +182,7 @@ if USE_WANDB:
             "loss_energy_weight_scheme": ACC_ENERGY_WEIGHTING,
             "detlaR": MAX_DISTANCE,
             "min_hits_per_track": 25,
+            "fractional_energy_cutoff": FRACTIONAL_ENERGY_CUTOFF
         },
         job_type="training",
         tags=["baseline"],
@@ -189,10 +194,10 @@ if USE_WANDB:
 def train_step(x, y, energy_weights, model, optimizer):
     with tf.GradientTape() as tape:
         predictions = model(x, training=True)
-        loss = masked_weighted_bce_loss(y, predictions, energy_weights, transform=LOSS_ENERGY_WEIGHTING)
-        reg_acc = masked_regular_accuracy(y, predictions, energy_weights)
+        loss = masked_weighted_bce_loss(y, predictions, energy_weights, transform=LOSS_ENERGY_WEIGHTING, fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF)
+        reg_acc = masked_regular_accuracy(y, predictions, fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF)
         weighted_acc = masked_weighted_accuracy(
-            y, predictions, energy_weights, transform=ACC_ENERGY_WEIGHTING
+            y, predictions, energy_weights, transform=ACC_ENERGY_WEIGHTING, fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF
         )
     grads = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(grads, model.trainable_variables))
@@ -202,10 +207,10 @@ def train_step(x, y, energy_weights, model, optimizer):
 @tf.function
 def val_step(x, y, energy_weights, model):
     predictions = model(x, training=False)
-    v_loss = masked_weighted_bce_loss(y, predictions, energy_weights, transform=LOSS_ENERGY_WEIGHTING)
-    reg_acc = masked_regular_accuracy(y, predictions, energy_weights)
+    v_loss = masked_weighted_bce_loss(y, predictions, energy_weights, transform=LOSS_ENERGY_WEIGHTING, fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF)
+    reg_acc = masked_regular_accuracy(y, predictions, fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF)
     weighted_acc = masked_weighted_accuracy(
-        y, predictions, energy_weights, transform=ACC_ENERGY_WEIGHTING
+        y, predictions, energy_weights, transform=ACC_ENERGY_WEIGHTING, fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF
     )
     return v_loss, reg_acc, weighted_acc
 

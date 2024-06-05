@@ -262,22 +262,11 @@ def PointNetSegmentation(num_points, num_features, num_classes, output_activatio
 # ============ Losses ===================================================================================================
 
 
-# Never used
-def _pad_targets(y_true, y_pred, energies):
-    if y_pred.shape[0] != y_true.shape[0]:
-        pad_size = y_pred.shape[0] - y_true.shape[0]
-        padding = tf.zeros(
-            (pad_size, y_true.shape[1], y_true.shape[2]), dtype=tf.float32
-        )
-        y_true = tf.concat([y_true, padding], axis=0)
-        energies = tf.concat([energies, padding], axis=0)
-    return y_true, energies
-
-
 def masked_weighted_bce_loss(
     y_true: tf.Tensor,
     y_pred: tf.Tensor,
     energies: tf.Tensor,
+    fractional_energy_cutoff: float,
     transform: None | str = None,
 ):
     """
@@ -298,7 +287,6 @@ def masked_weighted_bce_loss(
     Returns:
     tf.Tensor: standardized accuracy.
     """
-    y_true, energies = _pad_targets(y_true, y_pred, energies)
 
     # Transform energy weights
     match transform:
@@ -327,7 +315,7 @@ def masked_weighted_bce_loss(
     )  # This should be [batch, points, 1]
 
     # Adjust y_true based on the threshold, maintain dimensions as [batch, points, 1]
-    y_true_adjusted = tf.cast(tf.greater_equal(y_true, 0.5), tf.float32) * valid_mask
+    y_true_adjusted = tf.cast(tf.greater_equal(y_true, fractional_energy_cutoff), tf.float32) * valid_mask
 
     # Calculate binary cross-entropy loss, ensuring to keep the dimensions consistent
 
@@ -393,19 +381,14 @@ def masked_weighted_bce_loss(y_true, y_pred, energies):
 """
 
 
-# TODO: update without energies as it is not used
-def masked_regular_accuracy(y_true, y_pred, energies):
-
-    # pad target if needed
-    y_true, energies = _pad_targets(y_true, y_pred, energies)
+def masked_regular_accuracy(y_true, y_pred, fractional_energy_cutoff: float):
 
     mask = tf.not_equal(y_true, -1.0)
     mask = tf.cast(mask, tf.float32)
 
-    adjusted_y_true = tf.cast(tf.greater(y_true, 0.5), tf.float32)
-    adjusted_y_pred = tf.cast(tf.greater(y_pred, 0.0), tf.float32)
+    adjusted_y_true = tf.cast(tf.greater(y_true, fractional_energy_cutoff), tf.float32)
 
-    correct_predictions = tf.equal(adjusted_y_pred, adjusted_y_true)
+    correct_predictions = tf.equal(y_pred, adjusted_y_true)
 
     masked_correct_predictions = tf.cast(correct_predictions, tf.float32) * mask
 
@@ -418,6 +401,7 @@ def masked_weighted_accuracy(
     y_true: tf.Tensor,
     y_pred: tf.Tensor,
     energies: tf.Tensor,
+    fractional_energy_cutoff: float,
     transform: None | str = None,
 ):
     """
@@ -459,16 +443,12 @@ def masked_weighted_accuracy(
         case _:
             raise ValueError(f"Unknown transform value: {transform}")
 
-    # pad target if needed
-    y_true, energies = _pad_targets(y_true, y_pred, energies)
-
     mask = tf.not_equal(y_true, -1.0)
     mask = tf.cast(mask, tf.float32)
 
-    adjusted_y_true = tf.cast(tf.greater(y_true, 0.5), tf.float32)
-    adjusted_y_pred = tf.cast(tf.greater(y_pred, 0.0), tf.float32)
-
-    correct_predictions = tf.equal(adjusted_y_pred, adjusted_y_true)
+    adjusted_y_true = tf.cast(tf.greater(y_true, fractional_energy_cutoff), tf.float32)
+    
+    correct_predictions = tf.equal(y_pred, adjusted_y_true)
 
     masked_correct_predictions = tf.cast(correct_predictions, tf.float32) * mask
 
