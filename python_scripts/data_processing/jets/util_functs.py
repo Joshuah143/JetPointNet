@@ -342,9 +342,8 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                         track_num=-1
                     )
             
-    # I think this should gte saved as a tensorflow dataset, we could save them all as tensorflow datasets to be honest, merge them into one large file and let tensorflow handel the memory issues of that
             event_array_dtype = np.dtype([ # none can be unsigned because -1 is used as a pad for all, see above
-                ('event_number', np.int32), # NOTE: there is a bug in tensorflow, all must conform to the same type
+                ('event_number', np.int32),
                 ('cell_ID', np.int32),
                 ('track_ID', np.int32),
                 ('delta_R', np.float32),             

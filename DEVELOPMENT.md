@@ -4,6 +4,10 @@ Delta R calculations have been added into the npz files, but the cut is still ha
 
 Delta R fr tracks is defined by their interaction with EMB2, for the delta R that gets applied the tracks should this be the case.
 
+# Negative Cell Energy
+
+TODO: Negative cell energy and its effects on `frac_label` deserve further exploration.
+
 # Bugs
 
 - Line 626 util functs: all associated tracks are given the label of `1`. This seems like a mistake, but it doesn't really matter since we dont carry it through to the training data.

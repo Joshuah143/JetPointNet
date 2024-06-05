@@ -76,6 +76,12 @@ ACC_ENERGY_WEIGHTING = "square"
 LOSS_ENERGY_WEIGHTING = "none"
 OUTPUT_ACTIVATION_FUNCTION = "sigmoid" # softmax, linear (requires changes to the BCE fucntion in the loss function)
 FRACTIONAL_ENERGY_CUTOFF = 0.5
+OUTPUT_LAYER_SEGMENTATION_CUTOFF = 0.5
+
+if OUTPUT_ACTIVATION_FUNCTION in ['softmax', 'sigmoid'] and OUTPUT_LAYER_SEGMENTATION_CUTOFF != 0.5:
+    raise Exception("Invalid OUTPUT_LAYER_SEGMENTATION_CUTOFF")
+if OUTPUT_ACTIVATION_FUNCTION in ['linear'] and OUTPUT_LAYER_SEGMENTATION_CUTOFF != 0:
+    raise Exception("Invalid OUTPUT_LAYER_SEGMENTATION_CUTOFF")
 
 TRAIN_INPUTS = [
     #'event_number', 
@@ -145,11 +151,21 @@ def calculate_steps(data_dir, batch_size):
 def train_step(x, y, energy_weights, model, optimizer):
     with tf.GradientTape() as tape:
         predictions = model(x, training=True)
-        loss = masked_weighted_bce_loss(y, predictions, energy_weights, transform=LOSS_ENERGY_WEIGHTING, fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF)
-        reg_acc = masked_regular_accuracy(y, predictions, fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF)
-        weighted_acc = masked_weighted_accuracy(
-            y, predictions, energy_weights, transform=ACC_ENERGY_WEIGHTING, fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF
-        )
+        loss = masked_weighted_bce_loss(y_true=y, 
+                                        y_pred=predictions, 
+                                        energies=energy_weights, 
+                                        transform=LOSS_ENERGY_WEIGHTING, 
+                                        fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF)
+        reg_acc = masked_regular_accuracy(y_true=y, 
+                                          y_pred=predictions,
+                                          output_layer_segmentation_cutoff=OUTPUT_LAYER_SEGMENTATION_CUTOFF, 
+                                          fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF)
+        weighted_acc = masked_weighted_accuracy(y_true=y, 
+                                                y_pred=predictions, 
+                                                energies=energy_weights, 
+                                                transform=ACC_ENERGY_WEIGHTING, 
+                                                output_layer_segmentation_cutoff=OUTPUT_LAYER_SEGMENTATION_CUTOFF, 
+                                                fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF)
     grads = tape.gradient(loss, model.trainable_variables)
     optimizer.apply_gradients(zip(grads, model.trainable_variables))
     return loss, reg_acc, weighted_acc, grads
@@ -158,11 +174,21 @@ def train_step(x, y, energy_weights, model, optimizer):
 @tf.function
 def val_step(x, y, energy_weights, model):
     predictions = model(x, training=False)
-    v_loss = masked_weighted_bce_loss(y, predictions, energy_weights, transform=LOSS_ENERGY_WEIGHTING, fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF)
-    reg_acc = masked_regular_accuracy(y, predictions, fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF)
-    weighted_acc = masked_weighted_accuracy(
-        y, predictions, energy_weights, transform=ACC_ENERGY_WEIGHTING, fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF
-    )
+    v_loss = masked_weighted_bce_loss(y_true=y, 
+                                      y_pred=predictions, 
+                                      energies=energy_weights, 
+                                      transform=LOSS_ENERGY_WEIGHTING, 
+                                      fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF)
+    reg_acc = masked_regular_accuracy(y_true=y, 
+                                      y_pred=predictions, 
+                                      output_layer_segmentation_cutoff=OUTPUT_LAYER_SEGMENTATION_CUTOFF, 
+                                      fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF)
+    weighted_acc = masked_weighted_accuracy(y_true=y, 
+                                            y_pred=predictions, 
+                                            energies=energy_weights, 
+                                            transform=ACC_ENERGY_WEIGHTING, 
+                                            output_layer_segmentation_cutoff=OUTPUT_LAYER_SEGMENTATION_CUTOFF,
+                                            fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF)
     return v_loss, reg_acc, weighted_acc
 
 best_checkpoint_path = f"{MODELS_PATH}/PointNet_best.keras"

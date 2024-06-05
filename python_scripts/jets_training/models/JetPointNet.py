@@ -262,6 +262,19 @@ def PointNetSegmentation(num_points, num_features, num_classes, output_activatio
 # ============ Losses ===================================================================================================
 
 
+"""
+def _pad_targets(y_true, y_pred, energies):
+    if y_pred.shape[0] != y_true.shape[0]:
+        pad_size = y_pred.shape[0] - y_true.shape[0]
+        padding = tf.zeros(
+            (pad_size, y_true.shape[1], y_true.shape[2]), dtype=tf.float32
+        )
+        y_true = tf.concat([y_true, padding], axis=0)
+        energies = tf.concat([energies, padding], axis=0)
+    return y_true, energies
+"""
+
+
 def masked_weighted_bce_loss(
     y_true: tf.Tensor,
     y_pred: tf.Tensor,
@@ -383,13 +396,16 @@ def masked_weighted_bce_loss(y_true, y_pred, energies):
 """
 
 
-def masked_regular_accuracy(y_true, y_pred, fractional_energy_cutoff: float):
+def masked_regular_accuracy(y_true: tf.Tensor, 
+                            y_pred: tf.Tensor, 
+                            output_layer_segmentation_cutoff: str,
+                            fractional_energy_cutoff: float):
 
     mask = tf.not_equal(y_true, -1.0)
     mask = tf.cast(mask, tf.float32)
 
     adjusted_y_true = tf.cast(tf.greater(y_true, fractional_energy_cutoff), tf.float32)
-    adjusted_y_predicted = tf.cast(tf.greater(y_pred, 0.5), tf.float32) # should this cutoff be 0.5?
+    adjusted_y_predicted = tf.cast(tf.greater(y_pred, output_layer_segmentation_cutoff), tf.float32) # should this cutoff be 0.5?
 
     correct_predictions = tf.equal(adjusted_y_predicted, adjusted_y_true)
 
@@ -405,6 +421,7 @@ def masked_weighted_accuracy(
     y_pred: tf.Tensor,
     energies: tf.Tensor,
     fractional_energy_cutoff: float,
+    output_layer_segmentation_cutoff: str,
     transform: None | str = None,
     energy_threshold: float = 0
 ):
@@ -453,7 +470,7 @@ def masked_weighted_accuracy(
     mask = tf.cast(mask, tf.float32)
 
     adjusted_y_true = tf.cast(tf.greater(y_true, fractional_energy_cutoff), tf.float32)
-    adjusted_y_predicted = tf.cast(tf.greater(y_pred, 0.5), tf.float32) # should this cutoff be 0.5?
+    adjusted_y_predicted = tf.cast(tf.greater(y_pred, output_layer_segmentation_cutoff), tf.float32) 
     
     correct_predictions = tf.equal(adjusted_y_predicted, adjusted_y_true)
 
