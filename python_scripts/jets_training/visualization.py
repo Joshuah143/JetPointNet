@@ -14,7 +14,7 @@ if USER == "jhimmens":
 elif USER == "luclissa":
     GPU_ID = "0"
 else:
-    raise Exception("UNKOWN USER")
+    raise Exception("UNKNOWN USER")
 
 if __name__ == "__main__":
     # os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
@@ -68,7 +68,7 @@ USE_BINARY_ATTRIBUTION_MODEL = True
 USE_BINARY_ATTRIBUTION_TRUTH = True
 RENDER_IMAGES = True
 USE_TRUTH_E = False
-MAX_WINDOWS = 20
+MAX_WINDOWS = 20 # can take -1 for all 
 
 model_path = last_checkpoint_path # best_checkpoint_path
 
@@ -168,7 +168,7 @@ for window_index, window in enumerate(feats):
     if RENDER_IMAGES and (MAX_WINDOWS == -1 or window_index < MAX_WINDOWS):
         # convert to plot:
         fig = plt.figure(figsize=(22, 7))
-        fig.suptitle(f'Event: {window[0]["event_number"]} Track: {window[0]["track_ID"]}, $\sum E={sum(cell_total_energy)}$, nCells={len(len(cell_x_list))}')
+        fig.suptitle(f'Event: {window[0]["event_number"]} Track: {window[0]["track_ID"]}, $\sum E={sum(cell_total_energy)}$, nCells={len(cell_x_list)}')
 
         ax1 = fig.add_subplot(131, projection='3d')
         ax2 = fig.add_subplot(132, projection='3d')
@@ -204,6 +204,10 @@ for window_index, window in enumerate(feats):
         
         # Third subplot, total energies
 
+        if USE_TRUTH_E:
+            ax3.set_title(f'Cell Energies (Truth)')
+        else:
+            ax3.set_title(f'Cell Energies (Not Truth)')
         cell_x_array_np = np.array(cell_x_list)
         cell_y_array_np = np.array(cell_y_list)
         cell_z_array_np = np.array(cell_z_list)
@@ -247,7 +251,7 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     plt.savefig(HIST_PATH / 'model_activation_hist.png', dpi=500)
     plt.clf()
 
-    # genorate second hist
+    # generate second hist
 
     plt.hist2d(n_cells, model_attributions, bins=50, cmap='viridis', norm=LogNorm()) # range=[x_bounds, y_bounds]
     plt.colorbar(label='Counts')
