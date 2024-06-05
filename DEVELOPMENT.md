@@ -34,3 +34,5 @@ num_features=len(TRAIN_INPUTS),
 num_classes=1, 
 output_activation_function=OUTPUT_ACTIVATION_FUNCTION,
 ```
+
+- `ENERGY_SCALE` should be included in `visualization.py` so that the units on graphs work

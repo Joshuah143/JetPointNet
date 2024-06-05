@@ -8,7 +8,17 @@ REPO_PATH = Path.home() / "workspace/jetpointnet"
 SCRIPT_PATH = REPO_PATH / "python_scripts"
 sys.path.append(str(SCRIPT_PATH))
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"  # Set GPU - Must be done before importing tf
+USER = Path.home().name
+if USER == "jhimmens":
+    GPU_ID = "1"
+elif USER == "luclissa":
+    GPU_ID = "0"
+else:
+    raise Exception("UNKOWN USER")
+
+if __name__ == "__main__":
+    # os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
+    os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID  # Set GPU
 
 print("Running Visualization Script!")
 
@@ -43,6 +53,10 @@ MODELS_PATH = REPO_PATH / "models"
 MODELS_PATH.mkdir(exist_ok=True)
 VISUAL_PATH = REPO_PATH / "visualizations"
 VISUAL_PATH.mkdir(exist_ok=True)
+TRACK_IMAGE_PATH = VISUAL_PATH / "track_images"
+TRACK_IMAGE_PATH.mkdir(exist_ok=True)
+HIST_PATH = VISUAL_PATH / "meta_results"
+HIST_PATH.mkdir(exist_ok=True)
 
 RESTRICT_RANGE = False
 PLOT_NON_FOCAL = True
@@ -53,7 +67,8 @@ CELLS_PER_TRACK_CUTOFF = 25
 USE_BINARY_ATTRIBUTION_MODEL = True
 USE_BINARY_ATTRIBUTION_TRUTH = True
 RENDER_IMAGES = True
-MAX_WINDOWS = -1
+USE_TRUTH_E = False
+MAX_WINDOWS = 20
 
 model_path = last_checkpoint_path # best_checkpoint_path
 
@@ -118,7 +133,10 @@ for window_index, window in enumerate(feats):
             cell_x_list.append(point["normalized_x"])
             cell_y_list.append(point["normalized_y"])
             cell_z_list.append(point["normalized_z"])
-            cell_total_energy.append(total_truth_energy[window_index][point_index])
+            if USE_TRUTH_E:
+                cell_total_energy.append(total_truth_energy[window_index][point_index])
+            else:
+                cell_total_energy.append(point["cell_E"])
             if USE_BINARY_ATTRIBUTION_MODEL:
                 cell_model_attribution.append(int(model_results[window_index][point_index] >= FRACTIONAL_ENERGY_CUTOFF))
             else:
@@ -145,12 +163,12 @@ for window_index, window in enumerate(feats):
 
     n_cells.append(len(cell_x_list))
     model_attributions.append(cell_model_attribution.count(1))
-    truth_attributions.append(cell_model_attribution.count(1))
+    truth_attributions.append(cell_truth_attribution.count(1))
 
-    if RENDER_IMAGES:
+    if RENDER_IMAGES and (MAX_WINDOWS == -1 or window_index < MAX_WINDOWS):
         # convert to plot:
         fig = plt.figure(figsize=(22, 7))
-        fig.suptitle(f'Event: {window[0]["event_number"]} Track: {window[0]["track_ID"]}, $\sum E={sum(cell_total_energy)}$')
+        fig.suptitle(f'Event: {window[0]["event_number"]} Track: {window[0]["track_ID"]}, $\sum E={sum(cell_total_energy)}$, nCells={len(len(cell_x_list))}')
 
         ax1 = fig.add_subplot(131, projection='3d')
         ax2 = fig.add_subplot(132, projection='3d')
@@ -170,15 +188,16 @@ for window_index, window in enumerate(feats):
             ax_i.set_xlabel('X Coordinate (mm)')
             ax_i.set_ylabel('Y Coordinate (mm)')
             ax_i.set_zlabel('Z Coordinate (mm)')
-            
 
         # First subplot
-        ax1.set_title('Model Prediction')
+        ax1.set_title(f'Model Prediction - {cell_model_attribution.count(1)} activations')
         sc1 = ax1.scatter(cell_x_list, cell_y_list, cell_z_list, c=cell_model_attribution, cmap='jet', vmin=0, vmax=1)
         cbar1 = plt.colorbar(sc1, ax=ax1)
         cbar1.set_label('Model Output')
         
         # Second subplot
+        ax2.set_title(f'Truth Values - {cell_truth_attribution.count(1)} activations')
+        cell_truth_attribution.count(1)
         sc2 = ax2.scatter(cell_x_list, cell_y_list, cell_z_list, c=cell_truth_attribution, cmap='jet', vmin=0, vmax=1)
         cbar2 = plt.colorbar(sc2, ax=ax2)
         cbar2.set_label('frac_E')
@@ -203,10 +222,9 @@ for window_index, window in enumerate(feats):
 
         plt.tight_layout()
         print(f"saving: event={window[0]['event_number']:09}_track={window[0]['track_ID']:03}")
-        plt.savefig(f"visualizations/event={window[0]['event_number']:09}_track={window[0]['track_ID']:03}.png")
+        plt.savefig(f"visualizations/track_images/event={window[0]['event_number']:09}_track={window[0]['track_ID']:03}.png")
         matplotlib.pyplot.close()
-        if (window_index > MAX_WINDOWS) and (MAX_WINDOWS != -1):
-            break
+        
             
 
 
@@ -215,17 +233,33 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     #x_bounds = (min(flat_model), max(flat_model))  # min and max for x-axis
     #y_bounds = (0, 1)  # min and max for y-axis
 
-    print("Generating Hist")
+    print("Generating Hists")
     plt.hist2d(truth_attributions, model_attributions, bins=50, cmap='viridis', norm=LogNorm()) # range=[x_bounds, y_bounds]
     plt.colorbar(label='Counts')
 
     # Labels and title
-    plt.xlabel('Truth activations ')
+    plt.xlabel('Truth activations')
     plt.ylabel('Model activations')
     plt.title(f'Truth to Model activations with n={sum(n_cells)}')
 
     # Save the plot to a file
-    plt.savefig(f'visualizations/model_activation_hist.png', dpi=500)
+    print('saving model_activation_hist to', HIST_PATH / 'model_activation_hist.png')
+    plt.savefig(HIST_PATH / 'model_activation_hist.png', dpi=500)
+    plt.clf()
+
+    # genorate second hist
+
+    plt.hist2d(n_cells, model_attributions, bins=50, cmap='viridis', norm=LogNorm()) # range=[x_bounds, y_bounds]
+    plt.colorbar(label='Counts')
+
+    # Labels and title
+    plt.xlabel('Number of cells')
+    plt.ylabel('Model activations')
+    plt.title(f'Model activations to number of cells with n={sum(n_cells)}')
+
+    # Save the plot to a file
+    print('saving cell_to_activation_hist to', HIST_PATH / 'cell_to_activation_hist.png')
+    plt.savefig(HIST_PATH / 'cell_to_activation_hist.png', dpi=500)
     plt.clf()
 
 
