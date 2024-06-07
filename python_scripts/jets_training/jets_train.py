@@ -22,6 +22,7 @@ import tensorflow as tf
 import glob
 import math
 import wandb
+import keras
 import time
 import wandb
 from tqdm.auto import tqdm
@@ -42,9 +43,10 @@ from data_processing.jets.preprocessing_header import MAX_DISTANCE, NPZ_SAVE_LOC
 
 # SET PATHS FOR I/O AND CONFIG
 USER = Path.home().name
+print(f"Logged in as {USER}")
 if USER == "jhimmens":
     OUTPUT_DIRECTORY_NAME = "2000_events_w_fixed_hits"
-    DATASET_NAME = "raw"
+    DATASET_NAME = "focal_bce_loss"
     GPU_ID = "1"
 elif USER == "luclissa":
     OUTPUT_DIRECTORY_NAME = "ttbar"
@@ -65,19 +67,20 @@ MODELS_PATH.mkdir(exist_ok=True, parents=True)
 
 SPLIT_SEED = 62
 MAX_SAMPLE_LENGTH = 278
-BATCH_SIZE = 480
-EPOCHS = 40
+BATCH_SIZE = 1000
+EPOCHS = 100
 LR = 0.001
 ES_PATIENCE = 15
 TRAIN_DIR = NPZ_SAVE_LOC / "train"
 VAL_DIR = NPZ_SAVE_LOC / "val"
 USE_WANDB = True
 ACC_ENERGY_WEIGHTING = "square"
-LOSS_ENERGY_WEIGHTING = "none"
+LOSS_ENERGY_WEIGHTING = "square"
 OUTPUT_ACTIVATION_FUNCTION = "sigmoid" # softmax, linear (requires changes to the BCE fucntion in the loss function)
 FRACTIONAL_ENERGY_CUTOFF = 0.5
 OUTPUT_LAYER_SEGMENTATION_CUTOFF = 0.5
 
+# note that if you change the output activation function you must change the loss function
 if OUTPUT_ACTIVATION_FUNCTION in ['softmax', 'sigmoid'] and OUTPUT_LAYER_SEGMENTATION_CUTOFF != 0.5:
     raise Exception("Invalid OUTPUT_LAYER_SEGMENTATION_CUTOFF")
 if OUTPUT_ACTIVATION_FUNCTION in ['linear'] and OUTPUT_LAYER_SEGMENTATION_CUTOFF != 0:
@@ -189,7 +192,8 @@ def val_step(x, y, energy_weights, model):
                                             transform=ACC_ENERGY_WEIGHTING, 
                                             output_layer_segmentation_cutoff=OUTPUT_LAYER_SEGMENTATION_CUTOFF,
                                             fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF)
-    return v_loss, reg_acc, weighted_acc
+    return v_loss, reg_acc, weighted_acc, predictions
+
 
 best_checkpoint_path = f"{MODELS_PATH}/PointNet_best.keras"
 last_checkpoint_path = f"{MODELS_PATH}/PointNet_last_{EPOCHS=}.keras"
@@ -209,7 +213,7 @@ if __name__ == "__main__":
         num_features=len(TRAIN_INPUTS), 
         num_classes=1, 
         output_activation_function=OUTPUT_ACTIVATION_FUNCTION,
-    )  # swapped back to 9 to work with one hot encoding
+    ) 
 
     trainable_count = np.sum([K.count_params(w) for w in model.trainable_weights])
     non_trainable_count = np.sum([K.count_params(w) for w in model.non_trainable_weights])
@@ -236,7 +240,6 @@ if __name__ == "__main__":
                 "output_activation": OUTPUT_ACTIVATION_FUNCTION,
                 "accuracy_energy_weight_scheme": ACC_ENERGY_WEIGHTING,
                 "loss_energy_weight_scheme": ACC_ENERGY_WEIGHTING,
-                "detlaR": MAX_DISTANCE,
                 "min_hits_per_track": 25,
                 "fractional_energy_cutoff": FRACTIONAL_ENERGY_CUTOFF
             },
@@ -247,12 +250,13 @@ if __name__ == "__main__":
 
 
     train_loss_tracker = tf.metrics.Mean(name="train_loss")
-    val_loss_tracker = tf.metrics.Mean(name="val_loss")
     train_reg_acc = tf.metrics.Mean(name="train_regular_accuracy")
     train_weighted_acc = tf.metrics.Mean(name="train_weighted_accuracy")
+
+    val_loss_tracker = tf.metrics.Mean(name="val_loss")
     val_reg_acc = tf.metrics.Mean(name="val_regular_accuracy")
     val_weighted_acc = tf.metrics.Mean(name="val_weighted_accuracy")
-
+    
     # Callbacks
     # ModelCheckpoint
     checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
@@ -295,11 +299,15 @@ if __name__ == "__main__":
         lr_callback.on_epoch_begin(epoch)
 
         train_loss_tracker.reset_state()
-        val_loss_tracker.reset_state()
         train_reg_acc.reset_state()
         train_weighted_acc.reset_state()
+
+        val_loss_tracker.reset_state()
         val_reg_acc.reset_state()
         val_weighted_acc.reset_state()
+
+        val_true_labels = []
+        val_predictions =  []
 
         batch_loss_train, batch_accuracy_train, batch_weighted_accuracy_train = [], [], []
         for step, (x_batch_train, y_batch_train, e_weight_train) in enumerate(
@@ -314,6 +322,8 @@ if __name__ == "__main__":
             train_loss_tracker.update_state(loss_value)
             train_reg_acc.update_state(reg_acc_value)
             train_weighted_acc.update_state(weighted_acc_value)
+
+            
             print(
                 f"\rEpoch {epoch + 1}, Step {step + 1}/{train_steps}, Training Loss: {train_loss_tracker.result().numpy():.4e}, Reg Acc: {train_reg_acc.result().numpy():.4f}, Weighted Acc: {train_weighted_acc.result().numpy():.4f}",
                 end="",
@@ -332,20 +342,33 @@ if __name__ == "__main__":
             x_batch_val = rfn.structured_to_unstructured(x_batch_val)
             if step >= val_steps:
                 break
-            val_loss_value, val_reg_acc_value, val_weighted_acc_value = val_step(
+            val_loss_value, val_reg_acc_value, val_weighted_acc_value, predicted_y = val_step(
                 x_batch_val, y_batch_val, e_weight_val, model
             )
             val_loss_tracker.update_state(val_loss_value)
             val_reg_acc.update_state(val_reg_acc_value)
             val_weighted_acc.update_state(val_weighted_acc_value)
+
+            mask = y_batch_val != -1 # remove non-energy points
+            val_true_labels.extend((y_batch_val[mask] > FRACTIONAL_ENERGY_CUTOFF).astype(np.float32))
+            val_predictions.extend(predicted_y.numpy()[mask])
+
             print(
                 f"\rEpoch {epoch + 1}, Step {step + 1}/{val_steps}, Validation Loss: {val_loss_tracker.result().numpy():.4e}, Reg Acc: {val_reg_acc.result().numpy():.4f}, Weighted Acc: {val_weighted_acc.result().numpy():.4f}",
                 end="",
             )
+
             batch_loss_val.append(val_loss_tracker.result().numpy())
             batch_accuracy_val.append(val_reg_acc.result().numpy())
             batch_weighted_accuracy_val.append(val_weighted_acc.result())
 
+        val_true_labels = tf.convert_to_tensor(val_true_labels)
+        val_predictions = tf.convert_to_tensor(val_predictions)
+        val_f1_score = keras.metrics.F1Score(threshold=OUTPUT_LAYER_SEGMENTATION_CUTOFF)
+        val_f1_score.update_state(tf.expand_dims(val_true_labels, axis=-1), tf.expand_dims(val_predictions, axis=-1))
+        val_f1 = val_f1_score.result().numpy()
+
+        print(f"\n Validation F1 Score: {val_f1}")
         print(f"\nValidation loss: {val_loss_tracker.result():.4e}")
         print(f"\nTime taken for validation: {time.time() - start_time:.2f} sec")
 
@@ -360,6 +383,7 @@ if __name__ == "__main__":
                     "val/accuracy": val_reg_acc.result().numpy(),
                     "val/weighted_accuracy": val_weighted_acc.result().numpy(),
                     "learning_rate": optimizer.learning_rate.numpy(),
+                    "val/f1_score": val_f1,
                     # "gradients": [tf.reduce_mean(tf.abs(grad)).numpy() for grad in grads],
                     # "weights": [
                     #     tf.reduce_mean(tf.abs(weight)).numpy()

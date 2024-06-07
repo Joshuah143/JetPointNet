@@ -248,7 +248,7 @@ wandb.log(
 # ============ SIZE DISTRIBUTIONS ================================================================================
 
 distribution_quantiles = np.array([0, 0.1, 0.25, 0.5, 0.75, 0.9, 1])
-distribution_index = ["mean", "std_dev"] + list(distribution_quantiles)
+# distribution_index = ["mean", "std_dev"] + list(distribution_quantiles) - Never used
 
 # tracks X event X split
 n_tracks_per_event_per_split = meta_df.groupby(

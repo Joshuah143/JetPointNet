@@ -3,6 +3,7 @@ from pathlib import Path
 import os
 import matplotlib
 import pandas as pd
+import seaborn as sns
 
 REPO_PATH = Path.home() / "workspace/jetpointnet"
 SCRIPT_PATH = REPO_PATH / "python_scripts"
@@ -31,6 +32,8 @@ import glob
 import math
 import time
 import pandas
+from sklearn.metrics import ConfusionMatrixDisplay
+from sklearn import metrics
 import awkward as ak
 import pyarrow.parquet as pq
 from tqdm.auto import tqdm
@@ -44,27 +47,32 @@ from jets_training.jets_train import (
     FRACTIONAL_ENERGY_CUTOFF,
     best_checkpoint_path,
     last_checkpoint_path,
-    OUTPUT_LAYER_SEGMENTATION_CUTOFF
+    OUTPUT_LAYER_SEGMENTATION_CUTOFF,
+    EXPERIMENT_NAME
 )
 from data_processing.jets.preprocessing_header import NPZ_SAVE_LOC, AWK_SAVE_LOC
 from data_processing.jets.util_functs import POINT_TYPE_ENCODING
 
-EXPERIMENT_NAME = 'all_data'
+
+# there is an issue that these are needed
+import warnings
+from sklearn.exceptions import UndefinedMetricWarning
+
+# Suppress the specific warning
+warnings.filterwarnings("ignore", category=UndefinedMetricWarning)
 
 RESULTS_PATH = REPO_PATH / "results"
 RESULTS_PATH.mkdir(exist_ok=True)
 MODELS_PATH = REPO_PATH / "models"
 MODELS_PATH.mkdir(exist_ok=True)
 VISUAL_PATH = REPO_PATH / "visualizations" / f'{EXPERIMENT_NAME}'
-VISUAL_PATH.mkdir(exist_ok=True)
+VISUAL_PATH.mkdir(exist_ok=True, parents=True)
 TRACK_IMAGE_PATH = VISUAL_PATH / "track_images"
 TRACK_IMAGE_PATH.mkdir(exist_ok=True)
 HIST_PATH = VISUAL_PATH / "meta_results"
 HIST_PATH.mkdir(exist_ok=True)
 
-RESTRICT_RANGE = False
 PLOT_NON_FOCAL = True
-EPOCHS = 10 # back to marco's settings
 #TRAIN_DIR = NPZ_SAVE_LOC / "train"
 #VAL_DIR = NPZ_SAVE_LOC / "val"
 #TEST_DIR = NPZ_SAVE_LOC / "test"
@@ -74,10 +82,10 @@ USE_BINARY_ATTRIBUTION_TRUTH = True
 RENDER_IMAGES = True
 USE_TRUTH_E = False
 MAX_WINDOWS = 3 # can take -1 for all 
-INCLUDED_DATASETS = ['TEST', 'VAL', 'TRAIN']
+INCLUDED_DATASETS = ['VAL'] # , 'VAL', 'TRAIN']
 
 
-model_path = last_checkpoint_path # best_checkpoint_path
+model_path = last_checkpoint_path
 
 model = PointNetSegmentation(MAX_SAMPLE_LENGTH, 
                              num_features=len(TRAIN_INPUTS), 
@@ -172,6 +180,9 @@ for data_file in sum([glob.glob(os.path.join(NPZ_SAVE_LOC / i.lower(), "*.npz"))
 
         nCells = len(cell_x_list)
 
+        y_true = (cell_truth_attribution == 1).astype(np.float32)
+        y_pred = (cell_model_attribution == 1).astype(np.float32)
+
         tp = np.sum((cell_model_attribution == 1) & (cell_truth_attribution == 1))
         fp = np.sum((cell_model_attribution == 1) & (cell_truth_attribution == 0))
         tn = np.sum((cell_model_attribution == 0) & (cell_truth_attribution == 0))
@@ -209,16 +220,22 @@ for data_file in sum([glob.glob(os.path.join(NPZ_SAVE_LOC / i.lower(), "*.npz"))
             'num_false_negatives': fn,
             'num_true_positives': tp,
             'num_true_negatives': tn,
-            'false_positive_rate': fp/negative,
-            'false_negative_rate': fn/positive,
-            'true_positive_rate': tp/positive,
-            'true_negative_rate': tn/negative,
-            'positive_predictive_value': tp/predicted_positive,
-            'false_discovery_rate': fp/predicted_positive,
-            'false_omission_rate': fn/predicted_negative,
-            'negative_predictive_value': tn/predicted_negative,
+            # for the 4 below, manual implementation has a much faster run time
+            'precision_score': metrics.precision_score(y_true, y_pred),
+            'recall_score': metrics.recall_score(y_true, y_pred),
+            'f1_score': metrics.f1_score(y_true, y_pred),
+            'hamming_loss': metrics.hamming_loss(y_true, y_pred),
+            # assorted, less useful stats, could delete? All cause errors 
+            'false_positive_rate': fp/negative if negative != 0 else 0,
+            'false_negative_rate': fn/positive if positive != 0 else 0,
+            'true_positive_rate': tp/positive if positive != 0 else 0,
+            'true_negative_rate': tn/negative if negative != 0 else 0,
+            'positive_predictive_value': tp/predicted_positive if predicted_positive != 0 else 0,
+            'false_discovery_rate': fp/predicted_positive if predicted_positive != 0 else 0,
+            'false_omission_rate': fn/predicted_negative if predicted_negative != 0 else 0,
+            'negative_predictive_value': tn/predicted_negative if predicted_negative != 0 else 0,
             'threat_score': tp/(tp+fn+fp),
-            #potential to add data from awk like PDG ID, Chi^2/dof
+            #potential to add data from awk files like PDG ID, Chi^2/dof
         }
 
         metadata_list.append(track_information)
@@ -328,11 +345,39 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     plt.clf()
 
 
+
+    # Plot the confusion matrix using seaborn
+    tp = sum(metadata['num_true_positives'])
+    fp = sum(metadata['num_false_positives'])
+    tn = sum(metadata['num_true_negatives'])
+    fn = sum(metadata['num_false_negatives'])
+
+    print(f"Full F1 score: {(2 * tp)/(2*tp+fp+fn)}")
+
+    confusion_matrix = np.array([[tp, fp], [fn, tn]])
+    
+    sns.heatmap(confusion_matrix, annot=True, fmt='d', cmap='Blues', cbar=False,
+                xticklabels=['Predicted Positive', 'Predicted Negative'],
+                yticklabels=['Actual Positive', 'Actual Negative'])
+    plt.xlabel('Predicted')
+    plt.ylabel('Actual')
+    plt.title('Confusion Matrix')
+    plt.savefig(HIST_PATH / 'confusion_matrix.png', dpi=500)
+    plt.clf()
+
     # Third Hist
     plt.hist(metadata['accuracy'], bins=50)
     plt.title(f'Accuracy per track with nCells={total_cells_in_set}, nTracks={number_of_tracks_in_set}\n Including: {INCLUDED_DATASETS}')
     print('saving cell_accuracy_hist to', HIST_PATH / 'cell_accuracy_hist.png')
     plt.savefig(HIST_PATH / 'cell_accuracy_hist.png', dpi=500)
+    plt.clf()
+
+    # Third Hist (part 2) -- need better naming
+    plt.hist(metadata['f1_score'], bins=50)
+    plt.title(f'F1 score per track with nCells={total_cells_in_set}, nTracks={number_of_tracks_in_set}\n Including: {INCLUDED_DATASETS}')
+    print('saving cell_f1_hist to', HIST_PATH / 'cell_f1_hist.png')
+    plt.yscale('log')
+    plt.savefig(HIST_PATH / 'cell_f1_hist.png', dpi=500)
     plt.clf()
 
     # Fourth hist
@@ -368,6 +413,8 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     print('saving cell_rate_truth_activation_hist to', HIST_PATH / 'cell_rate_truth_activation_hist.png')
     plt.savefig(HIST_PATH / 'cell_rate_truth_activation_hist.png', dpi=500)
     plt.clf()
+
+    
 
     print(f"Processed nCells={total_cells_in_set}, nTracks={number_of_tracks_in_set}")
 
