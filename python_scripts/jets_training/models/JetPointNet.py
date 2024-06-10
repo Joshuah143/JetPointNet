@@ -335,11 +335,14 @@ def masked_weighted_bce_loss(
     # Calculate binary cross-entropy loss, ensuring to keep the dimensions consistent
 
     y_pred_masked = y_pred * valid_mask
-    bce_loss = tf.keras.losses.binary_crossentropy(
+
+    bce_function = keras.losses.BinaryCrossentropy(from_logits=False)  # NOTE: False for "sigmoid", True for "linear"
+
+    bce_loss = bce_function(
         y_true_adjusted,
         y_pred_masked,
-        from_logits=False,  # NOTE: False for "sigmoid", True for "linear"
     )
+
     bce_loss = tf.expand_dims(
         bce_loss, axis=-1
     )  # Ensure BCE loss has the same [batch, points, 1] shape as others

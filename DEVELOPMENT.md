@@ -8,6 +8,17 @@ Delta R fr tracks is defined by their interaction with EMB2, for the delta R tha
 
 TODO: Negative cell energy and its effects on `frac_label` deserve further exploration.
 
+# Todo: (Joshua)
+
+- Investigate Negative Energies
+- Add Delta R cut to train
+- Add to distribution file, get it to work
+- Implement custom data load class
+- *Investigate shuffling effects training*
+- Implement Hyper Parameter Search
+- Investigate Focal BCE loss function
+- Convert to simple `.fit()`
+
 # Bugs
 
 - Line 626 util functs: all associated tracks are given the label of `1`. This seems like a mistake, but it doesn't really matter since we dont carry it through to the training data.

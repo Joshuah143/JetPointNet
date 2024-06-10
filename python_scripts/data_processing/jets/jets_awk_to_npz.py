@@ -32,7 +32,6 @@ from multiprocessing import Pool
 DATA_FOLDERS = ["train", "val", "test"]
 
 
-
 def read_parquet(filename):
     table = pq.read_table(filename)
     ak_array = ak.from_arrow(table)
@@ -115,7 +114,7 @@ if __name__ == "__main__":
             folder_path, exist_ok=True
         )  # This line ensures the AWK_SAVE_LOC directories exist
 
-    global_max_sample_length = 278 # find_global_max_sample_length()
+    global_max_sample_length = find_global_max_sample_length()
     print(f"{global_max_sample_length = }")
     # global_max_sample_length = 278  # placeholder for now
 
