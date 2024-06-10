@@ -22,7 +22,6 @@ import tensorflow as tf
 import glob
 import math
 import wandb
-import keras
 import time
 import wandb
 from tqdm.auto import tqdm
@@ -30,7 +29,7 @@ from numpy.lib import recfunctions as rfn
 import tensorflow.keras.backend as K
 from jets_training.models.JetPointNet import (
     PointNetSegmentation,
-    masked_weighted_bce_loss,
+    masked_weighted_loss,
     masked_regular_accuracy,
     masked_weighted_accuracy,
     set_global_determinism,
@@ -46,7 +45,7 @@ USER = Path.home().name
 print(f"Logged in as {USER}")
 if USER == "jhimmens":
     OUTPUT_DIRECTORY_NAME = "2000_events_w_fixed_hits"
-    DATASET_NAME = "focal_bce_loss"
+    DATASET_NAME = "large_R" 
     GPU_ID = "1"
 elif USER == "luclissa":
     OUTPUT_DIRECTORY_NAME = "ttbar"
@@ -55,9 +54,6 @@ elif USER == "luclissa":
 else:
     raise Exception("UNKOWN USER")
 
-if __name__ == "__main__":
-    # os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
-    os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID  # Set GPU
 
 EXPERIMENT_NAME = f"{OUTPUT_DIRECTORY_NAME}/{DATASET_NAME}"
 RESULTS_PATH = REPO_PATH / "result" / EXPERIMENT_NAME
@@ -65,20 +61,27 @@ RESULTS_PATH.mkdir(exist_ok=True, parents=True)
 MODELS_PATH = REPO_PATH / "models" / EXPERIMENT_NAME
 MODELS_PATH.mkdir(exist_ok=True, parents=True)
 
+SWEEP = True
+RUN_SWEEP = True
 SPLIT_SEED = 62
-MAX_SAMPLE_LENGTH = 278
-BATCH_SIZE = 1000
+MAX_SAMPLE_LENGTH = 859 # 278 for delta R of 0.1, 859 for 0.2
+BATCH_SIZE = 480
 EPOCHS = 100
-LR = 0.001
 ES_PATIENCE = 15
 TRAIN_DIR = NPZ_SAVE_LOC / "train"
 VAL_DIR = NPZ_SAVE_LOC / "val"
-USE_WANDB = True
 ACC_ENERGY_WEIGHTING = "square"
 LOSS_ENERGY_WEIGHTING = "square"
 OUTPUT_ACTIVATION_FUNCTION = "sigmoid" # softmax, linear (requires changes to the BCE fucntion in the loss function)
 FRACTIONAL_ENERGY_CUTOFF = 0.5
 OUTPUT_LAYER_SEGMENTATION_CUTOFF = 0.5
+
+# POTENTIALLY OVERWRITTEN BY THE WANDB SWEEP:
+LR_MAX =  0.000015 * 100 * BATCH_SIZE
+LR_MIN = 1e-5
+LR_RAMP_EP = 2
+LR_SUS_EP = 10
+LR_DECAY = 0.7
 
 # note that if you change the output activation function you must change the loss function
 if OUTPUT_ACTIVATION_FUNCTION in ['softmax', 'sigmoid'] and OUTPUT_LAYER_SEGMENTATION_CUTOFF != 0.5:
@@ -151,13 +154,15 @@ def calculate_steps(data_dir, batch_size):
 
 
 @tf.function
-def train_step(x, y, energy_weights, model, optimizer):
+def train_step(x, y, energy_weights, model, optimizer, loss_function):
+    print("traing step got here")
     with tf.GradientTape() as tape:
         predictions = model(x, training=True)
-        loss = masked_weighted_bce_loss(y_true=y, 
+        loss = masked_weighted_loss(y_true=y, 
                                         y_pred=predictions, 
-                                        energies=energy_weights, 
-                                        transform=LOSS_ENERGY_WEIGHTING, 
+                                        energies=energy_weights,
+                                        loss_function=loss_function, 
+                                        transform=wandb.config.loss_energy_weight_scheme, 
                                         fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF)
         reg_acc = masked_regular_accuracy(y_true=y, 
                                           y_pred=predictions,
@@ -166,21 +171,20 @@ def train_step(x, y, energy_weights, model, optimizer):
         weighted_acc = masked_weighted_accuracy(y_true=y, 
                                                 y_pred=predictions, 
                                                 energies=energy_weights, 
-                                                transform=ACC_ENERGY_WEIGHTING, 
+                                                transform=wandb.config.accuracy_energy_weight_scheme, 
                                                 output_layer_segmentation_cutoff=OUTPUT_LAYER_SEGMENTATION_CUTOFF, 
                                                 fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF)
     grads = tape.gradient(loss, model.trainable_variables)
-    optimizer.apply_gradients(zip(grads, model.trainable_variables))
     return loss, reg_acc, weighted_acc, grads
 
-
 @tf.function
-def val_step(x, y, energy_weights, model):
+def val_step(x, y, energy_weights, model, loss_function):
     predictions = model(x, training=False)
-    v_loss = masked_weighted_bce_loss(y_true=y, 
+    v_loss = masked_weighted_loss(y_true=y, 
                                       y_pred=predictions, 
                                       energies=energy_weights, 
-                                      transform=LOSS_ENERGY_WEIGHTING, 
+                                      transform=wandb.config.loss_energy_weight_scheme, 
+                                      loss_function=loss_function,
                                       fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF)
     reg_acc = masked_regular_accuracy(y_true=y, 
                                       y_pred=predictions, 
@@ -189,42 +193,22 @@ def val_step(x, y, energy_weights, model):
     weighted_acc = masked_weighted_accuracy(y_true=y, 
                                             y_pred=predictions, 
                                             energies=energy_weights, 
-                                            transform=ACC_ENERGY_WEIGHTING, 
+                                            transform=wandb.config.accuracy_energy_weight_scheme, 
                                             output_layer_segmentation_cutoff=OUTPUT_LAYER_SEGMENTATION_CUTOFF,
                                             fractional_energy_cutoff=FRACTIONAL_ENERGY_CUTOFF)
     return v_loss, reg_acc, weighted_acc, predictions
+
+
 
 
 best_checkpoint_path = f"{MODELS_PATH}/PointNet_best.keras"
 last_checkpoint_path = f"{MODELS_PATH}/PointNet_last_{EPOCHS=}.keras"
 
 
-if __name__ == "__main__":
-    train_steps = calculate_steps(TRAIN_DIR, BATCH_SIZE)  # 47
-    val_steps = calculate_steps(VAL_DIR, BATCH_SIZE)  # 26
-    print(f"{train_steps = };\t{val_steps = }")
-
+def main():
+    tf.keras.backend.clear_session()
     seed = np.random.randint(0, 100)  # TF_SEED
-    print(f"Setting training determinism based on {seed=}")
-    set_global_determinism(seed=seed)
-
-    model = PointNetSegmentation(
-        MAX_SAMPLE_LENGTH, 
-        num_features=len(TRAIN_INPUTS), 
-        num_classes=1, 
-        output_activation_function=OUTPUT_ACTIVATION_FUNCTION,
-    ) 
-
-    trainable_count = np.sum([K.count_params(w) for w in model.trainable_weights])
-    non_trainable_count = np.sum([K.count_params(w) for w in model.non_trainable_weights])
-
-    print("Total params: {:,}".format(trainable_count + non_trainable_count))
-    print("Trainable params: {:,}".format(trainable_count))
-    print("Non-trainable params: {:,}".format(non_trainable_count))
-    optimizer = tf.keras.optimizers.Adam(learning_rate=(LR))
-
-    if USE_WANDB:
-        wandb.init(
+    wandb.init(
             project="pointcloud",
             config={
                 "dataset": EXPERIMENT_NAME,
@@ -235,27 +219,63 @@ if __name__ == "__main__":
                 "n_points_per_batch": MAX_SAMPLE_LENGTH,
                 "batch_size": BATCH_SIZE,
                 "n_epochs": EPOCHS,
-                "learning_rate": LR,
-                "early_stopping_patience": ES_PATIENCE,
+                "early_stopping_patience": ES_PATIENCE, # not used
                 "output_activation": OUTPUT_ACTIVATION_FUNCTION,
                 "accuracy_energy_weight_scheme": ACC_ENERGY_WEIGHTING,
                 "loss_energy_weight_scheme": ACC_ENERGY_WEIGHTING,
                 "min_hits_per_track": 25,
-                "fractional_energy_cutoff": FRACTIONAL_ENERGY_CUTOFF
+                "fractional_energy_cutoff": FRACTIONAL_ENERGY_CUTOFF,
+                "lr_max": LR_MAX,
+                "lr_min": LR_MIN,
+                "lr_ramp_ep": LR_RAMP_EP,
+                "lr_sus_ep": LR_SUS_EP,
+                "lr_decay": LR_DECAY
             },
             job_type="training",
             tags=["baseline"],
-            notes="This run reproduces Marko's setting. Consider this as the starting jet ML baseline.",
+            # notes="This run reproduces Marko's setting. Consider this as the starting jet ML baseline.",
         )
 
 
-    train_loss_tracker = tf.metrics.Mean(name="train_loss")
-    train_reg_acc = tf.metrics.Mean(name="train_regular_accuracy")
-    train_weighted_acc = tf.metrics.Mean(name="train_weighted_accuracy")
+    config = wandb.config
 
-    val_loss_tracker = tf.metrics.Mean(name="val_loss")
-    val_reg_acc = tf.metrics.Mean(name="val_regular_accuracy")
-    val_weighted_acc = tf.metrics.Mean(name="val_weighted_accuracy")
+    train_steps = calculate_steps(TRAIN_DIR, BATCH_SIZE)  # 47
+    val_steps = calculate_steps(VAL_DIR, BATCH_SIZE)  # 26
+    print(f"{train_steps = };\t{val_steps = }")
+
+    print(f"Setting training determinism based on {seed=}")
+    set_global_determinism(seed=seed)
+
+    model = PointNetSegmentation(
+        MAX_SAMPLE_LENGTH, 
+        num_features=len(TRAIN_INPUTS), 
+        num_classes=1, 
+        output_activation_function=config.output_activation,
+    ) 
+
+    trainable_count = np.sum([K.count_params(w) for w in model.trainable_weights])
+    non_trainable_count = np.sum([K.count_params(w) for w in model.non_trainable_weights])
+
+    print("Total params: {:,}".format(trainable_count + non_trainable_count))
+    print("Trainable params: {:,}".format(trainable_count))
+    print("Non-trainable params: {:,}".format(non_trainable_count))
+
+    if __name__ == "__main__":
+        optimizer = tf.keras.optimizers.Adam()
+
+        train_loss_tracker = tf.metrics.Mean(name="train_loss")
+        train_reg_acc = tf.metrics.Mean(name="train_regular_accuracy")
+        train_weighted_acc = tf.metrics.Mean(name="train_weighted_accuracy")
+
+        val_loss_tracker = tf.metrics.Mean(name="val_loss")
+        val_reg_acc = tf.metrics.Mean(name="val_regular_accuracy")
+        val_weighted_acc = tf.metrics.Mean(name="val_weighted_accuracy")
+        recall_metric = tf.keras.metrics.Recall(thresholds=OUTPUT_LAYER_SEGMENTATION_CUTOFF)
+        precision_metric = tf.keras.metrics.Precision(thresholds=OUTPUT_LAYER_SEGMENTATION_CUTOFF)
+
+        loss_function = tf.keras.losses.BinaryCrossentropy(from_logits=False)  # NOTE: False for "sigmoid", True for "linear"
+        val_f1_score = tf.keras.metrics.F1Score(threshold=OUTPUT_LAYER_SEGMENTATION_CUTOFF)
+
     
     # Callbacks
     # ModelCheckpoint
@@ -282,14 +302,13 @@ if __name__ == "__main__":
     # Learning Rate Scheduler
     lr_callback = CustomLRScheduler(
         optim_lr=optimizer.learning_rate,
-        lr_max=0.000015 * train_steps * BATCH_SIZE,
-        lr_min=1e-7,
-        lr_ramp_ep=2,
-        lr_sus_ep=0,
-        lr_decay=0.7,
+        lr_max=config.lr_max, # 0.000015 * train_steps * BATCH_SIZE,
+        lr_min=config.lr_min, #1e-7,
+        lr_ramp_ep=config.lr_ramp_ep, #2,
+        lr_sus_ep=config.lr_sus_ep, #0,
+        lr_decay=config.lr_decay, #0.7,
         verbose=1,
     )
-
 
     for epoch in range(EPOCHS):
         print("\nStart of epoch %d" % (epoch,))
@@ -306,6 +325,10 @@ if __name__ == "__main__":
         val_reg_acc.reset_state()
         val_weighted_acc.reset_state()
 
+        val_f1_score.reset_state()
+        recall_metric.reset_state()
+        precision_metric.reset_state()
+
         val_true_labels = []
         val_predictions =  []
 
@@ -317,8 +340,9 @@ if __name__ == "__main__":
             if step >= train_steps:
                 break
             loss_value, reg_acc_value, weighted_acc_value, grads = train_step(
-                x_batch_train, y_batch_train, e_weight_train, model, optimizer
+                x_batch_train, y_batch_train, e_weight_train, model, optimizer, loss_function
             )
+            optimizer.apply_gradients(zip(grads, model.trainable_variables))
             train_loss_tracker.update_state(loss_value)
             train_reg_acc.update_state(reg_acc_value)
             train_weighted_acc.update_state(weighted_acc_value)
@@ -343,7 +367,7 @@ if __name__ == "__main__":
             if step >= val_steps:
                 break
             val_loss_value, val_reg_acc_value, val_weighted_acc_value, predicted_y = val_step(
-                x_batch_val, y_batch_val, e_weight_val, model
+                x_batch_val, y_batch_val, e_weight_val, model, loss_function
             )
             val_loss_tracker.update_state(val_loss_value)
             val_reg_acc.update_state(val_reg_acc_value)
@@ -364,33 +388,40 @@ if __name__ == "__main__":
 
         val_true_labels = tf.convert_to_tensor(val_true_labels)
         val_predictions = tf.convert_to_tensor(val_predictions)
-        val_f1_score = keras.metrics.F1Score(threshold=OUTPUT_LAYER_SEGMENTATION_CUTOFF)
+
         val_f1_score.update_state(tf.expand_dims(val_true_labels, axis=-1), tf.expand_dims(val_predictions, axis=-1))
+        recall_metric.update_state(val_true_labels, val_predictions)
+        precision_metric.update_state(val_true_labels, val_predictions)
+
         val_f1 = val_f1_score.result().numpy()
+        precision = precision_metric.result().numpy()
+        recall = recall_metric.result().numpy()
 
         print(f"\n Validation F1 Score: {val_f1}")
         print(f"\nValidation loss: {val_loss_tracker.result():.4e}")
         print(f"\nTime taken for validation: {time.time() - start_time:.2f} sec")
 
-        if USE_WANDB:
-            wandb.log(
-                {
-                    "epoch": epoch,
-                    "train/loss": train_loss_tracker.result().numpy(),
-                    "train/accuracy": train_reg_acc.result().numpy(),
-                    "train/weighted_accuracy": train_weighted_acc.result().numpy(),
-                    "val/loss": val_loss_tracker.result().numpy(),
-                    "val/accuracy": val_reg_acc.result().numpy(),
-                    "val/weighted_accuracy": val_weighted_acc.result().numpy(),
-                    "learning_rate": optimizer.learning_rate.numpy(),
-                    "val/f1_score": val_f1,
-                    # "gradients": [tf.reduce_mean(tf.abs(grad)).numpy() for grad in grads],
-                    # "weights": [
-                    #     tf.reduce_mean(tf.abs(weight)).numpy()
-                    #     for weight in model.trainable_variables
-                    # ],
-                }
-            )
+        
+        wandb.log(
+            {
+                "epoch": epoch,
+                "train/loss": train_loss_tracker.result().numpy(),
+                "train/accuracy": train_reg_acc.result().numpy(),
+                "train/weighted_accuracy": train_weighted_acc.result().numpy(),
+                "val/loss": val_loss_tracker.result().numpy(),
+                "val/accuracy": val_reg_acc.result().numpy(),
+                "val/weighted_accuracy": val_weighted_acc.result().numpy(),
+                "learning_rate": optimizer.learning_rate.numpy(),
+                "val/f1_score": val_f1,
+                "val/recall": recall,
+                "val/precision": precision,
+                # "gradients": [tf.reduce_mean(tf.abs(grad)).numpy() for grad in grads],
+                # "weights": [
+                #     tf.reduce_mean(tf.abs(weight)).numpy()
+                #     for weight in model.trainable_variables
+                # ],
+            }
+        )
 
         # callbacks
         # lr_callback.on_epoch_end(epoch)
@@ -424,13 +455,46 @@ if __name__ == "__main__":
     model.save(last_checkpoint_path)
 
     # Log the best and last models to wandb
-    if USE_WANDB:
-        best_model_artifact = wandb.Artifact("best_baseline", type="model")
-        best_model_artifact.add_file(best_checkpoint_path)
-        wandb.log_artifact(best_model_artifact)
+    best_model_artifact = wandb.Artifact("best_baseline", type="model")
+    best_model_artifact.add_file(best_checkpoint_path)
+    wandb.log_artifact(best_model_artifact)
 
-        final_model_artifact = wandb.Artifact("last_epoch_baseline", type="model")
-        final_model_artifact.add_file(last_checkpoint_path)
-        wandb.log_artifact(final_model_artifact)
+    final_model_artifact = wandb.Artifact("last_epoch_baseline", type="model")
+    final_model_artifact.add_file(last_checkpoint_path)
+    wandb.log_artifact(final_model_artifact)
 
-        wandb.finish()
+    wandb.finish()
+
+
+def run_sweep():
+    sweep_configuration = {
+            "method": "random",
+            "metric": {"goal": "maximize", "name": "val/f1_score"},
+            "parameters": {
+                "loss_energy_weight_scheme": {"values": ["absolute", "square", "normalize", "standardize", "threshold"]},
+                "lr_max": {"max": 0.2, "min": 0.001}, 
+                "lr_min": {"max": 0.01, "min": 0.00001}, 
+                "lr_ramp_ep": {"max": 10, "min": 1}, 
+                "lr_sus_ep": {"max": 10, "min": 0},
+                "lr_decay": {"max": 1.0, "min": 0.01}
+                },
+            }
+    sweep_id = wandb.sweep(sweep=sweep_configuration, project="pointcloud")
+    if RUN_SWEEP:
+        # os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
+        os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID  # Set GPU
+        print(f"Running Sweep: {sweep_id}")
+        wandb.agent(sweep_id, function=main, count=200)
+    else:
+        # CUDA_VISIBLE_DEVICES=3 wandb agent 9bgjxxpe
+        # CUDA_VISIBLE_DEVICES=3 wandb agent --project pointcloud --entity caloqvae 4zn0zn7q
+        print("RUN ONE (OR MORE) OF THE FOLLOWING:", *[f"CUDA_VISIBLE_DEVICES={i} wandb agent {sweep_id}" for i in range(6)], sep="\n")
+
+if __name__ == "__main__":
+    if SWEEP:
+        run_sweep()
+    else:
+        if __name__ == "__main__":
+            # os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
+            os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID  # Set GPU
+        main()

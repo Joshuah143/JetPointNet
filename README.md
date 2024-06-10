@@ -42,3 +42,7 @@ A basic usage flow would be the following:
 
 This branch assumes the repository is located at HOME_PATH / workspace/jetpointnet.
 Also, raw data files are read from eos (namely */eos/home-m/mswiatlo/forLuca/*  and  */eos/home-m/mswiatlo/images/truthPerCell*), while derived files are stored inside the repo at `pnet_data/` folder and organised in subfolders.
+
+### Preprocessing dependency tree
+
+![](development/Dependancies.png)

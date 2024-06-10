@@ -275,11 +275,12 @@ def _pad_targets(y_true, y_pred, energies):
 """
 
 
-def masked_weighted_bce_loss(
+def masked_weighted_loss(
     y_true: tf.Tensor,
     y_pred: tf.Tensor,
     energies: tf.Tensor,
     fractional_energy_cutoff: float,
+    loss_function: tf.keras.losses.Loss,
     transform: None | str = None,
     energy_threshold: float = 0
 ):
@@ -336,20 +337,18 @@ def masked_weighted_bce_loss(
 
     y_pred_masked = y_pred * valid_mask
 
-    bce_function = keras.losses.BinaryCrossentropy(from_logits=False)  # NOTE: False for "sigmoid", True for "linear"
-
-    bce_loss = bce_function(
+    loss = loss_function(
         y_true_adjusted,
         y_pred_masked,
     )
 
-    bce_loss = tf.expand_dims(
-        bce_loss, axis=-1
+    loss = tf.expand_dims(
+        loss, axis=-1
     )  # Ensure BCE loss has the same [batch, points, 1] shape as others
 
     # Weighted binary cross-entropy loss, ensuring all dimensions match
     energies_times_mask = energies * valid_mask
-    weighted_bce_loss = bce_loss * energies_times_mask
+    weighted_loss = loss * energies_times_mask
 
     # Normalize the weighted BCE loss
     total_energy_weight = tf.reduce_sum(
@@ -358,12 +357,12 @@ def masked_weighted_bce_loss(
     total_num_points = tf.reduce_sum(
         valid_mask, axis=1, keepdims=True
     )  # Keep dimensions with 'keepdims'
-    normalized_bce_loss = (weighted_bce_loss / (total_num_points + 1)) / (
+    normalized_loss = (weighted_loss / (total_num_points + 1)) / (
         total_energy_weight + 1
     )
 
     # Combine the mean losses from both labels
-    return normalized_bce_loss
+    return normalized_loss
 
 
 """

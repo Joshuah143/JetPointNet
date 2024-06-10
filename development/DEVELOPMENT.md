@@ -10,6 +10,9 @@ TODO: Negative cell energy and its effects on `frac_label` deserve further explo
 
 # Todo: (Joshua)
 
+
+- Switch to the right Wandb project
+- Use Wandb like you are meant to 
 - Investigate Negative Energies
 - Add Delta R cut to train
 - Add to distribution file, get it to work
@@ -18,14 +21,13 @@ TODO: Negative cell energy and its effects on `frac_label` deserve further explo
 - Implement Hyper Parameter Search
 - Investigate Focal BCE loss function
 - Convert to simple `.fit()`
+- Move features to a meta_data array so that we can do comparative analysis of included vs excluded points and of the train, val, and test sets.
 
 # Bugs
 
 - Line 626 util functs: all associated tracks are given the label of `1`. This seems like a mistake, but it doesn't really matter since we dont carry it through to the training data.
 
 - Very low priority, but the awk arrays have really hard to read naming with a mix of Id, ID, and other confusing names
-
-- `LR` gets overwritten in `jets_train` because of the `CustomLRScheduler`
 
 - If the chunk size is small then is increased, the files originally created will not be overwritten causing data duplication
 

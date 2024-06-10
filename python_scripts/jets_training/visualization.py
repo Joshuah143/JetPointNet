@@ -50,9 +50,7 @@ from jets_training.jets_train import (
     OUTPUT_LAYER_SEGMENTATION_CUTOFF,
     EXPERIMENT_NAME
 )
-from data_processing.jets.preprocessing_header import NPZ_SAVE_LOC, AWK_SAVE_LOC
-from data_processing.jets.util_functs import POINT_TYPE_ENCODING
-
+from data_processing.jets.preprocessing_header import NPZ_SAVE_LOC, AWK_SAVE_LOC, POINT_TYPE_ENCODING
 
 # there is an issue that these are needed
 import warnings
@@ -81,11 +79,12 @@ USE_BINARY_ATTRIBUTION_MODEL = True
 USE_BINARY_ATTRIBUTION_TRUTH = True
 RENDER_IMAGES = True
 USE_TRUTH_E = False
-MAX_WINDOWS = 3 # can take -1 for all 
+MAX_WINDOWS = 0 # can take -1 for all 
 INCLUDED_DATASETS = ['VAL'] # , 'VAL', 'TRAIN']
 
 
-model_path = last_checkpoint_path
+model_path = best_checkpoint_path
+print(f"Using: {model_path}")
 
 model = PointNetSegmentation(MAX_SAMPLE_LENGTH, 
                              num_features=len(TRAIN_INPUTS), 
@@ -225,7 +224,7 @@ for data_file in sum([glob.glob(os.path.join(NPZ_SAVE_LOC / i.lower(), "*.npz"))
             'recall_score': metrics.recall_score(y_true, y_pred),
             'f1_score': metrics.f1_score(y_true, y_pred),
             'hamming_loss': metrics.hamming_loss(y_true, y_pred),
-            # assorted, less useful stats, could delete? All cause errors 
+            # assorted, less useful stats, could delete?
             'false_positive_rate': fp/negative if negative != 0 else 0,
             'false_negative_rate': fn/positive if positive != 0 else 0,
             'true_positive_rate': tp/positive if positive != 0 else 0,
@@ -234,9 +233,17 @@ for data_file in sum([glob.glob(os.path.join(NPZ_SAVE_LOC / i.lower(), "*.npz"))
             'false_discovery_rate': fp/predicted_positive if predicted_positive != 0 else 0,
             'false_omission_rate': fn/predicted_negative if predicted_negative != 0 else 0,
             'negative_predictive_value': tn/predicted_negative if predicted_negative != 0 else 0,
-            'threat_score': tp/(tp+fn+fp),
+            'threat_score': tp/(tp+fn+fp) if tp+fn+fp != 0 else 0,
             #potential to add data from awk files like PDG ID, Chi^2/dof
         }
+
+        # model performace
+        """
+        denisty - number of other track
+        pt
+        eta
+        delta r to nearest track 
+        """
 
         metadata_list.append(track_information)
 
@@ -311,79 +318,127 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     metadata = pd.DataFrame(metadata_list)
     metadata.to_csv(HIST_PATH / "metadata.csv")
     total_cells_in_set = sum(metadata['n_cells'])
+
+
     number_of_tracks_in_set = len(metadata)
 
-    #x_bounds = (min(flat_model), max(flat_model))  # min and max for x-axis
-    #y_bounds = (0, 1)  # min and max for y-axis
+    mask = np.array(metadata['track_pt']) > 3
+    mask_name = "pt > 0.5"
 
-    print("Generating Hists")
-    plt.hist2d(metadata['truth_attributions'], metadata['model_attributions'], bins=50, cmap='viridis', norm=LogNorm()) # range=[x_bounds, y_bounds]
-    plt.colorbar(label='Counts')
-
-    # Labels and title
-    plt.xlabel('Truth activations')
-    plt.ylabel('Model activations')
-    plt.title(f'Truth to Model activations with nCells={total_cells_in_set}, nTracks={number_of_tracks_in_set}\n Including: {INCLUDED_DATASETS}')
-
-    # Save the plot to a file
-    print('saving model_activation_hist to', HIST_PATH / 'model_activation_hist.png')
-    plt.savefig(HIST_PATH / 'model_activation_hist.png', dpi=500)
+    plt.title(f'Metadata Mask Hist')
+    plt.hist(metadata['track_pt'], bins=50, label="track_pt")
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.yscale('log')
+    print('saving cell_rate_truth_activation_hist to', HIST_PATH / 'cell_rate_truth_activation_hist.png')
+    plt.savefig(HIST_PATH / 'mask_hist.png', dpi=500)
     plt.clf()
 
-    # generate second hist
+    number_of_tracks_after_mask = np.sum(mask)
+    
+    print("Generating Hists")
+
+    # might want to try using density=True to make this hists simpler to see
+
+
+    plt.title(f'Truth to Model activations with nTracks={number_of_tracks_in_set}\n Including: {INCLUDED_DATASETS}')
+    plt.hist2d(metadata['truth_attributions'], metadata['model_attributions'], bins=50, cmap='viridis', norm=LogNorm()) # range=[x_bounds, y_bounds]
+    plt.colorbar(label='Counts')
+    plt.xlabel('Truth activations')
+    plt.ylabel('Model activations')
+    print('saving model_activation_hist to', HIST_PATH / 'raw_model_activation_hist.png')
+    plt.savefig(HIST_PATH / 'raw_model_activation_hist.png', dpi=500)
+    plt.clf()
+
+    plt.title(f'Truth to Model activations with nTracks={number_of_tracks_after_mask}\n Including: {INCLUDED_DATASETS} where {mask_name}')
+    plt.hist2d(np.array(metadata['truth_attributions'])[mask], np.array(metadata['model_attributions'])[mask], bins=50, cmap='viridis', norm=LogNorm()) # range=[x_bounds, y_bounds]
+    plt.colorbar(label='Counts')
+    plt.xlabel('Truth activations')
+    plt.ylabel('Model activations')
+    print('saving model_activation_hist to', HIST_PATH / 'masked_model_activation_hist.png')
+    plt.savefig(HIST_PATH / 'masked_model_activation_hist.png', dpi=500)
+    plt.clf()
+
+    plt.title(f'Model activations to number of cells with nTracks={number_of_tracks_in_set}\n Including: {INCLUDED_DATASETS}')
     plt.hist2d(metadata['n_cells'], metadata['model_attributions'], bins=50, cmap='viridis', norm=LogNorm()) # range=[x_bounds, y_bounds]
     plt.colorbar(label='Counts')
-
-    # Labels and title
     plt.xlabel('Number of cells')
     plt.ylabel('Model activations')
-    plt.title(f'Model activations to number of cells with nCells={total_cells_in_set}, nTracks={number_of_tracks_in_set}\n Including: {INCLUDED_DATASETS}')
-
-    # Save the plot to a file
     print('saving cell_to_activation_hist to', HIST_PATH / 'cell_to_activation_hist.png')
     plt.savefig(HIST_PATH / 'cell_to_activation_hist.png', dpi=500)
     plt.clf()
 
+    plt.title(f'Model activations to number of cells with nTracks={number_of_tracks_after_mask}\n Including: {INCLUDED_DATASETS} where {mask_name}')
+    plt.hist2d(np.array(metadata['n_cells'])[mask], np.array(metadata['model_attributions'])[mask], bins=50, cmap='viridis', norm=LogNorm()) # range=[x_bounds, y_bounds]
+    plt.colorbar(label='Counts')
+    plt.xlabel('Number of cells')
+    plt.ylabel('Model activations')
+    print('saving cell_to_activation_hist to', HIST_PATH / 'cell_to_activation_hist.png')
+    plt.savefig(HIST_PATH / 'cell_to_activation_hist.png', dpi=500)
+    plt.clf()
 
+    # Plot the unmasked confusion matrix using seaborn
+    tp_unmasked = sum(metadata['num_true_positives'])
+    fp_unmasked = sum(metadata['num_false_positives'])
+    tn_unmasked = sum(metadata['num_true_negatives'])
+    fn_unmasked = sum(metadata['num_false_negatives'])
 
-    # Plot the confusion matrix using seaborn
-    tp = sum(metadata['num_true_positives'])
-    fp = sum(metadata['num_false_positives'])
-    tn = sum(metadata['num_true_negatives'])
-    fn = sum(metadata['num_false_negatives'])
+    print(f"Full unmasked F1 score: {(2 * tp_unmasked)/(2*tp_unmasked+fp_unmasked+fn_unmasked)}")
 
-    print(f"Full F1 score: {(2 * tp)/(2*tp+fp+fn)}")
-
-    confusion_matrix = np.array([[tp, fp], [fn, tn]])
+    confusion_matrix_unmasked = np.array([[tp_unmasked, fp_unmasked], [fn_unmasked, tn_unmasked]])
     
-    sns.heatmap(confusion_matrix, annot=True, fmt='d', cmap='Blues', cbar=False,
+    sns.heatmap(confusion_matrix_unmasked, annot=True, fmt='d', cmap='Blues', cbar=False,
                 xticklabels=['Predicted Positive', 'Predicted Negative'],
                 yticklabels=['Actual Positive', 'Actual Negative'])
     plt.xlabel('Predicted')
     plt.ylabel('Actual')
-    plt.title('Confusion Matrix')
+    plt.title('Unmasked Confusion Matrix')
     plt.savefig(HIST_PATH / 'confusion_matrix.png', dpi=500)
     plt.clf()
 
-    # Third Hist
-    plt.hist(metadata['accuracy'], bins=50)
-    plt.title(f'Accuracy per track with nCells={total_cells_in_set}, nTracks={number_of_tracks_in_set}\n Including: {INCLUDED_DATASETS}')
+    # Plot the masked confusion matrix using seaborn
+    tp_masked = sum(np.array(metadata['num_true_positives'])[mask])
+    fp_masked = sum(np.array(metadata['num_false_positives'])[mask])
+    tn_masked = sum(np.array(metadata['num_true_negatives'])[mask])
+    fn_masked = sum(np.array(metadata['num_false_negatives'])[mask])
+
+    print(f"Full masked F1 score: {(2 * tp_masked)/(2*tp_masked+fp_masked+fn_masked)}")
+
+    confusion_matrix_masked = np.array([[tp_masked, fp_masked], [fn_masked, tn_masked]])
+    
+    sns.heatmap(confusion_matrix_masked, annot=True, fmt='d', cmap='Blues', cbar=False,
+                xticklabels=['Predicted Positive', 'Predicted Negative'],
+                yticklabels=['Actual Positive', 'Actual Negative'])
+    plt.xlabel('Predicted')
+    plt.ylabel('Actual')
+    plt.title(f'Masked Confusion Matrix where {mask_name}')
+    plt.savefig(HIST_PATH / 'confusion_matrix.png', dpi=500)
+    plt.clf()
+
+
+    plt.title(f'Accuracy per track with nTracksMasked={number_of_tracks_after_mask}\n nTracksUnmasked={number_of_tracks_in_set} where {mask_name} Including: {INCLUDED_DATASETS}')
+    data = metadata['accuracy']
+    data_arr = [data, data[mask]]
+    labels = ["Unmasked", "Masked"]
+    plt.hist(data_arr, bins=50, label=labels, histtype='step', stacked=True, fill=False)
     print('saving cell_accuracy_hist to', HIST_PATH / 'cell_accuracy_hist.png')
+    plt.legend()
     plt.savefig(HIST_PATH / 'cell_accuracy_hist.png', dpi=500)
     plt.clf()
 
-    # Third Hist (part 2) -- need better naming
-    plt.hist(metadata['f1_score'], bins=50)
-    plt.title(f'F1 score per track with nCells={total_cells_in_set}, nTracks={number_of_tracks_in_set}\n Including: {INCLUDED_DATASETS}')
+    plt.title(f'F1 score per track with nTracks={number_of_tracks_in_set}\n nTracksUnmasked={number_of_tracks_in_set} where {mask_name} Including: {INCLUDED_DATASETS}')
+    data = metadata['f1_score']
+    data_arr = [data, data[mask]]
+    labels = ["Unmasked", "Masked"]
+    plt.hist(data_arr, bins=50, label=labels, histtype='step', stacked=True, fill=False)
     print('saving cell_f1_hist to', HIST_PATH / 'cell_f1_hist.png')
+    plt.legend()
     plt.yscale('log')
     plt.savefig(HIST_PATH / 'cell_f1_hist.png', dpi=500)
     plt.clf()
 
-    # Fourth hist
+    plt.title(f'Cell attribution rates per track with nTracks={number_of_tracks_in_set}\n Including: {INCLUDED_DATASETS}')
     rates = [metadata['false_positive_rate'], metadata['false_negative_rate'], metadata['true_positive_rate'], metadata['true_negative_rate']]
     labels = ['False Positive Rate', 'False Negative Rate', 'True Positive Rate', 'True Negative Rate']
-    plt.title(f'Cell attribution rates per track with nCells={total_cells_in_set}, nTracks={number_of_tracks_in_set}\n Including: {INCLUDED_DATASETS}')
     plt.hist(rates, label=labels, bins=50, histtype='step', stacked=True, fill=False)
     plt.grid(axis='y', linestyle='--', alpha=0.7)
     plt.yscale('log')
@@ -393,9 +448,9 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     plt.clf()
     
     # Fifth Hist
+    plt.title(f'Cell attribution rates per track with nTracks={number_of_tracks_in_set}\n Including: {INCLUDED_DATASETS}')
     rates = [metadata['positive_predictive_value'], metadata['false_discovery_rate'], metadata['false_omission_rate'], metadata['negative_predictive_value']]
     labels = ['Positive Predictive Value', 'False Discovery Rate', 'False Omission Rate', 'Negative Predictive Value']
-    plt.title(f'Cell attribution rates per track with nCells={total_cells_in_set}, nTracks={number_of_tracks_in_set}\n Including: {INCLUDED_DATASETS}')
     plt.hist(rates, label=labels, bins=50, histtype='step', stacked=True, fill=False)
     plt.grid(axis='y', linestyle='--', alpha=0.7)
     plt.yscale('log')
@@ -404,17 +459,18 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     plt.savefig(HIST_PATH / 'cell_predictive_values_hist.png', dpi=500)
     plt.clf()
 
-    # sixth hist
-    plt.title(f'Percent Truth Activation with nCells={total_cells_in_set}, nTracks={number_of_tracks_in_set}\n Including: {INCLUDED_DATASETS}')
-    plt.hist(metadata['rate_truth_activations'], bins=50, histtype='step', stacked=True, fill=False)
+
+    plt.title(f'Percent Truth Activation with nTracks={number_of_tracks_in_set}\n nTracksUnmasked={number_of_tracks_in_set} where {mask_name} Including: {INCLUDED_DATASETS}')
+    data = metadata['rate_truth_activations']
+    data_arr = [data, data[mask]]
+    labels = ["Unmasked", "Masked"]
+    plt.hist(data_arr, bins=50, label=labels, histtype='step', stacked=True, fill=False)
+    plt.legend()
     plt.grid(axis='y', linestyle='--', alpha=0.7)
     plt.yscale('log')
-    #plt.ylabel('Percent of partial')
     print('saving cell_rate_truth_activation_hist to', HIST_PATH / 'cell_rate_truth_activation_hist.png')
     plt.savefig(HIST_PATH / 'cell_rate_truth_activation_hist.png', dpi=500)
     plt.clf()
 
-    
 
-    print(f"Processed nCells={total_cells_in_set}, nTracks={number_of_tracks_in_set}")
-
+    print(f"Processed nTracks={number_of_tracks_in_set}")

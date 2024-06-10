@@ -34,7 +34,7 @@ if USER == "jhimmens":
     # OUTPUT_DIRECTORY_NAME = "ttbar"
     OUTPUT_DIRECTORY_NAME = "2000_events_w_fixed_hits/"
     # DATASET_NAME = "benchmark"
-    DATASET_NAME = "raw"
+    DATASET_NAME = "large_R"
     FILE_LOC = "/fast_scratch_1/atlas/pflow/mltree_2000_fixedHits.root"
     GEO_FILE_LOC = "/fast_scratch_1/atlas/pflow/rho_small.root"
     ENERGY_SCALE = 1000
@@ -57,10 +57,12 @@ elif USER == "luclissa":
 else:
     raise Exception("UNKOWN USER")
 
+POINT_TYPE_LABELS = {0: "focus hit", 1: "cell", 2: "unfocus hit", -1: "padding"}
+POINT_TYPE_ENCODING = {v: k for k, v in POINT_TYPE_LABELS.items()}
 
 DEBUG_NUM_EVENTS_TO_USE = None
 UPROOT_MASK_VALUE_THRESHOLD = -100_000
-MAX_DISTANCE = 0.1 # could potentially go up to about 0.5 as a hard max
+MAX_DISTANCE = 0.2 # could potentially go up to about 0.5 as a hard max
 
 # Path to the ROOT file containing jet events
 
