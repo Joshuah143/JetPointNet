@@ -33,7 +33,7 @@ from data_processing.jets.preprocessing_header import (
     NPZ_SAVE_LOC,
     NUM_CHUNK_THREADS,
 )
-from python_scripts.data_processing.jets.old_util_functs import get_split
+from python_scripts.data_processing.jets.common_utils import get_split
 import wandb
 import plotly.express as px
 import plotly.graph_objects as go
@@ -540,7 +540,7 @@ for data_dir, split in tqdm(zip([TRAIN_DIR, VAL_DIR], ["train", "val"]), leave=T
             axis=2,
         )
         # only non-padding points
-        hits_mask = feats[TRAIN_INPUTS] != -1
+        hits_mask = feats["category"] != -1
         target_mask = targets[:, :, 0] != -1
 
         # TODO: add point-type information
