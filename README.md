@@ -45,4 +45,4 @@ Also, raw data files are read from eos (namely */eos/home-m/mswiatlo/forLuca/*  
 
 ### Preprocessing dependency tree
 
-![](development/Dependancies.png)
+![](development/Dependencies.png)
