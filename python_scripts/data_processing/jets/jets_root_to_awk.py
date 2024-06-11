@@ -15,7 +15,8 @@ sys.path.append(str(SCRIPT_PATH))
 
 
 from data_processing.jets.preprocessing_header import *
-from data_processing.jets.util_functs import *
+from data_processing.jets.awk_utils import *
+from data_processing.jets.common_utils import *
 
 
 def split_and_save_to_disk(processed_data, base_filename):
