@@ -50,7 +50,7 @@ elif USER == "luclissa":
     OUTPUT_DIRECTORY_NAME = "benchmark"  # or "raw": NOTE: for tests change this
     FILE_LOC = "/eos/home-m/mswiatlo/forLuca/mltree_large.root"
     GEO_FILE_LOC = "/eos/home-m/mswiatlo/images/truthPerCell/cell_geo.root"
-    ENERGY_SCALE = 1000
+    ENERGY_SCALE = 1
 # ============================
 else:
     raise Exception("UNKOWN USER")
