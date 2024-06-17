@@ -219,7 +219,6 @@ def add_track_intersection_info(tracks_sample, track_idx, track_eta, track_phi):
         tracks_sample.real(eta)
         tracks_sample.field("phi")
         tracks_sample.real(phi)
-        tracks_sample.field("Label").real(1)
         tracks_sample.end_record()  # End the record for this intersection point
     tracks_sample.end_list()  # End list of intersection points
 
@@ -444,7 +443,6 @@ def process_associated_tracks(
                 tracks_sample.field("Z").real(z)
                 tracks_sample.field("delta_R_adj").real(delta_r_adj) # same for all layers
                 tracks_sample.field("distance_to_track").real(min_distance_to_focal)
-                tracks_sample.field("Label").real(0)
                 tracks_sample.end_record()
 
             tracks_sample.end_list()
