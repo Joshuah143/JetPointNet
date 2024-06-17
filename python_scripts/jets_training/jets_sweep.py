@@ -16,8 +16,8 @@ sys.path.append(str(SCRIPT_PATH))
 
 import os
 import wandb
-from jets_training.jets_train import train, GPU_ID
-
+from jets_training.jets_train import train, GPU_ID, USER
+RUN_SWEEP = False
 
 os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID
 WANDB_PROJECT = "pointcloud"
@@ -56,4 +56,14 @@ sweep_id = wandb.sweep(
 
 # Do not delete, this is the command to run a parallel sweep:
 # CUDA_VISIBLE_DEVICES=5 wandb agent -p pointcloud -e jetpointnet SWEEP_ID
-wandb.agent(sweep_id, function=train)
+if RUN_SWEEP:
+    wandb.agent(sweep_id, function=train)
+else:
+    print("Copy one (or more) of the following into a terminal:")
+    for i in range(6):
+        match USER:
+            case "luclissa":
+                print(f"CUDA_VISIBLE_DEVICES={i} wandb agent -p pointcloud -e jetpointnet {sweep_id}")
+            case "jhimmens":
+                print(f"cd ~/workspace/jetpointnet && CUDA_VISIBLE_DEVICES={i} wandb agent -p pointcloud -e jetpointnet {sweep_id}")
+
