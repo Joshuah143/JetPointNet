@@ -277,6 +277,7 @@ def _pad_targets(y_true, y_pred, energies):
 """
 
 
+@tf.autograph.experimental.do_not_convert
 def masked_weighted_loss(
     y_true: tf.Tensor,
     y_pred: tf.Tensor,
