@@ -74,11 +74,9 @@ experiment_configuration = dict(
     SPLIT_SEED=62,
     TF_SEED=np.random.randint(0, 100),
     MAX_SAMPLE_LENGTH=MAX_SAMPLE_LENGTH,  # 278 for delta R of 0.1, 859 for 0.2
-    BATCH_SIZE=256,
+    BATCH_SIZE=480,
     EPOCHS=100,
-    LR=0.1,
-    LR_DECAY=0.05,
-    LR_BETA1=0.98,
+    LR_BETA1=0.9,
     LR_BETA2=0.999,
     ES_PATIENCE=15,
     EARLY_STOPPING=True,
@@ -87,12 +85,13 @@ experiment_configuration = dict(
     OUTPUT_ACTIVATION_FUNCTION="sigmoid", # softmax, linear (requires changes to the BCE fucntion in the loss function)
     FRACTIONAL_ENERGY_CUTOFF=0.5,
     OUTPUT_LAYER_SEGMENTATION_CUTOFF=0.5,
+    LOSS_FUNCTION="BCE",
     # POTENTIALLY OVERWRITTEN BY THE WANDB SWEEP:
-    # LR_MAX=0.000015,
-    # LR_MIN=1e-5,
-    # LR_RAMP_EP=2,
-    # LR_SUS_EP=10,
-    # LR_DECAY=0.7,
+    LR_MAX=0.000015,
+    LR_MIN=1e-5,
+    LR_RAMP_EP=2,
+    LR_SUS_EP=10,
+    LR_DECAY=0.7,
     METRIC="val/f1_score",
     MODE="max",
 )
@@ -298,12 +297,21 @@ def train():
             output_activation=config.OUTPUT_ACTIVATION_FUNCTION,
         )
 
-        optimizer = tf.keras.optimizers.legacy.Adam(
-            learning_rate=config.LR,
+        optimizer = tf.keras.optimizers.Adam(
             beta_1=config.LR_BETA1,
             beta_2=config.LR_BETA2,
-            decay=config.LR_DECAY,
         )
+
+        lr_callback = CustomLRScheduler(
+            optim_lr=optimizer.learning_rate,
+            lr_max=config.LR_MAX, # 0.000015 * train_steps * BATCH_SIZE,
+            lr_min=config.LR_MIN, #1e-7,
+            lr_ramp_ep=config.LR_RAMP_EP, #2,
+            lr_sus_ep=config.LR_SUS_EP, #0,
+            lr_decay=config.LR_DECAY, #0.7,
+            verbose=1,
+        )
+
 
         train_loss_tracker = tf.metrics.Mean(name="train_loss")
         train_reg_acc = tf.metrics.Mean(name="train_regular_accuracy")
@@ -319,9 +327,19 @@ def train():
             thresholds=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF
         )
 
-        loss_function = tf.keras.losses.BinaryCrossentropy(
-            from_logits=False
-        )  # NOTE: False for "sigmoid", True for "linear"
+
+        match config.LOSS_FUNCTION:
+            case "BCE":
+                loss_function = tf.keras.losses.BinaryCrossentropy(
+                    from_logits=False
+                )
+            case "FocalBCE":
+                loss_function = tf.keras.losses.BinaryFocalCrossentropy(
+                    from_logits=False
+                )
+            case _:
+                raise Exception("Undefined Loss Function")
+        
         val_f1_score = tf.keras.metrics.F1Score(
             threshold=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF
         )
@@ -365,7 +383,7 @@ def train():
             start_time = time.time()
 
             # update LR with scheduler
-            # lr_callback.on_epoch_begin(epoch)
+            lr_callback.on_epoch_begin(epoch)
 
             train_loss_tracker.reset_state()
             train_reg_acc.reset_state()
@@ -491,7 +509,7 @@ def train():
             )
 
             # callbacks
-            # lr_callback.on_epoch_end(epoch)
+            lr_callback.on_epoch_end(epoch)
 
             # discard first epochs to trigger callbacks
             if epoch > 5 & (val_weighted_acc.result().numpy() < 1):

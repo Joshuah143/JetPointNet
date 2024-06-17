@@ -28,12 +28,23 @@ sweep_configuration = {
     "method": "bayes",
     "metric": {"goal": "maximize", "name": "val/f1_score"},
     "parameters": {
-        "LR": {"distribution": "uniform", "min": 0.0001, "max": 0.1},
         "BATCH_SIZE": {
             "distribution": "q_log_uniform_values",
             "min": 32,
-            "max": 512,
+            "max": 1024,
         },
+        "LOSS_FUNCTION": {"values": ["BCE", "FocalBCE"]},
+        "LOSS_ENERGY_WEIGHTING": {"values": ["absolute", 
+                                             "square", 
+                                             "normalize", 
+                                             "standardize", 
+                                             "threshold", 
+                                             "none"]},
+        "LR_MAX": {"max": 0.2, "min": 0.001}, 
+        "LR_MIN": {"max": 0.01, "min": 0.00001}, 
+        "LR_RAMP_EP": {"max": 10, "min": 1}, 
+        "LR_SUS_EP": {"max": 10, "min": 0},
+        "LR_DECAY": {"max": 1.0, "min": 0.01}
     },
 }
 
@@ -43,5 +54,6 @@ sweep_id = wandb.sweep(
     # description="Learning rate and batch size sweep.",
 )
 
-# CUDA_VISIBLE_DEVICES=5 wandb agent -p pointcloud -e jetpointnet k26j2xrm
-wandb.agent(sweep_id, function=train, count=100)
+# Do not delete, this is the command to run a parallel sweep:
+# CUDA_VISIBLE_DEVICES=5 wandb agent -p pointcloud -e jetpointnet SWEEP_ID
+wandb.agent(sweep_id, function=train)
