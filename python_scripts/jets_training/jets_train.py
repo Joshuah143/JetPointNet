@@ -49,10 +49,12 @@ if USER == "jhimmens":
     OUTPUT_DIRECTORY_NAME = "2000_events_w_fixed_hits"
     DATASET_NAME = "large_R"
     GPU_ID = "1"
+    USER_BATCH_SIZE = 1000
 elif USER == "luclissa":
     OUTPUT_DIRECTORY_NAME = "ttbar"
     DATASET_NAME = "benchmark"
     GPU_ID = "0"
+    USER_BATCH_SIZE = 256
     os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 else:
     raise Exception("UNKOWN USER")
@@ -73,15 +75,16 @@ experiment_configuration = dict(
     TF_SEED=np.random.randint(0, 100),
     MAX_SAMPLE_LENGTH=MAX_SAMPLE_LENGTH,  # 278 for delta R of 0.1, 859 for 0.2
     BATCH_SIZE=256,
-    EPOCHS=2,
+    EPOCHS=100,
     LR=0.1,
     LR_DECAY=0.05,
     LR_BETA1=0.98,
     LR_BETA2=0.999,
     ES_PATIENCE=15,
+    EARLY_STOPPING=True,
     ACC_ENERGY_WEIGHTING="square",
     LOSS_ENERGY_WEIGHTING="square",
-    OUTPUT_ACTIVATION_FUNCTION="sigmoid",  # softmax, linear (requires changes to the BCE fucntion in the loss function)
+    OUTPUT_ACTIVATION_FUNCTION="sigmoid", # softmax, linear (requires changes to the BCE fucntion in the loss function)
     FRACTIONAL_ENERGY_CUTOFF=0.5,
     OUTPUT_LAYER_SEGMENTATION_CUTOFF=0.5,
     # POTENTIALLY OVERWRITTEN BY THE WANDB SWEEP:
@@ -215,9 +218,9 @@ def _setup_model(
 #     )
 
 
-def train(config=None):
+def train():
     with wandb.init(
-        project="pointcloud-test", config=config, job_type="training"
+        project="pointcloud-test", config=experiment_configuration, job_type="training"
     ) as run:
         config = wandb.config
 
@@ -295,7 +298,7 @@ def train(config=None):
             output_activation=config.OUTPUT_ACTIVATION_FUNCTION,
         )
 
-        optimizer = tf.keras.optimizers.Adam(
+        optimizer = tf.keras.optimizers.legacy.Adam(
             learning_rate=config.LR,
             beta_1=config.LR_BETA1,
             beta_2=config.LR_BETA2,
@@ -344,6 +347,7 @@ def train(config=None):
             verbose=1,
         )
         early_stopping_callback.set_model(model)
+        early_stopping_callback.on_train_begin()
 
         # Learning Rate Scheduler
         # lr_callback = CustomLRScheduler(
@@ -461,11 +465,7 @@ def train(config=None):
             recall_metric.update_state(val_true_labels, val_predictions)
             precision_metric.update_state(val_true_labels, val_predictions)
 
-            val_f1 = val_f1_score.result().numpy()
-            precision = precision_metric.result().numpy()
-            recall = recall_metric.result().numpy()
-
-            print(f"\n Validation F1 Score: {val_f1}")
+            print(f"\nValidation F1 Score: {val_f1_score.result().numpy()[0]}")
             print(f"\nValidation loss: {val_loss_tracker.result():.4e}")
             print(f"\nTime taken for validation: {time.time() - start_time:.2f} sec")
 
@@ -479,9 +479,9 @@ def train(config=None):
                     "val/accuracy": val_reg_acc.result().numpy(),
                     "val/weighted_accuracy": val_weighted_acc.result().numpy(),
                     "learning_rate": optimizer.learning_rate.numpy(),
-                    "val/f1_score": val_f1,
-                    "val/recall": recall,
-                    "val/precision": precision,
+                    "val/f1_score": val_f1_score.result().numpy()[0],
+                    "val/recall": recall_metric.result().numpy(),
+                    "val/precision": precision_metric.result().numpy(),
                     # "gradients": [tf.reduce_mean(tf.abs(grad)).numpy() for grad in grads],
                     # "weights": [
                     #     tf.reduce_mean(tf.abs(weight)).numpy()
@@ -502,9 +502,9 @@ def train(config=None):
                         "val_loss": val_loss_tracker.result(),
                         "val/accuracy": val_reg_acc.result(),
                         "val_weighted_accuracy": val_weighted_acc.result(),
-                        "val/f1_score": val_f1,
-                        "val/recall": recall,
-                        "val/precision": precision,
+                        "val/f1_score": val_f1_score.result().numpy()[0],
+                        "val/recall": recall_metric.result().numpy(),
+                        "val/precision": precision_metric.result().numpy(),
                     },
                 )
                 early_stopping_callback.on_epoch_end(
@@ -513,9 +513,9 @@ def train(config=None):
                         "val_loss": val_loss_tracker.result(),
                         "val/accuracy": val_reg_acc.result(),
                         "val_weighted_accuracy": val_weighted_acc.result(),
-                        "val/f1_score": val_f1,
-                        "val/recall": recall,
-                        "val/precision": precision,
+                        "val/f1_score": val_f1_score.result().numpy()[0],
+                        "val/recall": recall_metric.result().numpy(),
+                        "val/precision": precision_metric.result().numpy(),
                     },
                 )
                 if early_stopping_callback.stopped_epoch > 0:
@@ -543,4 +543,4 @@ if __name__ == "__main__":
     #     "tf_seed": np.random.randint(0, 100),  # TF_SEED
     #     "BATCH_SIZE": BATCH_SIZE,
     # }
-    train(experiment_configuration)
+    train()
