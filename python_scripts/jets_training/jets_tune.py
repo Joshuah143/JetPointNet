@@ -4,7 +4,7 @@ import os
 import glob
 import math
 import time
-from models.JetPointNet import PointNetSegmentation, masked_weighted_bce_loss, masked_regular_accuracy, masked_weighted_accuracy
+from models.JetPointNet import PointNetSegmentation, masked_weighted_loss, masked_regular_accuracy, masked_weighted_accuracy
 
 os.environ['CUDA_VISIBLE_DEVICES'] = "3"  # Set GPU
 
@@ -52,7 +52,7 @@ val_steps = calculate_steps(VAL_DIR, BATCH_SIZE)
 def train_step(x, y, model, optimizer):
     with tf.GradientTape() as tape:
         predictions = model(x, training=True)
-        loss = masked_weighted_bce_loss(y, predictions[0], predictions[1])
+        loss = masked_weighted_loss(y, predictions[0], predictions[1])
         reg_acc = masked_regular_accuracy(y, predictions[0], predictions[1])
         weighted_acc = masked_weighted_accuracy(y, predictions[0], predictions[1])
     grads = tape.gradient(loss, model.trainable_variables)
@@ -62,7 +62,7 @@ def train_step(x, y, model, optimizer):
 #@tf.function
 def val_step(x, y, model):
     predictions = model(x, training=False)
-    v_loss = masked_weighted_bce_loss(y, predictions[0], predictions[1])
+    v_loss = masked_weighted_loss(y, predictions[0], predictions[1])
     reg_acc = masked_regular_accuracy(y, predictions[0], predictions[1])
     weighted_acc = masked_weighted_accuracy(y, predictions[0], predictions[1])
     return v_loss, reg_acc, weighted_acc

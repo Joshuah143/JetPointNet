@@ -23,7 +23,6 @@ HAS_FIXED_R, FIXED_R, FIXED_Z = (
 # ===== FIELDS TO CHANGE =====
 USER = Path.home().name
 if USER == "jhimmens":
-    FRACTIONAL_ENERGY_CUTOFF = 0.5
     add_tracks_as_labels = False
     NUM_EVENTS_PER_CHUNK = 200
     TRAIN_SPLIT_RATIO = 0.55
@@ -35,11 +34,11 @@ if USER == "jhimmens":
     # OUTPUT_DIRECTORY_NAME = "ttbar"
     OUTPUT_DIRECTORY_NAME = "2000_events_w_fixed_hits/"
     # DATASET_NAME = "benchmark"
-    DATASET_NAME = "raw"
+    DATASET_NAME = "large_R"
     FILE_LOC = "/fast_scratch_1/atlas/pflow/mltree_2000_fixedHits.root"
     GEO_FILE_LOC = "/fast_scratch_1/atlas/pflow/rho_small.root"
+    ENERGY_SCALE = 1000
 elif USER == "luclissa":
-    FRACTIONAL_ENERGY_CUTOFF = 0.5
     add_tracks_as_labels = False
     NUM_EVENTS_PER_CHUNK = 200
     TRAIN_SPLIT_RATIO = 0.55
@@ -51,14 +50,17 @@ elif USER == "luclissa":
     OUTPUT_DIRECTORY_NAME = "benchmark"  # or "raw": NOTE: for tests change this
     FILE_LOC = "/eos/home-m/mswiatlo/forLuca/mltree_large.root"
     GEO_FILE_LOC = "/eos/home-m/mswiatlo/images/truthPerCell/cell_geo.root"
+    ENERGY_SCALE = 1000
 # ============================
 else:
     raise Exception("UNKOWN USER")
 
+POINT_TYPE_LABELS = {0: "focus hit", 1: "cell", 2: "unfocus hit", -1: "padding"}
+POINT_TYPE_ENCODING = {v: k for k, v in POINT_TYPE_LABELS.items()}
 
 DEBUG_NUM_EVENTS_TO_USE = None
 UPROOT_MASK_VALUE_THRESHOLD = -100_000
-MAX_DISTANCE = 0.1
+MAX_DISTANCE = 0.2  # could potentially go up to about 0.5 as a hard max
 
 # Path to the ROOT file containing jet events
 
@@ -86,4 +88,5 @@ NPZ_SAVE_LOC = (
     / OUTPUT_DIRECTORY_NAME
     / "SavedNpz"
     / f"deltaR={MAX_DISTANCE}"
+    / f"{ENERGY_SCALE=}".lower()
 )

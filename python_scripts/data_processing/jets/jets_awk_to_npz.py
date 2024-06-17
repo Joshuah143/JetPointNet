@@ -7,16 +7,19 @@ SCRIPT_PATH = REPO_PATH / "python_scripts"
 sys.path.append(str(SCRIPT_PATH))
 
 
-from data_processing.jets.util_functs import (
+from data_processing.jets.npz_utils import (
+    build_labels_array,
+    build_input_array
+)
+from data_processing.jets.common_utils import (
     print_events,
     calculate_max_sample_length,
-    build_labels_array,
-    build_input_array,
 )
 from data_processing.jets.preprocessing_header import (
     AWK_SAVE_LOC,
     NPZ_SAVE_LOC,
     NUM_CHUNK_THREADS,
+    ENERGY_SCALE
 )
 import awkward as ak
 import pyarrow.parquet as pq
@@ -29,7 +32,6 @@ from multiprocessing import Pool
 
 
 DATA_FOLDERS = ["train", "val", "test"]
-ENERGY_SCALE = 1000
 
 
 def read_parquet(filename):
@@ -119,7 +121,6 @@ if __name__ == "__main__":
     print(f"{global_max_sample_length = }")
 
     start_time = time.time()
-    NPZ_SAVE_LOC = NPZ_SAVE_LOC / f"{ENERGY_SCALE=}".lower()
     for data_folder in DATA_FOLDERS:
         npz_data_folder_path = os.path.join(NPZ_SAVE_LOC, data_folder)
         os.makedirs(npz_data_folder_path, exist_ok=True)  # Ensure the directory exists
