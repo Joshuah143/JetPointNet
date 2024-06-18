@@ -21,8 +21,38 @@ HAS_FIXED_R, FIXED_R, FIXED_Z = (
 
 
 # ===== FIELDS TO CHANGE =====
+CERN = True
 USER = Path.home().name
-if USER == "jhimmens":
+if USER == "luclissa":
+    add_tracks_as_labels = False
+    NUM_EVENTS_PER_CHUNK = 200
+    TRAIN_SPLIT_RATIO = 0.55
+    VAL_SPLIT_RATIO = 0.3
+    # TEST_SPLIT_RATIO is implied to be the remaining percentage
+    NUM_THREAD_PER_CHUNK = 25  # root to awk
+    NUM_CHUNK_THREADS = 25  # awk to npz
+    DATASET_NAME = "ttbar"  # or "rho_full/"
+    OUTPUT_DIRECTORY_NAME = "benchmark"  # or "raw": NOTE: for tests change this
+    FILE_LOC = "/eos/home-m/mswiatlo/forLuca/mltree_large.root"
+    GEO_FILE_LOC = "/eos/home-m/mswiatlo/images/truthPerCell/cell_geo.root"
+    ENERGY_SCALE = 1
+elif CERN == True:
+    add_tracks_as_labels = False
+    NUM_EVENTS_PER_CHUNK = 200
+    TRAIN_SPLIT_RATIO = 0.55
+    VAL_SPLIT_RATIO = 0.3
+    # TEST_SPLIT_RATIO is implied to be the remaining percentage
+    NUM_THREAD_PER_CHUNK = 8  # root to awk
+    NUM_CHUNK_THREADS = 8  # awk to npz
+    # OUTPUT_DIRECTORY_NAME = "rho_full/"
+    # OUTPUT_DIRECTORY_NAME = "ttbar"
+    OUTPUT_DIRECTORY_NAME = "2000_events_w_fixed_hits/"
+    # DATASET_NAME = "benchmark"
+    DATASET_NAME = "cern_test"
+    FILE_LOC = "/eos/home-m/mswiatlo/forLuca/mltree_large.root"
+    GEO_FILE_LOC = "/eos/home-m/mswiatlo/images/truthPerCell/cell_geo.root"
+    ENERGY_SCALE = 1
+elif USER == "jhimmens":
     add_tracks_as_labels = False
     NUM_EVENTS_PER_CHUNK = 200
     TRAIN_SPLIT_RATIO = 0.55
@@ -37,19 +67,6 @@ if USER == "jhimmens":
     DATASET_NAME = "large_R"
     FILE_LOC = "/fast_scratch_1/atlas/pflow/mltree_2000_fixedHits.root"
     GEO_FILE_LOC = "/fast_scratch_1/atlas/pflow/rho_small.root"
-    ENERGY_SCALE = 1000
-elif USER == "luclissa":
-    add_tracks_as_labels = False
-    NUM_EVENTS_PER_CHUNK = 200
-    TRAIN_SPLIT_RATIO = 0.55
-    VAL_SPLIT_RATIO = 0.3
-    # TEST_SPLIT_RATIO is implied to be the remaining percentage
-    NUM_THREAD_PER_CHUNK = 25  # root to awk
-    NUM_CHUNK_THREADS = 25  # awk to npz
-    DATASET_NAME = "ttbar"  # or "rho_full/"
-    OUTPUT_DIRECTORY_NAME = "benchmark"  # or "raw": NOTE: for tests change this
-    FILE_LOC = "/eos/home-m/mswiatlo/forLuca/mltree_large.root"
-    GEO_FILE_LOC = "/eos/home-m/mswiatlo/images/truthPerCell/cell_geo.root"
     ENERGY_SCALE = 1
 # ============================
 else:
