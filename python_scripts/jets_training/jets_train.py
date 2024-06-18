@@ -357,6 +357,27 @@ def train(config=None):
             beta_2=config.LR_BETA2,
             # decay=config.LR_DECAY,
         )
+
+        try:
+            logits = config.OUTPUT_ACTIVATION_FUNCTION == "linear"
+            loss_function = getattr(tf.keras.losses, config.LOSS_FUNCTION)(
+                from_logits=logits
+            )
+        except AttributeError as e:
+            print(f"{e}")
+        # NOTE: the match/case below may still be useful in case of differential processing depending on the chosen loss function
+        # match config.LOSS_FUNCTION:
+        #     case "BCE":
+        #         loss_function = tf.keras.losses.BinaryCrossentropy(
+        #             from_logits=False
+        #         )
+        #     case "FocalBCE":
+        #         loss_function = tf.keras.losses.BinaryFocalCrossentropy(
+        #             from_logits=False
+        #         )
+        #     case _:
+        # raise Exception("Undefined Loss Function")
+
         loss_function = tf.keras.losses.BinaryCrossentropy(
             from_logits=False
         )  # NOTE: False for "sigmoid", True for "linear"
