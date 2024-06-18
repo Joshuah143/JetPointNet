@@ -505,9 +505,9 @@ def train(config=None):
                     "val/accuracy": val_reg_acc.result().numpy(),
                     "val/weighted_accuracy": val_weighted_acc.result().numpy(),
                     "learning_rate": optimizer.learning_rate.numpy(),
-                    "val/f1_score": val_f1,
-                    "val/recall": recall,
-                    "val/precision": precision,
+                    "val/f1_score": val_f1_score.result().numpy()[0],
+                    "val/recall": recall_metric.result().numpy(),
+                    "val/precision": precision_metric.result().numpy(),
                     # "gradients": [tf.reduce_mean(tf.abs(grad)).numpy() for grad in grads],
                     # "weights": [
                     #     tf.reduce_mean(tf.abs(weight)).numpy()
@@ -528,9 +528,9 @@ def train(config=None):
                         "val_loss": val_loss_tracker.result(),
                         "val/accuracy": val_reg_acc.result(),
                         "val_weighted_accuracy": val_weighted_acc.result(),
-                        "val/f1_score": val_f1,
-                        "val/recall": recall,
-                        "val/precision": precision,
+                        "val/f1_score": val_f1_score.result().numpy()[0],
+                        "val/recall": recall_metric.result().numpy(),
+                        "val/precision": precision_metric.result().numpy(),
                     },
                 )
                 early_stopping_callback.on_epoch_end(
@@ -539,9 +539,9 @@ def train(config=None):
                         "val_loss": val_loss_tracker.result(),
                         "val/accuracy": val_reg_acc.result(),
                         "val_weighted_accuracy": val_weighted_acc.result(),
-                        "val/f1_score": val_f1,
-                        "val/recall": recall,
-                        "val/precision": precision,
+                        "val/f1_score": val_f1_score.result().numpy()[0],
+                        "val/recall": recall_metric.result().numpy(),
+                        "val/precision": precision_metric.result().numpy(),
                     },
                 )
                 if early_stopping_callback.stopped_epoch > 0:
