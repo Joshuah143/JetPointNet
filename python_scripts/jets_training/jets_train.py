@@ -58,6 +58,8 @@ else:
     raise Exception("UNKOWN USER")
 
 
+os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID
+
 EXPERIMENT_NAME = f"{OUTPUT_DIRECTORY_NAME}/{DATASET_NAME}"
 RESULTS_PATH = REPO_PATH / "result" / EXPERIMENT_NAME
 RESULTS_PATH.mkdir(exist_ok=True, parents=True)
