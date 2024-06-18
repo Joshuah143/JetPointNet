@@ -297,13 +297,6 @@ def train(config=None):
             output_activation=config.OUTPUT_ACTIVATION_FUNCTION,
         )
 
-        optimizer = tf.keras.optimizers.Adam(
-            learning_rate=config.LR,
-            beta_1=config.LR_BETA1,
-            beta_2=config.LR_BETA2,
-            decay=config.LR_DECAY,
-        )
-
         train_loss_tracker = tf.metrics.Mean(name="train_loss")
         train_reg_acc = tf.metrics.Mean(name="train_regular_accuracy")
         train_weighted_acc = tf.metrics.Mean(name="train_weighted_accuracy")
@@ -317,10 +310,6 @@ def train(config=None):
         precision_metric = tf.keras.metrics.Precision(
             thresholds=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF
         )
-
-        loss_function = tf.keras.losses.BinaryCrossentropy(
-            from_logits=False
-        )  # NOTE: False for "sigmoid", True for "linear"
         val_f1_score = tf.keras.metrics.F1Score(
             threshold=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF
         )
@@ -357,6 +346,22 @@ def train(config=None):
         #     lr_decay=config.LR_DECAY,
         #     verbose=1,
         # )
+        lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+            initial_learning_rate=config.LR,
+            decay_steps=train_steps,
+            decay_rate=config.LR_DECAY,
+        )
+
+        # Optimizer & Loss
+        optimizer = tf.keras.optimizers.Adam(
+            learning_rate=lr_schedule,
+            beta_1=config.LR_BETA1,
+            beta_2=config.LR_BETA2,
+            # decay=config.LR_DECAY,
+        )
+        loss_function = tf.keras.losses.BinaryCrossentropy(
+            from_logits=False
+        )  # NOTE: False for "sigmoid", True for "linear"
 
         for epoch in range(config.EPOCHS):
             print("\nStart of epoch %d" % (epoch,))
