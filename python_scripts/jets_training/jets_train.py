@@ -75,9 +75,9 @@ experiment_configuration = dict(
     TF_SEED=np.random.randint(0, 100),
     MAX_SAMPLE_LENGTH=MAX_SAMPLE_LENGTH,  # 278 for delta R of 0.1, 859 for 0.2
     BATCH_SIZE=256,
-    EPOCHS=2,
+    EPOCHS=100,
     LR=0.1,
-    LR_DECAY=0.05,
+    LR_DECAY=0.9,
     LR_BETA1=0.98,
     LR_BETA2=0.999,
     ES_PATIENCE=15,
@@ -218,9 +218,7 @@ def _setup_model(
 
 
 def train(config=None):
-    with wandb.init(
-        project="pointcloud-test", config=config, job_type="training"
-    ) as run:
+    with wandb.init(project="pointcloud", config=config, job_type="training") as run:
         config = wandb.config
 
         # number of steps and seed
