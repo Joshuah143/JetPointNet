@@ -1,5 +1,7 @@
 """
-Brief description of the script's purpose.
+This script runs a wandb sweep. The idea is to import the `train` function and a baseline `experiment_configuration` from jets_train.py and use them for the sweep.
+
+The sweep parameters are defined here ith `sweep_configuration` dict. The missing ones are given default values based on `experiment_configuration`.
 
 Author: Luca Clissa <luca.clissa2@unibo.it>
 Created: 2024-06-17
