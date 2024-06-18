@@ -61,9 +61,10 @@ sweep_configuration = {
     "parameters": {
         "LR": {"distribution": "uniform", "min": 0.0001, "max": 0.1},
         "BATCH_SIZE": {
-            "distribution": "q_log_uniform_values",
-            "min": 32,
-            "max": 512,
+            # "distribution": "q_log_uniform_values",
+            # "min": 32,
+            # "max": 512,
+            "values": [32, 64, 128, 256, 512]
         },
     },
 }
