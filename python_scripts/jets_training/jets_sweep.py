@@ -56,6 +56,7 @@ def main():
 
 # 2: Define the search space
 sweep_configuration = {
+    "program": "python_scripts/jets_training/jets_train.py",
     "method": "bayes",
     "metric": {"goal": "maximize", "name": "val/f1_score"},
     "parameters": {
@@ -66,6 +67,22 @@ sweep_configuration = {
             # "max": 512,
             "values": [32, 64, 128, 256, 512]
         },
+        # "LOSS_FUNCTION": {"values": ["BinaryCrossentropy", "BinaryFocalCrossentropy"]},
+        # "LOSS_ENERGY_WEIGHTING": {
+        #     "values": [
+        #         "absolute",
+        #         "square",
+        #         "normalize",
+        #         "standardize",
+        #         "threshold",
+        #         "none",
+        #     ]
+        # },
+        # "LR_MAX": {"max": 0.2, "min": 0.001},
+        # "LR_MIN": {"max": 0.01, "min": 0.00001},
+        # "LR_RAMP_EP": {"max": 10, "min": 1},
+        # "LR_SUS_EP": {"max": 10, "min": 0},
+        # "LR_DECAY": {"max": 1.0, "min": 0.01},
     },
 }
 
