@@ -48,17 +48,15 @@ print(f"Logged in as {USER}")
 if USER == "jhimmens":
     OUTPUT_DIRECTORY_NAME = "2000_events_w_fixed_hits"
     DATASET_NAME = "large_R"
-    GPU_ID = "1"
+    # GPU_ID = "1"
 elif USER == "luclissa":
     OUTPUT_DIRECTORY_NAME = "ttbar"
     DATASET_NAME = "benchmark"
-    GPU_ID = "0"
+    # GPU_ID = "0"
     os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 else:
     raise Exception("UNKOWN USER")
 
-
-os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID
 
 EXPERIMENT_NAME = f"{OUTPUT_DIRECTORY_NAME}/{DATASET_NAME}"
 RESULTS_PATH = REPO_PATH / "result" / EXPERIMENT_NAME

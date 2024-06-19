@@ -18,10 +18,9 @@ sys.path.append(str(SCRIPT_PATH))
 
 import os
 import wandb
-from jets_training.jets_train import train, experiment_configuration, GPU_ID
+from jets_training.jets_train import train, experiment_configuration
 
 
-os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID
 WANDB_PROJECT = "pointcloud"
 
 
