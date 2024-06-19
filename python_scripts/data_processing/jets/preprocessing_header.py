@@ -22,7 +22,7 @@ HAS_FIXED_R, FIXED_R, FIXED_Z = (
 
 
 # ===== FIELDS TO CHANGE =====
-CERN_GRID = bool(os.environ.get("DATABASE_URL", 0))
+CERN_GRID = bool(os.environ.get("USING_GRID", 0))
 FULL_SET = True
 OVERWRITE_AWK = False
 OVERWRITE_NPZ = False

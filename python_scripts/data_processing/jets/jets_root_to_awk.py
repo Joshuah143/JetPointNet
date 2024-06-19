@@ -291,7 +291,15 @@ if __name__ == "__main__":
 
     start_time = time.time()
     if CERN_GRID:
-        root_files = []
+        root_files = [
+            os.environ.get("ROOT_FILE_0"),
+            os.environ.get("ROOT_FILE_1"),
+            os.environ.get("ROOT_FILE_2"),
+            os.environ.get("ROOT_FILE_3"),
+            os.environ.get("ROOT_FILE_4"),
+        ]
+        for file in root_files:
+            event_handler_wrapper(file)
     elif FULL_SET:
         root_files = glob.glob(os.path.join(FILES_DIR, "*.root"))
         number_of_files = len(root_files)
