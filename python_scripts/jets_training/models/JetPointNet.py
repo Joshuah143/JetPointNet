@@ -181,7 +181,9 @@ def TNet(input_tensor, size, add_regularization=False):
     return x
 
 
-def PointNetSegmentation(num_points, num_features, num_classes, output_activation_function):
+def PointNetSegmentation(
+    num_points, num_features, num_classes, output_activation_function
+):
     """
     Input shape per point is:
        [x (mm),
@@ -275,6 +277,7 @@ def _pad_targets(y_true, y_pred, energies):
 """
 
 
+@tf.autograph.experimental.do_not_convert
 def masked_weighted_loss(
     y_true: tf.Tensor,
     y_pred: tf.Tensor,
@@ -282,7 +285,7 @@ def masked_weighted_loss(
     fractional_energy_cutoff: float,
     loss_function: tf.keras.losses.Loss,
     transform: None | str = None,
-    energy_threshold: float = 0
+    energy_threshold: float = 0,
 ):
     """
     Computes the masked weighted loss of predictions.
@@ -331,7 +334,10 @@ def masked_weighted_loss(
     )  # This should be [batch, points, 1]
 
     # Adjust y_true based on the threshold, maintain dimensions as [batch, points, 1]
-    y_true_adjusted = tf.cast(tf.greater_equal(y_true, fractional_energy_cutoff), tf.float32) * valid_mask
+    y_true_adjusted = (
+        tf.cast(tf.greater_equal(y_true, fractional_energy_cutoff), tf.float32)
+        * valid_mask
+    )
 
     # Calculate binary cross-entropy loss, ensuring to keep the dimensions consistent
 
@@ -398,16 +404,20 @@ def masked_weighted_bce_loss(y_true, y_pred, energies):
 """
 
 
-def masked_regular_accuracy(y_true: tf.Tensor, 
-                            y_pred: tf.Tensor, 
-                            output_layer_segmentation_cutoff: str,
-                            fractional_energy_cutoff: float):
+def masked_regular_accuracy(
+    y_true: tf.Tensor,
+    y_pred: tf.Tensor,
+    output_layer_segmentation_cutoff: str,
+    fractional_energy_cutoff: float,
+):
 
     mask = tf.not_equal(y_true, -1.0)
     mask = tf.cast(mask, tf.float32)
 
     adjusted_y_true = tf.cast(tf.greater(y_true, fractional_energy_cutoff), tf.float32)
-    adjusted_y_predicted = tf.cast(tf.greater(y_pred, output_layer_segmentation_cutoff), tf.float32) # should this cutoff be 0.5?
+    adjusted_y_predicted = tf.cast(
+        tf.greater(y_pred, output_layer_segmentation_cutoff), tf.float32
+    )  # should this cutoff be 0.5?
 
     correct_predictions = tf.equal(adjusted_y_predicted, adjusted_y_true)
 
@@ -425,7 +435,7 @@ def masked_weighted_accuracy(
     fractional_energy_cutoff: float,
     output_layer_segmentation_cutoff: str,
     transform: None | str = None,
-    energy_threshold: float = 0
+    energy_threshold: float = 0,
 ):
     """
     Computes the masked weighted accuracy of predictions.
@@ -472,8 +482,10 @@ def masked_weighted_accuracy(
     mask = tf.cast(mask, tf.float32)
 
     adjusted_y_true = tf.cast(tf.greater(y_true, fractional_energy_cutoff), tf.float32)
-    adjusted_y_predicted = tf.cast(tf.greater(y_pred, output_layer_segmentation_cutoff), tf.float32) 
-    
+    adjusted_y_predicted = tf.cast(
+        tf.greater(y_pred, output_layer_segmentation_cutoff), tf.float32
+    )
+
     correct_predictions = tf.equal(adjusted_y_predicted, adjusted_y_true)
 
     masked_correct_predictions = tf.cast(correct_predictions, tf.float32) * mask
