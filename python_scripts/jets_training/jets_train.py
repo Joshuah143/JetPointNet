@@ -83,6 +83,7 @@ experiment_configuration = dict(
     ES_PATIENCE=15,
     ACC_ENERGY_WEIGHTING="square",
     LOSS_ENERGY_WEIGHTING="square",
+    LOSS_FUNCTION="BinaryCrossentropy",
     OUTPUT_ACTIVATION_FUNCTION="sigmoid",  # softmax, linear (requires changes to the BCE fucntion in the loss function)
     FRACTIONAL_ENERGY_CUTOFF=0.5,
     OUTPUT_LAYER_SEGMENTATION_CUTOFF=0.5,
