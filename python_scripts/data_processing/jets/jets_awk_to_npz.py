@@ -19,7 +19,8 @@ from data_processing.jets.preprocessing_header import (
     AWK_SAVE_LOC,
     NPZ_SAVE_LOC,
     NUM_CHUNK_THREADS,
-    ENERGY_SCALE
+    ENERGY_SCALE,
+    OVERWRITE_NPZ
 )
 import awkward as ak
 import pyarrow.parquet as pq
@@ -75,6 +76,12 @@ def find_global_max_sample_length():
 
 
 def build_arrays(data_folder_path, chunk_file_name):
+
+    if not OVERWRITE_NPZ:
+        print(f"Testing for existence of {os.path.join(data_folder_path, chunk_file_name)}")
+    if not OVERWRITE_NPZ and os.path.exists(os.path.join(data_folder_path, chunk_file_name)):
+        print(f"Already converted, skipping: {chunk_file_name}")
+
     ak_array = read_parquet(os.path.join(data_folder_path, chunk_file_name))
 
     frac_labels = build_labels_array(
@@ -116,7 +123,7 @@ if __name__ == "__main__":
             folder_path, exist_ok=True
         )  # This line ensures the AWK_SAVE_LOC directories exist
 
-    global_max_sample_length = find_global_max_sample_length()
+    global_max_sample_length = 900 #find_global_max_sample_length()
     # global_max_sample_length = 278  # placeholder for now
     print(f"{global_max_sample_length = }")
 

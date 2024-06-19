@@ -217,7 +217,7 @@ def get_split(split_seed):
         ids.append(
             np.loadtxt(AWK_SAVE_LOC.parent.parent / "AwkwardArrs" / f"{split}_events_{split_seed=}.txt")
         )
-    return split_seed, *ids
+    return ids
 
 
 def split(events, split_seed):
@@ -225,7 +225,7 @@ def split(events, split_seed):
     split_seed, train_ids, val_ids, test_ids = train_val_test_split_events(
         all_events_ids, split_seed=split_seed
     )
-    return split_seed, train_ids, val_ids, test_ids
+    return {"train_ids": train_ids, "val_ids": val_ids, "test_ids": test_ids}
 
 
 def split_data(events, split_seed, retrieve=True):

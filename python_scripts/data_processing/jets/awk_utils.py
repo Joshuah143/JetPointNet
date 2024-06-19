@@ -365,6 +365,7 @@ def process_associated_tracks(
     nTrack,
     track_etas,
     track_phis,
+    focal_points,
 ):
     """
     Process tracks associated with a focal track based on ΔR and other criteria.
@@ -385,13 +386,6 @@ def process_associated_tracks(
     # Initialize the field for adjacent tracks
     tracks_sample.field("associated_tracks")
     tracks_sample.begin_list()
-
-    # Retrieve focal track's intersection points for distance calculation
-    focal_track_intersections = calculate_track_intersections(
-        {layer: eta[track_idx] for layer, eta in track_etas.items()},
-        {layer: phi[track_idx] for layer, phi in track_phis.items()},
-    )
-    focal_points = [(x, y, z) for _, (x, y, z, eta, phi) in focal_track_intersections.items()]
 
     # Iterate over all tracks in the event to find adjacent tracks
     for adj_track_idx in range(nTrack):

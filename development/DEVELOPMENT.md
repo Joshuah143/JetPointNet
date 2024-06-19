@@ -53,3 +53,21 @@ output_activation_function=OUTPUT_ACTIVATION_FUNCTION,
 ```
 
 - `ENERGY_SCALE` should be included in `visualization.py` so that the units on graphs work
+
+
+
+# Grid Notes
+
+Input dataset: https://bigpanda.cern.ch/files/?datasetid=551156493
+
+prun --exec "bash_wrapper.sh %IN" --inDS user.mswiatlo.801167.Py8EG_A14NNPDF23LO_jj_JZ2.recon.ESD.e8514_e8528_s4185_s4114_r14977_2024.06.14.1_mltree.root.551156493.551156493 --outDS user.jhimmens.`uuidgen` --outputs "*.npz" --nFilesPerJob 5 -noBuild --nJobs 3
+
+
+other things:
+--output myout.txt
+--nJobs 3 - will this just run all? will it loop? max cuncurrent?
+
+Is there a home?
+Is there a way to only take successful files?
+
+cp /eos/home-m/mswiatlo/images/truthPerCell/cell_geo.root /eos/user/j/jhimmens/cell_geo.root
