@@ -24,37 +24,6 @@ from jets_training.jets_train import train, experiment_configuration
 WANDB_PROJECT = "pointcloud"
 
 
-def main():
-    wandb.init(
-        project=WANDB_PROJECT,
-        config=experiment_configuration,
-        # config={
-        #     "dataset": EXPERIMENT_NAME,
-        #     "split_seed": SPLIT_SEED,
-        #     "tf_seed": seed,
-        #     "delta_R": MAX_DISTANCE,
-        #     "energy_scale": ENERGY_SCALE,
-        #     "n_points_per_batch": MAX_SAMPLE_LENGTH,
-        #     "batch_size": BATCH_SIZE,
-        #     "n_epochs": EPOCHS,
-        #     "early_stopping_patience": ES_PATIENCE,  # not used
-        #     "output_activation": OUTPUT_ACTIVATION_FUNCTION,
-        #     "accuracy_energy_weight_scheme": ACC_ENERGY_WEIGHTING,
-        #     "loss_energy_weight_scheme": ACC_ENERGY_WEIGHTING,
-        #     "min_hits_per_track": 25,
-        #     "fractional_energy_cutoff": FRACTIONAL_ENERGY_CUTOFF,
-        #     "lr_max": LR_MAX,
-        #     "lr_min": LR_MIN,
-        #     "lr_ramp_ep": LR_RAMP_EP,
-        #     "lr_sus_ep": LR_SUS_EP,
-        #     "lr_decay": LR_DECAY,
-        # },
-        job_type="training",
-        # tags=["baseline"],
-    )
-    train(wandb.config)
-
-
 # 2: Define the search space
 sweep_configuration = {
     "program": "python_scripts/jets_training/jets_train.py",
@@ -87,14 +56,16 @@ sweep_configuration = {
     },
 }
 
-for hyperparam, value in experiment_configuration.items():
-    if hyperparam not in sweep_configuration["parameters"].keys():
-        sweep_configuration["parameters"][hyperparam] = {"value": value}
+if __name__ == "__main__":
 
-sweep_id = wandb.sweep(
-    sweep=sweep_configuration,
-    project=WANDB_PROJECT,
-    # description="Learning rate and batch size sweep.",
-)
+    for hyperparam, value in experiment_configuration.items():
+        if hyperparam not in sweep_configuration["parameters"].keys():
+            sweep_configuration["parameters"][hyperparam] = {"value": value}
 
-wandb.agent(sweep_id, function=train, count=100)
+    sweep_id = wandb.sweep(
+        sweep=sweep_configuration,
+        project=WANDB_PROJECT,
+        # description="Learning rate and batch size sweep.",
+    )
+
+    wandb.agent(sweep_id, function=train, count=100)
