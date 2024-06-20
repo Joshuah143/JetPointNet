@@ -55,19 +55,27 @@ output_activation_function=OUTPUT_ACTIVATION_FUNCTION,
 - `ENERGY_SCALE` should be included in `visualization.py` so that the units on graphs work
 
 
-
 # Grid Notes
 
 Input dataset: https://bigpanda.cern.ch/files/?datasetid=551156493
 
-prun --exec "bash_wrapper.sh %IN" --inDS user.mswiatlo.801167.Py8EG_A14NNPDF23LO_jj_JZ2.recon.ESD.e8514_e8528_s4185_s4114_r14977_2024.06.14.1_mltree.root.551156493.551156493 --outDS user.jhimmens.`uuidgen` --outputs "*.npz" --nFilesPerJob 5 -noBuild --nJobs 3
-
+prun --exec "bash_wrapper.sh %IN" --inDS user.mswiatlo.801167.Py8EG_A14NNPDF23LO_jj_JZ2.recon.ESD.e8514_e8528_s4185_s4114_r14977_2024.06.14.1_mltree.root.551156493.551156493 --outDS user.jhimmens.`uuidgen` --outputs "*.npz" --nFilesPerJob 5 --noBuild --nJobs 3 --extFile ./python_scripts/data_processing/geo_data/cell_geo.root
 
 other things:
 --output myout.txt
---nJobs 3 - will this just run all? will it loop? max cuncurrent?
+--nJobs 5 - will this just run all? will it loop? max cuncurrent? on my attempt it still ran ~950 jobs
 
-Is there a home?
-Is there a way to only take successful files?
+Is there a home directory, since we depend on one?
+Is there a way to only take successful files or filter the incoming set?
 
 cp /eos/home-m/mswiatlo/images/truthPerCell/cell_geo.root /eos/user/j/jhimmens/cell_geo.root
+
+### copy over files to eos using scp
+scp -r /home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/attempt_1_june_18/full_set/SavedNpz jhimmens@lxplus.cern.ch:/eos/user/j/jhimmens/jetpointnet/data/attempt_1_june_18/full_set/
+ 
+### using rsync
+rsync -avz /home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/attempt_1_june_18/full_set/SavedNpz jhimmens@lxplus.cern.ch:/eos/user/j/jhimmens/jetpointnet/data/attempt_1_june_18/full_set/
+
+
+# notes
+file prefixes like `user.mswiatlo.39955678` are constent for each JZ set

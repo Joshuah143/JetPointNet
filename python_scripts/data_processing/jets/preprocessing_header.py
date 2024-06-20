@@ -27,6 +27,7 @@ FULL_SET = True
 OVERWRITE_AWK = False
 OVERWRITE_NPZ = False
 GEO_FILE_LOC = SCRIPT_PATH / "data_processing/geo_data/cell_geo.root"
+SAMPLE_LENGTH_WORKERS = 10
 USER = Path.home().name
 if USER == "luclissa":
     add_tracks_as_labels = False
@@ -58,10 +59,11 @@ elif USER == "jhimmens":
     VAL_SPLIT_RATIO = 0.3
     # TEST_SPLIT_RATIO is implied to be the remaining percentage
     NUM_THREAD_PER_CHUNK = 70  # root to awk
-    NUM_CHUNK_THREADS = 30  # awk to npz
+    NUM_CHUNK_THREADS = 10  # awk to npz
     if FULL_SET:
         DATASET_NAME = "attempt_1_june_18"
-        FILES_DIR = "/fast_scratch_1/atlas/pflow/20240614/user.mswiatlo.801167.Py8EG_A14NNPDF23LO_jj_JZ2.recon.ESD.e8514_e8528_s4185_s4114_r14977_2024.06.14.1_mltree.root"
+        FILES_DIR = "/fast_scratch_1/atlas/pflow/20240614/"
+        #FILES_DIR = "/fast_scratch_1/atlas/pflow/20240614/user.mswiatlo.801167.Py8EG_A14NNPDF23LO_jj_JZ2.recon.ESD.e8514_e8528_s4185_s4114_r14977_2024.06.14.1_mltree.root"
         OUTPUT_DIRECTORY_NAME = "full_set/"
     else:
         DATASET_NAME = "large_R"

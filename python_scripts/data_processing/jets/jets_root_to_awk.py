@@ -253,7 +253,7 @@ def event_handler_wrapper(filename):
 
 if __name__ == "__main__":
     num_files_completed = 0
-    cellgeo = uproot.open(GEO_FILE_LOC + ":CellGeo")
+    cellgeo = uproot.open(str(GEO_FILE_LOC) + ":CellGeo")
 
     # print("Events Keys:")
     # for key in events.keys():
@@ -301,7 +301,8 @@ if __name__ == "__main__":
         for file in root_files:
             event_handler_wrapper(file)
     elif FULL_SET:
-        root_files = glob.glob(os.path.join(FILES_DIR, "*.root"))
+        potential_root_files = glob.glob(os.path.join(FILES_DIR, "**/*.root"), recursive=True)
+        root_files = [entry for entry in potential_root_files if os.path.isfile(entry)]
         number_of_files = len(root_files)
         for i, file in enumerate(root_files):
             event_handler_wrapper(file)
