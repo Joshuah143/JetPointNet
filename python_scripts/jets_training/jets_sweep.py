@@ -18,11 +18,10 @@ sys.path.append(str(SCRIPT_PATH))
 
 import os
 import wandb
-from jets_training.jets_train import train, experiment_configuration
+from jets_training.jets_train import train, baseline_configuration, GPU_ID
 
 
 WANDB_PROJECT = "pointcloud"
-
 
 # 2: Define the search space
 sweep_configuration = {
@@ -30,12 +29,12 @@ sweep_configuration = {
     "method": "bayes",
     "metric": {"goal": "maximize", "name": "val/f1_score"},
     "parameters": {
-        "LR": {"distribution": "uniform", "min": 0.0001, "max": 0.1},
+        "LR": {"distribution": "uniform", "min": 0.001, "max": 0.1},
         "BATCH_SIZE": {
             # "distribution": "q_log_uniform_values",
             # "min": 32,
             # "max": 512,
-            "values": [32, 64, 128, 256, 512]
+            "values": [256, 512]
         },
         # "LOSS_FUNCTION": {"values": ["BinaryCrossentropy", "BinaryFocalCrossentropy"]},
         # "LOSS_ENERGY_WEIGHTING": {
@@ -56,16 +55,20 @@ sweep_configuration = {
     },
 }
 
+#for hyperparam, value in experiment_configuration.items():
+#    if hyperparam not in sweep_configuration["parameters"].keys():
+#        sweep_configuration["parameters"][hyperparam] = {"value": value}
+
+
+
 if __name__ == "__main__":
-
-    for hyperparam, value in experiment_configuration.items():
-        if hyperparam not in sweep_configuration["parameters"].keys():
-            sweep_configuration["parameters"][hyperparam] = {"value": value}
-
     sweep_id = wandb.sweep(
         sweep=sweep_configuration,
         project=WANDB_PROJECT,
-        # description="Learning rate and batch size sweep.",
     )
+    print("Copy one (or more) of the following into a terminal to start the sweep:")
+    for i in range(6):
+        print(f"cd ~/workspace/jetpointnet && CUDA_VISIBLE_DEVICES={i} wandb agent -p pointcloud -e jetpointnet {sweep_id}")
 
-    wandb.agent(sweep_id, function=train, count=100)
+
+    #wandb.agent(sweep_id, function=train, count=200)

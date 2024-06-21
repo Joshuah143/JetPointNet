@@ -85,6 +85,25 @@ def calculate_track_intersections(track_eta, track_phi):
 
 # =======================================================================================================================
 
+def calculate_max_sample_length_simplified(tracks_array):
+    """Compute maximum number of points"""
+    current_index = 0
+    length_arr = []
+    for event in tracks_array:
+        for track in event:
+            n_focus_track_hits = len(track["track_layer_intersections"])
+            n_associated_cells_hits = len(track["associated_cells"])
+            length = n_focus_track_hits + n_associated_cells_hits
+            if len(track["associated_tracks"]) > 0:
+                for associated_track in track["associated_tracks"]:
+                    n_associated_track_hits = len(
+                        associated_track["track_layer_intersections"]
+                    )
+                    length += n_associated_track_hits
+    
+            current_index += 1
+            length_arr.append(length)
+    return length_arr
 
 def calculate_max_sample_length(tracks_array):
     """Compute maximum number of points, plus keep track of point types per event and track"""

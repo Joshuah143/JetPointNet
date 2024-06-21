@@ -58,13 +58,15 @@ elif USER == "jhimmens":
     TRAIN_SPLIT_RATIO = 0.55
     VAL_SPLIT_RATIO = 0.3
     # TEST_SPLIT_RATIO is implied to be the remaining percentage
-    NUM_THREAD_PER_CHUNK = 70  # root to awk
-    NUM_CHUNK_THREADS = 10  # awk to npz
+    NUM_THREAD_PER_CHUNK = 10  # root to awk
+    NUM_CHUNK_THREADS = 75  # awk to npz
     if FULL_SET:
         DATASET_NAME = "attempt_1_june_18"
         FILES_DIR = "/fast_scratch_1/atlas/pflow/20240614/"
         #FILES_DIR = "/fast_scratch_1/atlas/pflow/20240614/user.mswiatlo.801167.Py8EG_A14NNPDF23LO_jj_JZ2.recon.ESD.e8514_e8528_s4185_s4114_r14977_2024.06.14.1_mltree.root"
         OUTPUT_DIRECTORY_NAME = "full_set/"
+        INCLUDE_SETS_TO_NPZ = ["JZ0", "JZ1", "JZ2"]
+        MAX_SAMPLE_LENGTH = 650
     else:
         DATASET_NAME = "large_R"
         FILE_LOC = "/fast_scratch_1/atlas/pflow/mltree_2000_fixedHits.root"
@@ -107,6 +109,6 @@ NPZ_SAVE_LOC = (
     / DATASET_NAME
     / OUTPUT_DIRECTORY_NAME
     / "SavedNpz"
-    / f"deltaR={MAX_DISTANCE}"
+    / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}_sets={''.join(INCLUDE_SETS_TO_NPZ)}"
     / f"{ENERGY_SCALE=}".lower()
 )

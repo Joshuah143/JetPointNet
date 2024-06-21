@@ -38,6 +38,7 @@ from data_processing.jets.preprocessing_header import (
     MAX_DISTANCE,
     NPZ_SAVE_LOC,
     ENERGY_SCALE,
+    MAX_SAMPLE_LENGTH
 )
 
 # tf.config.run_functions_eagerly(True) - Useful when using the debugger - dont delete, but should not be used in production
@@ -66,16 +67,15 @@ MODELS_PATH.mkdir(exist_ok=True, parents=True)
 
 TRAIN_DIR = NPZ_SAVE_LOC / "train"
 VAL_DIR = NPZ_SAVE_LOC / "val"
-MAX_SAMPLE_LENGTH = 859
 
-experiment_configuration = dict(
+baseline_configuration = dict(
     SPLIT_SEED=62,
     TF_SEED=np.random.randint(0, 100),
     MAX_SAMPLE_LENGTH=MAX_SAMPLE_LENGTH,  # 278 for delta R of 0.1, 859 for 0.2
     BATCH_SIZE=256,
-    EPOCHS=100,
+    EPOCHS=150,
     LR=0.1,
-    LR_DECAY=0.9,
+    LR_DECAY=0.95,
     LR_BETA1=0.98,
     LR_BETA2=0.999,
     ES_PATIENCE=15,
@@ -85,6 +85,8 @@ experiment_configuration = dict(
     OUTPUT_ACTIVATION_FUNCTION="sigmoid",  # softmax, linear (requires changes to the BCE fucntion in the loss function)
     FRACTIONAL_ENERGY_CUTOFF=0.5,
     OUTPUT_LAYER_SEGMENTATION_CUTOFF=0.5,
+    EARLY_STOPPING=False,
+    LOSS_FUNCTION='BinaryCrossentropy',
     # POTENTIALLY OVERWRITTEN BY THE WANDB SWEEP:
     # LR_MAX=0.000015,
     # LR_MIN=1e-5,
@@ -97,13 +99,13 @@ experiment_configuration = dict(
 
 # note that if you change the output activation function you must change the loss function
 if (
-    experiment_configuration["OUTPUT_ACTIVATION_FUNCTION"] in ["softmax", "sigmoid"]
-    and experiment_configuration["OUTPUT_LAYER_SEGMENTATION_CUTOFF"] != 0.5
+    baseline_configuration["OUTPUT_ACTIVATION_FUNCTION"] in ["softmax", "sigmoid"]
+    and baseline_configuration["OUTPUT_LAYER_SEGMENTATION_CUTOFF"] != 0.5
 ):
     raise Exception("Invalid OUTPUT_LAYER_SEGMENTATION_CUTOFF")
 elif (
-    experiment_configuration["OUTPUT_ACTIVATION_FUNCTION"] in ["linear"]
-    and experiment_configuration["OUTPUT_LAYER_SEGMENTATION_CUTOFF"] != 0
+    baseline_configuration["OUTPUT_ACTIVATION_FUNCTION"] in ["linear"]
+    and baseline_configuration["OUTPUT_LAYER_SEGMENTATION_CUTOFF"] != 0
 ):
     raise Exception("Invalid OUTPUT_LAYER_SEGMENTATION_CUTOFF")
 
@@ -136,30 +138,30 @@ def load_data_from_npz(npz_file):
 # NOTE: works with BATCH_SIZE but don't fix last batch size issue
 def data_generator(data_dir, batch_size, drop_last=True):
     npz_files = glob.glob(os.path.join(data_dir, "*.npz"))
-    while True:
-        np.random.shuffle(npz_files)
-        for npz_file in npz_files:
-            feats, frac_labels, e_weights = load_data_from_npz(npz_file)
-            dataset_size = feats.shape[0]
-            for i in range(0, dataset_size, batch_size):
-                end_index = i + batch_size
-                if end_index > dataset_size:
-                    if drop_last:
-                        continue  # Drop last smaller batch
-                    else:
-                        batch_feats = feats[i:]
-                        batch_labels = frac_labels[i:]
-                        batch_e_weights = e_weights[i:]
+    
+    np.random.shuffle(npz_files)
+    for npz_file in npz_files:
+        feats, frac_labels, e_weights = load_data_from_npz(npz_file)
+        dataset_size = feats.shape[0]
+        for i in range(0, dataset_size, batch_size):
+            end_index = i + batch_size
+            if end_index > dataset_size:
+                if drop_last:
+                    continue  # Drop last smaller batch
                 else:
-                    batch_feats = feats[i:end_index]
-                    batch_labels = frac_labels[i:end_index]
-                    batch_e_weights = e_weights[i:end_index]
+                    batch_feats = feats[i:]
+                    batch_labels = frac_labels[i:]
+                    batch_e_weights = e_weights[i:]
+            else:
+                batch_feats = feats[i:end_index]
+                batch_labels = frac_labels[i:end_index]
+                batch_e_weights = e_weights[i:end_index]
 
-                yield (
-                    batch_feats,
-                    batch_labels.reshape(*batch_labels.shape, 1),
-                    batch_e_weights.reshape(*batch_e_weights.shape, 1),
-                )
+            yield (
+                batch_feats,
+                batch_labels.reshape(*batch_labels.shape, 1),
+                batch_e_weights.reshape(*batch_e_weights.shape, 1),
+            )
 
 
 def calculate_steps(data_dir, batch_size):
@@ -216,8 +218,8 @@ def _setup_model(
 #     )
 
 
-def train(config=None):
-    with wandb.init(project="pointcloud", config=config, job_type="training") as run:
+def train():
+    with wandb.init(project="pointcloud", config=baseline_configuration, job_type="training") as run:
         config = wandb.config
 
         # number of steps and seed
@@ -364,6 +366,10 @@ def train(config=None):
             )
         except AttributeError as e:
             print(f"{e}")
+            loss_function = tf.keras.losses.BinaryCrossentropy(
+            from_logits=False
+        )  # NOTE: False for "sigmoid", True for "linear"
+            
         # NOTE: the match/case below may still be useful in case of differential processing depending on the chosen loss function
         # match config.LOSS_FUNCTION:
         #     case "BCE":
@@ -376,10 +382,6 @@ def train(config=None):
         #         )
         #     case _:
         # raise Exception("Undefined Loss Function")
-
-        loss_function = tf.keras.losses.BinaryCrossentropy(
-            from_logits=False
-        )  # NOTE: False for "sigmoid", True for "linear"
 
         for epoch in range(config.EPOCHS):
             print("\nStart of epoch %d" % (epoch,))
@@ -543,7 +545,7 @@ def train(config=None):
                         "val/precision": precision_metric.result().numpy(),
                     },
                 )
-                if early_stopping_callback.stopped_epoch > 0:
+                if early_stopping_callback.stopped_epoch > 0 and config.EARLY_STOPPING:
                     print(f"Early stopping triggered at epoch {epoch}")
                     break
 
@@ -564,8 +566,4 @@ def train(config=None):
 
 
 if __name__ == "__main__":
-    # experiment_configuration = {
-    #     "tf_seed": np.random.randint(0, 100),  # TF_SEED
-    #     "BATCH_SIZE": BATCH_SIZE,
-    # }
-    train(experiment_configuration)
+    train()

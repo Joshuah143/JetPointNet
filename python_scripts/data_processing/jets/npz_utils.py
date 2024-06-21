@@ -109,27 +109,6 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                     track_num=0
                 )
 
-            for cell in track["associated_cells"]:
-                normalized_x = (cell["X"] - min_x) / range_x
-                normalized_y = (cell["Y"] - min_y) / range_y
-                normalized_z = (cell["Z"] - min_z) / range_z
-                normalized_distance = cell["distance_to_track"] / max_distance
-                add_train_label_record(
-                    track_points=track_array,
-                    event_number=track["eventNumber"],
-                    track_ID=-1,
-                    category=POINT_TYPE_ENCODING["cell"],
-                    delta_R=calculate_delta_r(track["trackEta"], track["trackPhi"], cell["eta"], cell["phi"]),
-                    normalized_x=normalized_x,
-                    normalized_y=normalized_y,
-                    normalized_z=normalized_z,
-                    normalized_distance=normalized_distance,
-                    track_pt=-1,
-                    cell_E=cell["E"] * energy_scale,
-                    cell_ID=cell["ID"],
-                    track_num=-1
-                )
-
             for track_idx, associated_track in enumerate(track["associated_tracks"]):
                 for intersection in associated_track["track_layer_intersections"]:
                     normalized_x = (intersection["X"] - min_x) / range_x
@@ -153,6 +132,28 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                         cell_ID=-1,
                         track_num=track_idx + 1
                     )
+
+            # sort by delta R so that if the event gets cut far cells will get cut first
+            for cell in sorted(track["associated_cells"], key=lambda cell: calculate_delta_r(track["trackEta"], track["trackPhi"], cell["eta"], cell["phi"])):
+                normalized_x = (cell["X"] - min_x) / range_x
+                normalized_y = (cell["Y"] - min_y) / range_y
+                normalized_z = (cell["Z"] - min_z) / range_z
+                normalized_distance = cell["distance_to_track"] / max_distance
+                add_train_label_record(
+                    track_points=track_array,
+                    event_number=track["eventNumber"],
+                    track_ID=-1,
+                    category=POINT_TYPE_ENCODING["cell"],
+                    delta_R=calculate_delta_r(track["trackEta"], track["trackPhi"], cell["eta"], cell["phi"]),
+                    normalized_x=normalized_x,
+                    normalized_y=normalized_y,
+                    normalized_z=normalized_z,
+                    normalized_distance=normalized_distance,
+                    track_pt=-1,
+                    cell_E=cell["E"] * energy_scale,
+                    cell_ID=cell["ID"],
+                    track_num=-1
+                )
 
             # Now, the sample is truncated to max_sample_length before padding is considered
             track_array = track_array[:max_sample_length]
@@ -198,8 +199,6 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
 
 
     samples_array = np.array(samples)
-
-    # samples_array = np.array(samples, dtype=np.float32)
 
     samples_array = np.nan_to_num(samples_array, nan=0.0)
 

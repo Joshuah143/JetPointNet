@@ -74,7 +74,7 @@ cp /eos/home-m/mswiatlo/images/truthPerCell/cell_geo.root /eos/user/j/jhimmens/c
 scp -r /home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/attempt_1_june_18/full_set/SavedNpz jhimmens@lxplus.cern.ch:/eos/user/j/jhimmens/jetpointnet/data/attempt_1_june_18/full_set/
  
 ### using rsync
-rsync -avz /home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/attempt_1_june_18/full_set/SavedNpz jhimmens@lxplus.cern.ch:/eos/user/j/jhimmens/jetpointnet/data/attempt_1_june_18/full_set/
+rsync -avz --delete /home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/attempt_1_june_18/full_set/SavedNpz jhimmens@lxplus.cern.ch:/eos/user/j/jhimmens/jetpointnet/data/attempt_1_june_18/full_set/
 
 
 # notes

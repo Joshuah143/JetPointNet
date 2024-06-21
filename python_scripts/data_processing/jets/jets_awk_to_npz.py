@@ -17,10 +17,12 @@ from data_processing.jets.common_utils import (
 )
 from data_processing.jets.preprocessing_header import (
     AWK_SAVE_LOC,
+    INCLUDE_SETS_TO_NPZ,
     NPZ_SAVE_LOC,
     NUM_CHUNK_THREADS,
     ENERGY_SCALE,
-    OVERWRITE_NPZ
+    OVERWRITE_NPZ,
+    MAX_SAMPLE_LENGTH,
 )
 import awkward as ak
 import pyarrow.parquet as pq
@@ -33,6 +35,18 @@ from multiprocessing import Pool
 
 
 DATA_FOLDERS = ["train", "val", "test"]
+
+prefix_match = {
+    "JZ0": 'user.mswiatlo.39955613',
+    "JZ1": 'user.mswiatlo.39955646',
+    "JZ2": 'user.mswiatlo.39955678',
+    "JZ3": 'user.mswiatlo.39955704',
+    "JZ4": 'user.mswiatlo.39955735',
+    "JZ5": 'user.mswiatlo.39955768',
+    "JZ6": 'user.mswiatlo.39955825',
+}
+
+prefix_to_set = {j:i for i, j in prefix_match.items()}
 
 
 def read_parquet(filename):
@@ -93,8 +107,7 @@ if __name__ == "__main__":
             folder_path, exist_ok=True
         )  # This line ensures the AWK_SAVE_LOC directories exist
 
-    global_max_sample_length = 900 #find_global_max_sample_length()
-    # global_max_sample_length = 278  # placeholder for now
+    global_max_sample_length = MAX_SAMPLE_LENGTH #find_global_max_sample_length()
     print(f"{global_max_sample_length = }")
 
     start_time = time.time()
@@ -107,7 +120,7 @@ if __name__ == "__main__":
         chunk_files = [
             f
             for f in os.listdir(data_folder_path)
-            if f.endswith(".parquet")
+            if f.endswith(".parquet") and prefix_to_set[f[:len(prefix_match["JZ0"])]] in INCLUDE_SETS_TO_NPZ
         ]
         num_chunks = len(chunk_files)
 
@@ -121,6 +134,7 @@ if __name__ == "__main__":
                     total=num_chunks,
                 )
             )
+            
         print(f"Completed processing data for: {data_folder}")
 
     end_time = time.time()

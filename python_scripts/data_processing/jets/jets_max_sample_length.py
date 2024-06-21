@@ -13,7 +13,7 @@ REPO_PATH = Path.home() / "workspace/jetpointnet"
 SCRIPT_PATH = REPO_PATH / "python_scripts"
 sys.path.append(str(SCRIPT_PATH))
 
-from data_processing.jets.common_utils import calculate_max_sample_length
+from data_processing.jets.common_utils import calculate_max_sample_length_simplified
 from data_processing.jets.preprocessing_header import AWK_SAVE_LOC, SAMPLE_LENGTH_WORKERS
 
 
@@ -27,9 +27,9 @@ def read_parquet(filename):
 
 def max_length_calculator_wrapper(full_path):
     ak_array = read_parquet(full_path)
-    max_sample_length, n_points = calculate_max_sample_length(ak_array)
+    max_sample_length_arr = calculate_max_sample_length_simplified(ak_array)
     # print("Max sample length found: ", max_sample_length)
-    return max_sample_length, n_points, full_path.split('/')[-1]
+    return max_sample_length_arr, full_path.split('/')[-1]
 
 
 def find_global_max_sample_length():
@@ -43,7 +43,6 @@ def find_global_max_sample_length():
                                         total=len(files),
                                         desc=f"Processing {folder}",
                                         leave=False))
-            results[folder] = [[max_sample_length, n_points.tolist(), chunk_name] for max_sample_length, n_points, chunk_name in results[folder]]
     
     metadata_path = Path(AWK_SAVE_LOC).parent / "metadata"
     metadata_path.mkdir(exist_ok=True, parents=True)
