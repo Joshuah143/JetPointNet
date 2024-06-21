@@ -58,8 +58,8 @@ elif USER == "jhimmens":
     TRAIN_SPLIT_RATIO = 0.55
     VAL_SPLIT_RATIO = 0.3
     # TEST_SPLIT_RATIO is implied to be the remaining percentage
-    NUM_THREAD_PER_CHUNK = 10  # root to awk
-    NUM_CHUNK_THREADS = 75  # awk to npz
+    NUM_THREAD_PER_CHUNK = 80  # root to awk
+    NUM_CHUNK_THREADS = 5  # awk to npz
     if FULL_SET:
         DATASET_NAME = "attempt_1_june_18"
         FILES_DIR = "/fast_scratch_1/atlas/pflow/20240614/"
