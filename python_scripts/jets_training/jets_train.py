@@ -398,17 +398,13 @@ def train():
             # decay=config.LR_DECAY,
         )
 
-        try:
-            logits = config.OUTPUT_ACTIVATION_FUNCTION == "linear"
-            loss_function = getattr(tf.keras.losses, config.LOSS_FUNCTION)(
-                from_logits=logits
-            )
-        except AttributeError as e:
-            print(f"{e}")
-            loss_function = tf.keras.losses.BinaryCrossentropy(
-                from_logits=False
-            )  # NOTE: False for "sigmoid", True for "linear"
-
+        
+        # Will raise AttributeError if the loss function is not found
+        logits = config.OUTPUT_ACTIVATION_FUNCTION == "linear"
+        loss_function = getattr(tf.keras.losses, config.LOSS_FUNCTION)(
+            from_logits=logits # NOTE: False for "sigmoid", True for "linear"
+        )
+            
         # NOTE: the match/case below may still be useful in case of differential processing depending on the chosen loss function
         # match config.LOSS_FUNCTION:
         #     case "BCE":
@@ -557,7 +553,6 @@ def train():
             )
 
             # callbacks
-            # lr_callback.on_epoch_end(epoch)
 
             # discard first epochs to trigger callbacks
             if epoch > 5 & (val_weighted_acc.result().numpy() < 1):
@@ -573,20 +568,21 @@ def train():
                         "val/precision": precision_metric.result().numpy(),
                     },
                 )
-                early_stopping_callback.on_epoch_end(
-                    epoch,
-                    logs={
-                        "val_loss": val_loss_tracker.result(),
-                        "val/accuracy": val_reg_acc.result(),
-                        "val_weighted_accuracy": val_weighted_acc.result(),
-                        "val/f1_score": val_f1_score.result().numpy()[0],
-                        "val/recall": recall_metric.result().numpy(),
-                        "val/precision": precision_metric.result().numpy(),
-                    },
-                )
-                if early_stopping_callback.stopped_epoch > 0 and config.EARLY_STOPPING:
-                    print(f"Early stopping triggered at epoch {epoch}")
-                    break
+                if config.EARLY_STOPPING:
+                    early_stopping_callback.on_epoch_end(
+                        epoch,
+                        logs={
+                            "val_loss": val_loss_tracker.result(),
+                            "val/accuracy": val_reg_acc.result(),
+                            "val_weighted_accuracy": val_weighted_acc.result(),
+                            "val/f1_score": val_f1_score.result().numpy()[0],
+                            "val/recall": recall_metric.result().numpy(),
+                            "val/precision": precision_metric.result().numpy(),
+                        },
+                    )
+                    if early_stopping_callback.model.stop_training == True and config.EARLY_STOPPING:
+                        print(f"Early stopping triggered at epoch {epoch}")
+                        break
 
         print("\n\nTraining completed!")
 
