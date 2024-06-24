@@ -38,7 +38,7 @@ from data_processing.jets.preprocessing_header import (
     MAX_DISTANCE,
     NPZ_SAVE_LOC,
     ENERGY_SCALE,
-    MAX_SAMPLE_LENGTH
+    MAX_SAMPLE_LENGTH,
 )
 
 # tf.config.run_functions_eagerly(True) - Useful when using the debugger - dont delete, but should not be used in production
@@ -134,33 +134,71 @@ def load_data_from_npz(npz_file):
     return feats, frac_labels, energy_weights
 
 
-# NOTE: works with BATCH_SIZE but don't fix last batch size issue
-def data_generator(data_dir, batch_size, drop_last=True):
-    npz_files = glob.glob(os.path.join(data_dir, "*.npz"))
-    
-    np.random.shuffle(npz_files)
-    for npz_file in npz_files:
-        feats, frac_labels, e_weights = load_data_from_npz(npz_file)
-        dataset_size = feats.shape[0]
-        for i in range(0, dataset_size, batch_size):
-            end_index = i + batch_size
-            if end_index > dataset_size:
-                if drop_last:
-                    continue  # Drop last smaller batch
-                else:
-                    batch_feats = feats[i:]
-                    batch_labels = frac_labels[i:]
-                    batch_e_weights = e_weights[i:]
-            else:
-                batch_feats = feats[i:end_index]
-                batch_labels = frac_labels[i:end_index]
-                batch_e_weights = e_weights[i:end_index]
+def _init_buffers():
+    return [], [], []
 
-            yield (
-                batch_feats,
-                batch_labels.reshape(*batch_labels.shape, 1),
-                batch_e_weights.reshape(*batch_e_weights.shape, 1),
+
+def _format_batch(feats_buffer, targets_buffer, e_weights_buffer):
+    batch_feats = np.array(feats_buffer)
+    batch_targets = np.expand_dims(targets_buffer, axis=-1)
+    batch_e_weights = np.expand_dims(e_weights_buffer, axis=-1)
+
+    return batch_feats, batch_targets, batch_e_weights
+
+
+def data_generator(data_dir, batch_size, drop_last=True, **kwargs):
+
+    if kwargs.get("seed", 0):
+        np.random.seed(kwargs["seed"])
+
+    # get filenames and initialize buffers
+    npz_files = glob.glob(os.path.join(data_dir, "*.npz"))
+    feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
+
+    while True:
+        np.random.shuffle(npz_files)
+        for npz_file in npz_files:
+
+            # Read data chunk and initialize counters
+            feats, frac_labels, e_weights = load_data_from_npz(npz_file)
+            file_size = feats.shape[0]
+            # initially all data are still not used: can fill full file in batch starting at index 0
+            unprocessed_size = file_size
+            last_batch_idx = 0
+
+            # loop through chunk until all points are processed
+            while unprocessed_size > 0:
+
+                # get N of elements remaining to reach to batch_size
+                fill_size = batch_size - len(feats_buffer)
+                # get fill_size elements starting from last_batch_idx
+                feats_buffer.extend(feats[last_batch_idx : last_batch_idx + fill_size])
+                targets_buffer.extend(
+                    frac_labels[last_batch_idx : last_batch_idx + fill_size]
+                )
+                e_weights_buffer.extend(
+                    e_weights[last_batch_idx : last_batch_idx + fill_size]
+                )
+
+                # update unprocessed points and last index
+                unprocessed_size -= fill_size
+                last_batch_idx += fill_size
+
+                # check if batch is full, in case yield + reset buffers
+                if len(feats_buffer) == batch_size:
+                    batch_feats, batch_targets, batch_e_weights = _format_batch(
+                        feats_buffer, targets_buffer, e_weights_buffer
+                    )
+                    feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
+                    yield batch_feats, batch_targets, batch_e_weights
+
+        # handle last batch of last chunk
+        if drop_last == False:
+            batch_feats, batch_targets, batch_e_weights = _format_batch(
+                feats_buffer, targets_buffer, e_weights_buffer
             )
+            feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
+            yield batch_feats, batch_targets, batch_e_weights
 
 
 def calculate_steps(data_dir, batch_size):
@@ -218,7 +256,9 @@ def _setup_model(
 
 
 def train():
-    with wandb.init(project="pointcloud", config=baseline_configuration, job_type="training") as run:
+    with wandb.init(
+        project="pointcloud", config=baseline_configuration, job_type="training"
+    ) as run:
         config = wandb.config
 
         # number of steps and seed
@@ -366,9 +406,9 @@ def train():
         except AttributeError as e:
             print(f"{e}")
             loss_function = tf.keras.losses.BinaryCrossentropy(
-            from_logits=False
-        )  # NOTE: False for "sigmoid", True for "linear"
-            
+                from_logits=False
+            )  # NOTE: False for "sigmoid", True for "linear"
+
         # NOTE: the match/case below may still be useful in case of differential processing depending on the chosen loss function
         # match config.LOSS_FUNCTION:
         #     case "BCE":
