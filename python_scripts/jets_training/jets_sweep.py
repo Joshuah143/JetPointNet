@@ -55,11 +55,6 @@ sweep_configuration = {
     },
 }
 
-#for hyperparam, value in experiment_configuration.items():
-#    if hyperparam not in sweep_configuration["parameters"].keys():
-#        sweep_configuration["parameters"][hyperparam] = {"value": value}
-
-
 
 if __name__ == "__main__":
     sweep_id = wandb.sweep(

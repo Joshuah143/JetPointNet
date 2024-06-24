@@ -254,10 +254,22 @@ def _setup_model(
 #         notes="This run reproduces Marko's setting. Consider this as the starting jet ML baseline.",
 #     )
 
+def merge_configurations(priority_config, baseline_config):
+    for hyperparam, value in priority_config.items():
+        if hyperparam in baseline_config.keys():
+            baseline_config["parameters"][hyperparam] = {"value": value}
+        else:
+            raise AttributeError(f"{hyperparam} set in expriemntal config, 
+                                 but not found in baseline config, this parameter is not used 
+                                 and is likely set by error. 
+                                 Please check the config is in `baseline_config`.")
+    return baseline_config
 
-def train():
+
+def train(experimental_configuration: dict = {}):
+    run_config = merge_configurations(experimental_configuration, baseline_configuration)
     with wandb.init(
-        project="pointcloud", config=baseline_configuration, job_type="training"
+        project="pointcloud", config=run_config, job_type="training"
     ) as run:
         config = wandb.config
 
@@ -601,4 +613,4 @@ def train():
 
 
 if __name__ == "__main__":
-    train()
+    train({})
