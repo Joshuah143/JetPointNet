@@ -18,7 +18,7 @@ sys.path.append(str(SCRIPT_PATH))
 
 import os
 import wandb
-from jets_training.jets_train import train, baseline_configuration, GPU_ID
+from jets_training.jets_train import train, baseline_configuration
 
 
 WANDB_PROJECT = "pointcloud"

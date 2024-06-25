@@ -9,6 +9,7 @@
 import sys
 from pathlib import Path
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 import json
 
 REPO_PATH = Path.home() / "workspace/jetpointnet"
@@ -86,6 +87,8 @@ baseline_configuration = dict(
     FRACTIONAL_ENERGY_CUTOFF=0.5,
     OUTPUT_LAYER_SEGMENTATION_CUTOFF=0.5,
     EARLY_STOPPING=False,
+    TRAIN_STEPS=500,
+    VAL_STEPS=500,
     # POTENTIALLY OVERWRITTEN BY THE WANDB SWEEP:
     # LR_MAX=0.000015,
     # LR_MIN=1e-5,
@@ -107,6 +110,9 @@ elif (
     and baseline_configuration["OUTPUT_LAYER_SEGMENTATION_CUTOFF"] != 0
 ):
     raise Exception("Invalid OUTPUT_LAYER_SEGMENTATION_CUTOFF")
+
+best_checkpoint_path = f"{MODELS_PATH}/PointNet_best.keras"
+# last_checkpoint_path = f"{MODELS_PATH}/PointNet_last_{epoch=}.keras"
 
 TRAIN_INPUTS = [
     #'event_number',
@@ -257,12 +263,9 @@ def _setup_model(
 def merge_configurations(priority_config, baseline_config):
     for hyperparam, value in priority_config.items():
         if hyperparam in baseline_config.keys():
-            baseline_config["parameters"][hyperparam] = {"value": value}
+            baseline_config[hyperparam] = {"value": value}
         else:
-            raise AttributeError(f"{hyperparam} set in expriemntal config, 
-                                 but not found in baseline config, this parameter is not used 
-                                 and is likely set by error. 
-                                 Please check the config is in `baseline_config`.")
+            raise AttributeError(f"{hyperparam} set in expriemntal config, but not found in baseline config, this parameter is not used and is likely set by error. Please check the config is in `baseline_config`.")
     return baseline_config
 
 
@@ -274,8 +277,8 @@ def train(experimental_configuration: dict = {}):
         config = wandb.config
 
         # number of steps and seed
-        train_steps = calculate_steps(TRAIN_DIR, config.BATCH_SIZE)  # 47
-        val_steps = calculate_steps(VAL_DIR, config.BATCH_SIZE)  # 26
+        train_steps = config.TRAIN_STEPS # calculate_steps(TRAIN_DIR, config.BATCH_SIZE)  # 47
+        val_steps = config.VAL_STEPS # calculate_steps(VAL_DIR, config.BATCH_SIZE)  # 26
         print(f"{train_steps = };\t{val_steps = }")
 
         seed = config.TF_SEED
@@ -366,7 +369,7 @@ def train(experimental_configuration: dict = {}):
 
         # Callbacks
         # ModelCheckpoint
-        best_checkpoint_path = f"{MODELS_PATH}/PointNet_best.keras"
+        
         checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
             filepath=best_checkpoint_path,
             save_best_only=True,
@@ -490,10 +493,10 @@ def train(experimental_configuration: dict = {}):
             print(f"\nTime taken for training: {time.time() - start_time:.2f} sec")
 
             batch_loss_val, batch_accuracy_val, batch_weighted_accuracy_val = [], [], []
-            for step, (x_batch_val, y_batch_val, e_weight_val) in enumerate(
+            for step, (x_batch_val_named, y_batch_val, e_weight_val) in enumerate(
                 data_generator(VAL_DIR, config.BATCH_SIZE, False)
             ):
-                x_batch_val = rfn.structured_to_unstructured(x_batch_val)
+                x_batch_val = rfn.structured_to_unstructured(x_batch_val_named)
                 if step >= val_steps:
                     break
                 (
@@ -508,7 +511,7 @@ def train(experimental_configuration: dict = {}):
                 val_reg_acc.update_state(val_reg_acc_value)
                 val_weighted_acc.update_state(val_weighted_acc_value)
 
-                mask = y_batch_val != -1  # remove non-energy points
+                mask = x_batch_val_named['category'] == 1   # remove non-energy points
                 val_true_labels.extend(
                     (y_batch_val[mask] > config.FRACTIONAL_ENERGY_CUTOFF).astype(
                         np.float32
@@ -529,8 +532,8 @@ def train(experimental_configuration: dict = {}):
             val_predictions = tf.convert_to_tensor(val_predictions)
 
             val_f1_score.update_state(
-                tf.expand_dims(val_true_labels, axis=-1),
-                tf.expand_dims(val_predictions, axis=-1),
+                val_true_labels, # tf.expand_dims(val_true_labels, axis=-1),
+                val_predictions # tf.expand_dims(val_predictions, axis=-1),
             )
             recall_metric.update_state(val_true_labels, val_predictions)
             precision_metric.update_state(val_true_labels, val_predictions)
@@ -592,13 +595,12 @@ def train(experimental_configuration: dict = {}):
                             "val/precision": precision_metric.result().numpy(),
                         },
                     )
-                    if early_stopping_callback.model.stop_training == True and config.EARLY_STOPPING:
+                    if early_stopping_callback.model.stop_training:
                         print(f"Early stopping triggered at epoch {epoch}")
                         break
-
         print("\n\nTraining completed!")
 
-        last_checkpoint_path = f"{MODELS_PATH}/PointNet_last_{epoch=}.keras"
+        last_checkpoint_path = f"{MODELS_PATH}/PointNet_last_{epoch=}_name={run.name}.keras"
         model.save(last_checkpoint_path)
 
         # Log the best and last models to wandb

@@ -42,15 +42,15 @@ from jets_training.models.JetPointNet import PointNetSegmentation
 from jets_training.jets_train import (
     TRAIN_INPUTS,
     MAX_SAMPLE_LENGTH,
-    OUTPUT_ACTIVATION_FUNCTION,
-    BATCH_SIZE,
-    FRACTIONAL_ENERGY_CUTOFF,
+    baseline_configuration,
     best_checkpoint_path,
-    last_checkpoint_path,
-    OUTPUT_LAYER_SEGMENTATION_CUTOFF,
     EXPERIMENT_NAME
 )
 from data_processing.jets.preprocessing_header import NPZ_SAVE_LOC, AWK_SAVE_LOC, POINT_TYPE_ENCODING
+
+OUTPUT_ACTIVATION_FUNCTION = baseline_configuration['OUTPUT_ACTIVATION_FUNCTION']
+FRACTIONAL_ENERGY_CUTOFF = baseline_configuration['FRACTIONAL_ENERGY_CUTOFF']
+OUTPUT_LAYER_SEGMENTATION_CUTOFF = baseline_configuration['OUTPUT_LAYER_SEGMENTATION_CUTOFF']
 
 # there is an issue that these are needed
 import warnings
@@ -79,7 +79,8 @@ USE_BINARY_ATTRIBUTION_MODEL = True
 USE_BINARY_ATTRIBUTION_TRUTH = True
 RENDER_IMAGES = True
 USE_TRUTH_E = False
-MAX_WINDOWS = 0 # can take -1 for all 
+MAX_FILES = 1
+MAX_WINDOWS = 30 # can take -1 for all 
 INCLUDED_DATASETS = ['VAL'] # , 'VAL', 'TRAIN']
 
 
@@ -106,7 +107,10 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
 
 images_rendered = 0
 
-for data_file in sum([glob.glob(os.path.join(NPZ_SAVE_LOC / i.lower(), "*.npz")) for i in INCLUDED_DATASETS], []):
+for file_idx, data_file in enumerate(sum([glob.glob(os.path.join(NPZ_SAVE_LOC / i.lower(), "*.npz")) for i in INCLUDED_DATASETS], [])):
+    print(data_file)
+    if file_idx > MAX_FILES:
+        break
     filename_npz = data_file
     feats, fractional_energy, _, total_truth_energy = load_data_from_npz(filename_npz)
 
@@ -247,11 +251,11 @@ for data_file in sum([glob.glob(os.path.join(NPZ_SAVE_LOC / i.lower(), "*.npz"))
 
         metadata_list.append(track_information)
 
-        if RENDER_IMAGES and (MAX_WINDOWS == -1 or images_rendered < MAX_WINDOWS):
+        if (RENDER_IMAGES and (MAX_WINDOWS == -1 or images_rendered < MAX_WINDOWS)) or nCells > 1000:
             images_rendered += 1
             # convert to plot:
             fig = plt.figure(figsize=(22, 7))
-            fig.suptitle(f'Event: {window[0]["event_number"]} Track: {window[0]["track_ID"]}, $\sum E={sum(cell_total_energy)}$, nCells={len(cell_x_list)}')
+            fig.suptitle(f'Event: {window[0]["event_number"]} Track: {window[0]["track_ID"]}, $\sum E={sum(cell_total_energy)}$, nCells={len(cell_x_list)}, pt={window["track_pt"][0]:.2f}')
 
             ax1 = fig.add_subplot(131, projection='3d')
             ax2 = fig.add_subplot(132, projection='3d')
@@ -264,9 +268,10 @@ for data_file in sum([glob.glob(os.path.join(NPZ_SAVE_LOC / i.lower(), "*.npz"))
                 if PLOT_NON_FOCAL:
                     for non_focal_id, non_focal_track in non_focus_tracks.items():
                         ax_i.plot(non_focal_track['non_focus_hit_x'],
-                                non_focal_track['non_focus_hit_x'], 
-                                non_focal_track['non_focus_hit_x'], 
+                                non_focal_track['non_focus_hit_y'], 
+                                non_focal_track['non_focus_hit_z'], 
                                 label=f"Non Focal - ID: {non_focal_id}")
+                        print(f"Non Focal - ID: {non_focal_id}")
                     ax_i.legend()
                 ax_i.set_xlabel('X Coordinate (mm)')
                 ax_i.set_ylabel('Y Coordinate (mm)')
@@ -419,7 +424,7 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     data = metadata['accuracy']
     data_arr = [data, data[mask]]
     labels = ["Unmasked", "Masked"]
-    plt.hist(data_arr, bins=50, label=labels, histtype='step', stacked=True, fill=False)
+    plt.hist(data_arr, bins=50, label=labels, histtype='step', fill=False)
     print('saving cell_accuracy_hist to', HIST_PATH / 'cell_accuracy_hist.png')
     plt.legend()
     plt.savefig(HIST_PATH / 'cell_accuracy_hist.png', dpi=500)
@@ -429,7 +434,7 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     data = metadata['f1_score']
     data_arr = [data, data[mask]]
     labels = ["Unmasked", "Masked"]
-    plt.hist(data_arr, bins=50, label=labels, histtype='step', stacked=True, fill=False)
+    plt.hist(data_arr, bins=50, label=labels, histtype='step', fill=False)
     print('saving cell_f1_hist to', HIST_PATH / 'cell_f1_hist.png')
     plt.legend()
     plt.yscale('log')
@@ -439,7 +444,7 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     plt.title(f'Cell attribution rates per track with nTracks={number_of_tracks_in_set}\n Including: {INCLUDED_DATASETS}')
     rates = [metadata['false_positive_rate'], metadata['false_negative_rate'], metadata['true_positive_rate'], metadata['true_negative_rate']]
     labels = ['False Positive Rate', 'False Negative Rate', 'True Positive Rate', 'True Negative Rate']
-    plt.hist(rates, label=labels, bins=50, histtype='step', stacked=True, fill=False)
+    plt.hist(rates, label=labels, bins=50, histtype='step', fill=False)
     plt.grid(axis='y', linestyle='--', alpha=0.7)
     plt.yscale('log')
     plt.legend()
@@ -451,7 +456,7 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     plt.title(f'Cell attribution rates per track with nTracks={number_of_tracks_in_set}\n Including: {INCLUDED_DATASETS}')
     rates = [metadata['positive_predictive_value'], metadata['false_discovery_rate'], metadata['false_omission_rate'], metadata['negative_predictive_value']]
     labels = ['Positive Predictive Value', 'False Discovery Rate', 'False Omission Rate', 'Negative Predictive Value']
-    plt.hist(rates, label=labels, bins=50, histtype='step', stacked=True, fill=False)
+    plt.hist(rates, label=labels, bins=50, histtype='step', fill=False)
     plt.grid(axis='y', linestyle='--', alpha=0.7)
     plt.yscale('log')
     plt.legend()
@@ -464,7 +469,7 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     data = metadata['rate_truth_activations']
     data_arr = [data, data[mask]]
     labels = ["Unmasked", "Masked"]
-    plt.hist(data_arr, bins=50, label=labels, histtype='step', stacked=True, fill=False)
+    plt.hist(data_arr, bins=50, label=labels, histtype='step', fill=False)
     plt.legend()
     plt.grid(axis='y', linestyle='--', alpha=0.7)
     plt.yscale('log')
