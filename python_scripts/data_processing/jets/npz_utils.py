@@ -24,6 +24,7 @@ def add_train_label_record(
         normalized_y: float,
         normalized_z: float,
         normalized_distance: float,
+        chi2_dof: float,
         cell_E: float = -1,
         track_pt: float = -1,
         cell_ID: int = -1,
@@ -48,15 +49,14 @@ def add_train_label_record(
                         normalized_y,
                         normalized_z,
                         normalized_distance,
+                        chi2_dof,
                         cell_E,
                         track_pt
                     )
                 )
     
 
-
-
-def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
+def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1, include_chi2_dof=False):
     samples = []
 
     for event in tracks_sample_array:
@@ -109,6 +109,7 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                     normalized_z=normalized_z,
                     normalized_distance=0,
                     track_pt=track["trackPt"],
+                    chi2_dof=track["trackChiSquared/trackNumberDOF"],
                     cell_E=-1,
                     cell_ID=-1,
                     track_num=0
@@ -134,6 +135,7 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                         normalized_y=normalized_y,
                         normalized_z=normalized_z,
                         normalized_distance=normalized_distance,
+                        chi2_dof=associated_track["trackChiSquared/trackNumberDOF"] if include_chi2_dof else -1,
                         track_pt=associated_track["trackPt"],
                         cell_E=-1,
                         cell_ID=-1,
@@ -158,6 +160,7 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                     normalized_y=normalized_y,
                     normalized_z=normalized_z,
                     normalized_distance=normalized_distance,
+                    chi2_dof=-1,
                     track_pt=-1,
                     cell_E=cell["E"] * energy_scale,
                     cell_ID=cell["ID"],
@@ -183,6 +186,7 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                         normalized_y=-1,
                         normalized_z=-1,
                         normalized_distance=-1,
+                        chi2_dof=-1,
                         track_pt=-1,
                         cell_E=-1,
                         cell_ID=-1,
@@ -202,6 +206,7 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                 ('normalized_y', np.float32),
                 ('normalized_z', np.float32),
                 ('normalized_distance', np.float32),
+                ("chi2_dof", np.float32),
                 ('cell_E', np.float32),
                 ('track_pt', np.float32),
             ])

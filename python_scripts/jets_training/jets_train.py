@@ -117,8 +117,9 @@ TRAIN_INPUTS = [
     #'event_number',
     #'cell_ID',
     #'track_ID',
-    #'delta_R',
+    'delta_R',
     "category",
+    "chi2_dof"
     "track_num",
     "normalized_x",
     "normalized_y",

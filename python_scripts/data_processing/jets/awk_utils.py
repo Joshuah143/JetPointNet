@@ -420,6 +420,7 @@ def process_associated_tracks(
                 {layer: eta[adj_track_idx] for layer, eta in track_etas.items()},
                 {layer: phi[adj_track_idx] for layer, phi in track_phis.items()},
             )
+            chi2_dof = event["trackChiSquared"][adj_track_idx] / event["trackNumberDOF"][adj_track_idx]
 
             for layer, (x, y, z, eta, phi) in adj_track_intersections.items():
                 min_distance_to_focal = min(
@@ -434,6 +435,7 @@ def process_associated_tracks(
                 tracks_sample.field("Z").real(z)
                 tracks_sample.field("delta_R_adj").real(delta_r_adj) # same for all layers
                 tracks_sample.field("distance_to_track").real(min_distance_to_focal)
+                tracks_sample.field("trackChiSquared/trackNumberDOF").real(chi2_dof)
                 tracks_sample.end_record()
 
             tracks_sample.end_list()

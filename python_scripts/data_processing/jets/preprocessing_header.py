@@ -71,7 +71,7 @@ elif USER == "jhimmens":
     ENERGY_SCALE = 1
 
     # ===== ROOT TO AWK =====
-    AWK_OUTPUT_DIRECTORY_NAME = "rho_small/"
+    AWK_OUTPUT_DIRECTORY_NAME = "pipm_small/"
     AWK_DATASET_NAME = "progressive_training"
     OVERWRITE_AWK = False
     GEO_FILE_LOC = "/fast_scratch_1/atlas/pflow/rho_small.root"
@@ -79,19 +79,19 @@ elif USER == "jhimmens":
     # TEST_SPLIT_RATIO is implied to be the remaining percentage
     TRAIN_SPLIT_RATIO = 0.55
     VAL_SPLIT_RATIO = 0.3
-    AWK_THREADS_PER_CHUNK = 20  # root to awk
-    ROOT_FILES_DIR = "/fast_scratch_1/atlas/pflow/delta.root" # "/fast_scratch_1/atlas/pflow/20240614/" full set, rho delta
+    AWK_THREADS_PER_CHUNK = 10  # root to awk
+    ROOT_FILES_DIR = "/fast_scratch_1/atlas/pflow/pipm" # "/fast_scratch_1/atlas/pflow/20240614/" full set, rho delta
 
     # ===== SAMPLE LENGTH SCRIPT =====
-    LEN_DATASET_NAME = "cern_grid"
-    LEN_OUTPUT_DIRECTORY_NAME = "500k_events_june19/"
+    LEN_DATASET_NAME = "pipm_small"
+    LEN_OUTPUT_DIRECTORY_NAME = "progressive_training/"
     SAMPLE_LENGTH_WORKERS = 10
 
     # ===== AWK TO NPZ =====
-    NPZ_DATASET_NAME = "cern_grid"
-    NPZ_OUTPUT_DIRECTORY_NAME = "500k_events_june19/"
+    NPZ_DATASET_NAME = "attempt_1_june_18"
+    NPZ_OUTPUT_DIRECTORY_NAME = "full_set"
     OVERWRITE_NPZ = False
-    NPZ_NUM_CHUNK_THREADS = 1  # awk to npz
+    NPZ_NUM_CHUNK_THREADS = 80  # awk to npz
     MAX_SAMPLE_LENGTH = 650
     NPZ_REGEX_INCLUDE = f'^({prefix_match["JZ0"]}|{prefix_match["JZ1"]}|{prefix_match["JZ2"]}).*' # all awk files included
 else:
