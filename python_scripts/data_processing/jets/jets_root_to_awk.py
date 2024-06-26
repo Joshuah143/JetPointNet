@@ -58,12 +58,12 @@ def split_and_save_to_disk(processed_data, base_filename, id_splits: dict, save_
 
 def setup_directories():
     # Directories for train, val, and test sets
-    train_dir = os.path.join(AWK_SAVE_LOC, "train")
-    val_dir = os.path.join(AWK_SAVE_LOC, "val")
-    test_dir = os.path.join(AWK_SAVE_LOC, "test")
+    train_dir = os.path.join(AWK_SAVE_LOC(AWK), "train")
+    val_dir = os.path.join(AWK_SAVE_LOC(AWK), "val")
+    test_dir = os.path.join(AWK_SAVE_LOC(AWK), "test")
 
     # Ensure directories exist
-    os.makedirs(AWK_SAVE_LOC, exist_ok=True)
+    os.makedirs(AWK_SAVE_LOC(AWK), exist_ok=True)
     os.makedirs(train_dir, exist_ok=True)
     os.makedirs(val_dir, exist_ok=True)
     os.makedirs(test_dir, exist_ok=True)
@@ -181,7 +181,7 @@ def process_chunk(chunk, cell_ID_geo, cell_eta_geo, cell_phi_geo, cell_rPerp_geo
     Modified `process_chunk` to handle progress reporting using multiprocessing.Pool and tqdm.
     """
     chunk_size = len(chunk)
-    events_per_thread = chunk_size // NUM_THREAD_PER_CHUNK
+    events_per_thread = chunk_size // AWK_THREADS_PER_CHUNK
 
     # Create a list of arguments for each thread
     args = [
@@ -194,20 +194,20 @@ def process_chunk(chunk, cell_ID_geo, cell_eta_geo, cell_phi_geo, cell_rPerp_geo
             i,
             # progress_dict,
         )
-        for i in range(NUM_THREAD_PER_CHUNK)
+        for i in range(AWK_THREADS_PER_CHUNK)
         for start_idx, end_idx in [
             (
                 i * events_per_thread,
                 (
                     chunk_size
-                    if i == NUM_THREAD_PER_CHUNK - 1
+                    if i == AWK_THREADS_PER_CHUNK - 1
                     else (i + 1) * events_per_thread
                 ),
             )
         ]
     ]
 
-    with Pool(processes=NUM_THREAD_PER_CHUNK) as pool:
+    with Pool(processes=AWK_THREADS_PER_CHUNK) as pool:
         results = list(tqdm(pool.imap(process_events_wrapper, args), total=len(args)))
 
     combined_array = ak.concatenate(results)
@@ -238,7 +238,7 @@ def event_handler_wrapper(filename):
             )
             
             for chunk in events.iterate(
-                fields_list, library="ak", step_size=NUM_EVENTS_PER_CHUNK
+                fields_list, library="ak", step_size=NUM_MAX_EVENTS_PER_CHUNK
             ):
                 print(f"\nProcessing chunk {chunk_counter + 1} of size {len(chunk)}")
 
@@ -247,7 +247,7 @@ def event_handler_wrapper(filename):
                 split_and_save_to_disk(processed_data, base_filename, id_split, save_locations)
 
                 chunk_counter += 1
-    except uproot.exceptions.KeyInFileError:
+    except ValueError: #uproot.exceptions.KeyInFileError:
         print(f"Skipping {filename}, no EventTree found")
 
 
@@ -290,25 +290,17 @@ if __name__ == "__main__":
     # (1100, 600, 300)
 
     start_time = time.time()
-    if CERN_GRID:
-        root_files = [
-            os.environ.get("ROOT_FILE_0"),
-            os.environ.get("ROOT_FILE_1"),
-            os.environ.get("ROOT_FILE_2"),
-            os.environ.get("ROOT_FILE_3"),
-            os.environ.get("ROOT_FILE_4"),
-        ]
-        for file in root_files:
-            event_handler_wrapper(file)
-    elif FULL_SET:
-        potential_root_files = glob.glob(os.path.join(FILES_DIR, "**/*.root"), recursive=True)
+
+    if os.path.isfile(ROOT_FILES_DIR):
+        event_handler_wrapper(ROOT_FILES_DIR)
+    else:
+        potential_root_files = glob.glob(os.path.join(ROOT_FILES_DIR, "**/*.root"), recursive=True)
         root_files = [entry for entry in potential_root_files if os.path.isfile(entry)]
         number_of_files = len(root_files)
         for i, file in enumerate(root_files):
             event_handler_wrapper(file)
             print(f"Completed {i+1:<7} of {number_of_files}")
-    else:
-        event_handler_wrapper(FILE_LOC)
+        
 
     end_time = time.time()
     print(f"Total Time Elapsed: {(end_time - start_time) / 60 / 60:.2f} Hours")

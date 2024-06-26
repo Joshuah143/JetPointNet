@@ -73,7 +73,7 @@ baseline_configuration = dict(
     SPLIT_SEED=62,
     TF_SEED=np.random.randint(0, 100),
     MAX_SAMPLE_LENGTH=MAX_SAMPLE_LENGTH,  # 278 for delta R of 0.1, 859 for 0.2
-    BATCH_SIZE=256,
+    BATCH_SIZE=1000,
     EPOCHS=150,
     LR=0.1,
     LR_DECAY=0.95,
@@ -111,7 +111,6 @@ elif (
 ):
     raise Exception("Invalid OUTPUT_LAYER_SEGMENTATION_CUTOFF")
 
-best_checkpoint_path = f"{MODELS_PATH}/PointNet_best.keras"
 # last_checkpoint_path = f"{MODELS_PATH}/PointNet_last_{epoch=}.keras"
 
 TRAIN_INPUTS = [
@@ -131,12 +130,12 @@ TRAIN_INPUTS = [
 
 
 def load_data_from_npz(npz_file):
-    data = np.load(npz_file)
-    feats = data["feats"][:, :MAX_SAMPLE_LENGTH][
+    all_feats = np.load(npz_file)["feats"]
+    feats = all_feats[:, :MAX_SAMPLE_LENGTH][
         TRAIN_INPUTS
     ]  # discard tracking information
-    frac_labels = data["frac_labels"][:, :MAX_SAMPLE_LENGTH]
-    energy_weights = data["tot_truth_e"][:, :MAX_SAMPLE_LENGTH]
+    frac_labels = all_feats[:, :MAX_SAMPLE_LENGTH]["truth_cell_fraction_energy"]
+    energy_weights = all_feats[:, :MAX_SAMPLE_LENGTH]["cell_E"]
     return feats, frac_labels, energy_weights
 
 
@@ -265,7 +264,7 @@ def merge_configurations(priority_config, baseline_config):
         if hyperparam in baseline_config.keys():
             baseline_config[hyperparam] = {"value": value}
         else:
-            raise AttributeError(f"{hyperparam} set in expriemntal config, but not found in baseline config, this parameter is not used and is likely set by error. Please check the config is in `baseline_config`.")
+            raise AttributeError(f"{hyperparam} set in experimental config, but not found in baseline config, this parameter is not used and is likely set by error. Please check the config is in `baseline_config`.")
     return baseline_config
 
 
@@ -369,6 +368,7 @@ def train(experimental_configuration: dict = {}):
 
         # Callbacks
         # ModelCheckpoint
+        best_checkpoint_path = f"{MODELS_PATH}/PointNet_best_name={run.name}.keras"
         
         checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
             filepath=best_checkpoint_path,

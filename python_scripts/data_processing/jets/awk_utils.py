@@ -11,9 +11,9 @@ from data_processing.jets.track_metadata import (
 HAS_FIXED_R, FIXED_R, FIXED_Z = has_fixed_r, fixed_r, fixed_z
 from data_processing.jets.preprocessing_header import *
 from data_processing.jets.common_utils import (calculate_cartesian_coordinates,
-                                               calculate_track_intersections,
-                                               calculate_delta_r)
-
+                                               calculate_delta_r, 
+                                               intersection_fixed_r, 
+                                               intersection_fixed_z)
 
 
 # =======================================================================================================================
@@ -219,7 +219,6 @@ def add_track_intersection_info(tracks_sample, track_idx, track_eta, track_phi):
         tracks_sample.real(eta)
         tracks_sample.field("phi")
         tracks_sample.real(phi)
-        tracks_sample.field("Label").real(1)
         tracks_sample.end_record()  # End the record for this intersection point
     tracks_sample.end_list()  # End list of intersection points
 
@@ -327,12 +326,9 @@ def process_associated_cell_info(
                 found_index
             ]  # Retrieve corresponding energy deposit
             energy_fraction = part_energy / total_energy  # Calculate energy fraction
-            # L: NOTE should we refer to measured rather than truth energy instead?
             tracks_sample.field("Fraction_Label").real(energy_fraction)
-            tracks_sample.field("Total_Label").real(total_energy)
         else:
             tracks_sample.field("Fraction_Label").real(0)
-            tracks_sample.field("Total_Label").real(0)
 
         tracks_sample.field("cell_Hits_TruthIndices")
         tracks_sample.begin_list()
@@ -438,13 +434,90 @@ def process_associated_tracks(
                 tracks_sample.field("Z").real(z)
                 tracks_sample.field("delta_R_adj").real(delta_r_adj) # same for all layers
                 tracks_sample.field("distance_to_track").real(min_distance_to_focal)
-                tracks_sample.field("Label").real(0)
                 tracks_sample.end_record()
 
             tracks_sample.end_list()
             tracks_sample.end_record()
 
     tracks_sample.end_list()
+
+
+# ============ train/val/test split: this works on eventNumber as index to subset data ================================================================================
+
+
+def train_val_test_split_events(
+    all_events_ids,
+    train_pct=TRAIN_SPLIT_RATIO,
+    val_pct=VAL_SPLIT_RATIO,
+    split_seed=None,
+):
+    from sklearn.model_selection import train_test_split
+
+    if not split_seed:
+        split_seed = np.random.choice(range(100), size=1)[0]
+    train_ids, val_ids = train_test_split(
+        all_events_ids, test_size=1 - train_pct, random_state=split_seed
+    )
+    val_ids, test_ids = train_test_split(
+        val_ids, test_size=1 - (val_pct) / (1 - train_pct), random_state=split_seed
+    )
+
+    for event_ids, fn in zip([train_ids, val_ids, test_ids], ["train", "val", "test"]):
+        AWK_SAVE_LOC(AWK).mkdir(exist_ok=True, parents=True)
+        np.savetxt(
+            AWK_SAVE_LOC(AWK).parent / f"{fn}_events_{split_seed=}.txt", event_ids, fmt="%d"
+        )
+
+    return split_seed, train_ids, val_ids, test_ids
+
+
+def get_split(split_seed):
+    ids = []
+    for split in ["train", "val", "test"]:
+        ids.append(
+            np.loadtxt(AWK_SAVE_LOC(AWK).parent.parent / "AwkwardArrs" / f"{split}_events_{split_seed=}.txt")
+        )
+    return ids
+
+
+def split(events, split_seed):
+    all_events_ids = events["eventNumber"].array(library="np")
+    split_seed, train_ids, val_ids, test_ids = train_val_test_split_events(
+        all_events_ids, split_seed=split_seed
+    )
+    return {"train_ids": train_ids, "val_ids": val_ids, "test_ids": test_ids}
+
+
+def split_data(events, split_seed, retrieve=True):
+    if retrieve:
+        return get_split(split_seed)
+    else:
+        return split(events, split_seed)
+
+# =======================================================================================================================
+
+
+# Define the function to calculate the intersection points for each track
+def calculate_track_intersections(track_eta, track_phi):
+    intersections = {}
+    for layer in calo_layers:
+        eta = track_eta[layer]
+        phi = track_phi[layer]
+        # Skip calculation for invalid eta, phi values
+        if eta < -100000 or phi < -100000:
+            continue
+
+        # Calculate intersection based on layer type
+        if HAS_FIXED_R.get(layer, False):
+            x, y, z = intersection_fixed_r(eta, phi, FIXED_R[layer])
+        elif layer in FIXED_Z:
+            x, y, z = intersection_fixed_z(eta, phi, FIXED_Z[layer])
+        else:
+            raise Exception(
+                "Error: cell layers must either be fixed R or fixed Z, and not neither"
+            )
+        intersections[layer] = (x, y, z, eta, phi)
+    return intersections
 
 
 # =======================================================================================================================

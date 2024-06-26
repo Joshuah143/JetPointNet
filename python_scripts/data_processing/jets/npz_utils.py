@@ -12,14 +12,14 @@ HAS_FIXED_R, FIXED_R, FIXED_Z = has_fixed_r, fixed_r, fixed_z
 from data_processing.jets.preprocessing_header import *
 from data_processing.jets.common_utils import calculate_delta_r
 
-
-
 def add_train_label_record(
         *, # ensures that all arguments must be named
         track_points: list,
         event_number: int,
         category: int | str,
         delta_R: float,
+        truth_cell_fraction_energy: float,
+        truth_cell_total_energy: float,
         normalized_x: float,
         normalized_y: float,
         normalized_z: float,
@@ -39,6 +39,9 @@ def add_train_label_record(
                         track_ID,
                         delta_R,
                         ## above is only for traceability, should not be included in training data
+                        truth_cell_fraction_energy,
+                        truth_cell_total_energy,
+                        ## above is for the y values of the 
                         category,
                         track_num, # used to associate non focal track interactions without track ID leakage
                         normalized_x,
@@ -99,6 +102,8 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                     track_ID=track["trackID"],
                     category=POINT_TYPE_ENCODING["focus hit"],
                     delta_R=calculate_delta_r(track["trackEta"], track["trackPhi"], intersection["eta"], intersection["phi"]),
+                    truth_cell_fraction_energy=-1,
+                    truth_cell_total_energy=-1,
                     normalized_x=normalized_x,
                     normalized_y=normalized_y,
                     normalized_z=normalized_z,
@@ -123,6 +128,8 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                         track_ID=associated_track["trackId"],
                         category=POINT_TYPE_ENCODING["unfocus hit"],
                         delta_R=intersection["delta_R_adj"],
+                        truth_cell_fraction_energy=-1,
+                        truth_cell_total_energy=-1,
                         normalized_x=normalized_x,
                         normalized_y=normalized_y,
                         normalized_z=normalized_z,
@@ -145,6 +152,8 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                     track_ID=-1,
                     category=POINT_TYPE_ENCODING["cell"],
                     delta_R=calculate_delta_r(track["trackEta"], track["trackPhi"], cell["eta"], cell["phi"]),
+                    truth_cell_fraction_energy=cell["Fraction_Label"],
+                    truth_cell_total_energy=cell["Total_Truth_Energy"],
                     normalized_x=normalized_x,
                     normalized_y=normalized_y,
                     normalized_z=normalized_z,
@@ -168,6 +177,8 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                         track_ID=-1,
                         category=POINT_TYPE_ENCODING["padding"],
                         delta_R=-1,
+                        truth_cell_fraction_energy=-1,
+                        truth_cell_total_energy=-1,
                         normalized_x=-1,
                         normalized_y=-1,
                         normalized_z=-1,
@@ -182,7 +193,9 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                 ('event_number', np.int32),
                 ('cell_ID', np.int32),
                 ('track_ID', np.int32),
-                ('delta_R', np.float32),             
+                ('delta_R', np.float32),
+                ('truth_cell_fraction_energy', np.float32),
+                ('truth_cell_total_energy', np.float32),
                 ('category', np.int8),
                 ('track_num', np.int32),
                 ('normalized_x', np.float32),
@@ -208,6 +221,8 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
 # =======================================================================================================================
 
 
+# DEPRECATED - MOVED TO THE INPUT ARRAY
+"""
 def build_labels_array(
     tracks_sample_array, max_sample_length, label_string, label_scale=1
 ):
@@ -268,4 +283,4 @@ def build_labels_array(
     # Replace NaN values with 0
     labels_array = np.nan_to_num(labels_array, nan=0.0)
 
-    return labels_array
+    return labels_array"""

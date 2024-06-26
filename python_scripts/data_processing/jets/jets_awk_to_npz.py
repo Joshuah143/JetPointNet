@@ -8,46 +8,25 @@ sys.path.append(str(SCRIPT_PATH))
 
 
 from data_processing.jets.npz_utils import (
-    build_labels_array,
     build_input_array
 )
 from data_processing.jets.common_utils import (
     print_events,
     calculate_max_sample_length,
 )
-from data_processing.jets.preprocessing_header import (
-    AWK_SAVE_LOC,
-    INCLUDE_SETS_TO_NPZ,
-    NPZ_SAVE_LOC,
-    NUM_CHUNK_THREADS,
-    ENERGY_SCALE,
-    OVERWRITE_NPZ,
-    MAX_SAMPLE_LENGTH,
-)
+from data_processing.jets.preprocessing_header import *
 import awkward as ak
 import pyarrow.parquet as pq
 import numpy as np
 import pandas as pd
 import os
 import time
+import re
 from tqdm.auto import tqdm
 from multiprocessing import Pool
 
 
 DATA_FOLDERS = ["train", "val", "test"]
-
-prefix_match = {
-    "JZ0": 'user.mswiatlo.39955613',
-    "JZ1": 'user.mswiatlo.39955646',
-    "JZ2": 'user.mswiatlo.39955678',
-    "JZ3": 'user.mswiatlo.39955704',
-    "JZ4": 'user.mswiatlo.39955735',
-    "JZ5": 'user.mswiatlo.39955768',
-    "JZ6": 'user.mswiatlo.39955825',
-}
-
-prefix_to_set = {j:i for i, j in prefix_match.items()}
-
 
 def read_parquet(filename):
     table = pq.read_table(filename)
@@ -58,8 +37,8 @@ def read_parquet(filename):
 def build_arrays(data_folder_path, chunk_file_name):
 
     if not OVERWRITE_NPZ:
-        print(f"Testing for existence of {os.path.join(NPZ_SAVE_LOC, data_folder_path.split('/')[-1], chunk_file_name + '.npz')}")
-    if not OVERWRITE_NPZ and os.path.exists(os.path.join(NPZ_SAVE_LOC, data_folder_path.split('/')[-1], chunk_file_name + ".npz")):
+        print(f"Testing for existence of {os.path.join(NPZ_SAVE_LOC(NPZ), data_folder_path.split('/')[-1], chunk_file_name + '.npz')}")
+    if not OVERWRITE_NPZ and os.path.exists(os.path.join(NPZ_SAVE_LOC(NPZ), data_folder_path.split('/')[-1], chunk_file_name + ".npz")):
         print(f"Already converted, skipping: {chunk_file_name}")
         return
     
@@ -67,14 +46,6 @@ def build_arrays(data_folder_path, chunk_file_name):
     # /home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/attempt_1_june_18/full_set/SavedNpz/deltaR=0.2/energy_scale=1/train/user.mswiatlo.39955678._000008.mltree.root_chunk_0_train.parquet.npz
 
     ak_array = read_parquet(os.path.join(data_folder_path, chunk_file_name))
-
-    frac_labels = build_labels_array(
-        ak_array, global_max_sample_length, "Fraction_Label"
-    )
-    tot_labels = build_labels_array(ak_array, global_max_sample_length, "Total_Label")
-    tot_truth_e = build_labels_array(
-        ak_array, global_max_sample_length, "Total_Truth_Energy"
-    )
 
     # NOTE: energy_scale affects only cells energy; set to 1 to maintain same scale for track hits and cells
     feats = build_input_array(
@@ -87,10 +58,7 @@ def build_arrays(data_folder_path, chunk_file_name):
     )
     np.savez(
         npz_save_path,
-        feats=feats,
-        frac_labels=frac_labels,
-        tot_labels=tot_labels,
-        tot_truth_e=tot_truth_e,
+        feats=feats
     )
 
 
@@ -102,29 +70,29 @@ if __name__ == "__main__":
 
     # Make sure this happens after SAVE_LOC is defined and created if necessary
     for folder in DATA_FOLDERS:
-        folder_path = os.path.join(AWK_SAVE_LOC, folder)
+        folder_path = os.path.join(AWK_SAVE_LOC(NPZ), folder)
         os.makedirs(
             folder_path, exist_ok=True
-        )  # This line ensures the AWK_SAVE_LOC directories exist
+        )  # This line ensures the AWK_SAVE_LOC(NPZ) directories exist
 
     global_max_sample_length = MAX_SAMPLE_LENGTH #find_global_max_sample_length()
     print(f"{global_max_sample_length = }")
 
     start_time = time.time()
     for data_folder in DATA_FOLDERS:
-        npz_data_folder_path = os.path.join(NPZ_SAVE_LOC, data_folder)
+        npz_data_folder_path = os.path.join(NPZ_SAVE_LOC(NPZ), data_folder)
         os.makedirs(npz_data_folder_path, exist_ok=True)  # Ensure the directory exists
         print(f"Processing data for: {data_folder}")
 
-        data_folder_path = os.path.join(AWK_SAVE_LOC, data_folder)
+        data_folder_path = os.path.join(AWK_SAVE_LOC(NPZ), data_folder)
         chunk_files = [
             f
             for f in os.listdir(data_folder_path)
-            if f.endswith(".parquet") and prefix_to_set[f[:len(prefix_match["JZ0"])]] in INCLUDE_SETS_TO_NPZ
+            if f.endswith(".parquet") and bool(re.fullmatch(NPZ_REGEX_INCLUDE, f))
         ]
         num_chunks = len(chunk_files)
 
-        with Pool(processes=NUM_CHUNK_THREADS) as pool:
+        with Pool(processes=NPZ_NUM_CHUNK_THREADS) as pool:
             results = list(
                 tqdm(
                     pool.imap_unordered(

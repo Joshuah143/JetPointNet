@@ -60,31 +60,6 @@ def calculate_delta_r(eta1, phi1, eta2, phi2):
 # =======================================================================================================================
 
 
-# Define the function to calculate the intersection points for each track
-def calculate_track_intersections(track_eta, track_phi):
-    intersections = {}
-    for layer in calo_layers:
-        eta = track_eta[layer]
-        phi = track_phi[layer]
-        # Skip calculation for invalid eta, phi values
-        if eta < -100000 or phi < -100000:
-            continue
-
-        # Calculate intersection based on layer type
-        if HAS_FIXED_R.get(layer, False):
-            x, y, z = intersection_fixed_r(eta, phi, FIXED_R[layer])
-        elif layer in FIXED_Z:
-            x, y, z = intersection_fixed_z(eta, phi, FIXED_Z[layer])
-        else:
-            raise Exception(
-                "Error: cell layers must either be fixed R or fixed Z, and not neither"
-            )
-        intersections[layer] = (x, y, z, eta, phi)
-    return intersections
-
-
-# =======================================================================================================================
-
 def calculate_max_sample_length_simplified(tracks_array):
     """Compute maximum number of points"""
     current_index = 0
@@ -104,6 +79,7 @@ def calculate_max_sample_length_simplified(tracks_array):
             current_index += 1
             length_arr.append(length)
     return length_arr
+
 
 def calculate_max_sample_length(tracks_array):
     """Compute maximum number of points, plus keep track of point types per event and track"""
@@ -197,61 +173,3 @@ def print_events(tracks_sample_array, NUM_EVENTS_TO_PRINT):
 
 
 # =======================================================================================================================
-
-
-
-
-# ============ train/val/test split: this works on eventNumber as index to subset data ================================================================================
-
-
-def train_val_test_split_events(
-    all_events_ids,
-    train_pct=TRAIN_SPLIT_RATIO,
-    val_pct=VAL_SPLIT_RATIO,
-    split_seed=None,
-):
-    from sklearn.model_selection import train_test_split
-
-    if not split_seed:
-        split_seed = np.random.choice(range(100), size=1)[0]
-    train_ids, val_ids = train_test_split(
-        all_events_ids, test_size=1 - train_pct, random_state=split_seed
-    )
-    val_ids, test_ids = train_test_split(
-        val_ids, test_size=1 - (val_pct) / (1 - train_pct), random_state=split_seed
-    )
-
-    for event_ids, fn in zip([train_ids, val_ids, test_ids], ["train", "val", "test"]):
-        AWK_SAVE_LOC.mkdir(exist_ok=True, parents=True)
-        np.savetxt(
-            AWK_SAVE_LOC.parent / f"{fn}_events_{split_seed=}.txt", event_ids, fmt="%d"
-        )
-
-    return split_seed, train_ids, val_ids, test_ids
-
-
-def get_split(split_seed):
-    ids = []
-    for split in ["train", "val", "test"]:
-        ids.append(
-            np.loadtxt(AWK_SAVE_LOC.parent.parent / "AwkwardArrs" / f"{split}_events_{split_seed=}.txt")
-        )
-    return ids
-
-
-def split(events, split_seed):
-    all_events_ids = events["eventNumber"].array(library="np")
-    split_seed, train_ids, val_ids, test_ids = train_val_test_split_events(
-        all_events_ids, split_seed=split_seed
-    )
-    return {"train_ids": train_ids, "val_ids": val_ids, "test_ids": test_ids}
-
-
-def split_data(events, split_seed, retrieve=True):
-    if retrieve:
-        return get_split(split_seed)
-    else:
-        return split(events, split_seed)
-
-
-# =======================================================================================================================#
