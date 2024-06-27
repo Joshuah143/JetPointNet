@@ -90,10 +90,14 @@ elif USER == "jhimmens":
     # ===== AWK TO NPZ =====
     NPZ_DATASET_NAME = "attempt_1_june_18"
     NPZ_OUTPUT_DIRECTORY_NAME = "full_set"
-    OVERWRITE_NPZ = False
+    OVERWRITE_NPZ = True
     NPZ_NUM_CHUNK_THREADS = 80  # awk to npz
     MAX_SAMPLE_LENGTH = 650
     NPZ_REGEX_INCLUDE = f'^({prefix_match["JZ0"]}|{prefix_match["JZ1"]}|{prefix_match["JZ2"]}).*' # all awk files included
+
+    # ===== AWK TO NPZ =====
+    TRAIN_DATASET_NAME = "attempt_1_june_18"
+    TRAIN_OUTPUT_DIRECTORY_NAME = "full_set"
 else:
     raise Exception("User not found!")
 
@@ -120,6 +124,7 @@ MAX_DISTANCE = 0.2  # could potentially go up to about 0.5 as a hard max
 AWK = 'awk'
 NPZ = 'npz'
 LEN = 'len'
+TRAIN = 'train'
 
 def AWK_SAVE_LOC(working_file: str):
     if working_file == AWK:
@@ -180,6 +185,16 @@ def NPZ_SAVE_LOC(working_file: str):
             / "pnet_data/processed_files"
             / LEN_DATASET_NAME
             / LEN_OUTPUT_DIRECTORY_NAME
+            / "SavedNpz"
+            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}"
+            / f"{ENERGY_SCALE=}".lower()
+        )
+    elif working_file == TRAIN:
+        return (
+            REPO_PATH
+            / "pnet_data/processed_files"
+            / TRAIN_DATASET_NAME
+            / TRAIN_OUTPUT_DIRECTORY_NAME
             / "SavedNpz"
             / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}"
             / f"{ENERGY_SCALE=}".lower()

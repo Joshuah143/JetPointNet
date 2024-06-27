@@ -9,8 +9,6 @@
 import sys
 from pathlib import Path
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
-import json
 
 REPO_PATH = Path.home() / "workspace/jetpointnet"
 SCRIPT_PATH = REPO_PATH / "python_scripts"
@@ -40,6 +38,7 @@ from data_processing.jets.preprocessing_header import (
     NPZ_SAVE_LOC,
     ENERGY_SCALE,
     MAX_SAMPLE_LENGTH,
+    TRAIN,
 )
 
 # tf.config.run_functions_eagerly(True) - Useful when using the debugger - dont delete, but should not be used in production
@@ -50,15 +49,19 @@ print(f"Logged in as {USER}")
 if USER == "jhimmens":
     OUTPUT_DIRECTORY_NAME = "2000_events_w_fixed_hits"
     DATASET_NAME = "large_R"
-    # GPU_ID = "1"
+    GPU_ID = "1"
+    ASSIGN_GPU = True
 elif USER == "luclissa":
     OUTPUT_DIRECTORY_NAME = "ttbar"
     DATASET_NAME = "benchmark"
-    # GPU_ID = "0"
+    GPU_ID = "0"
+    ASSIGN_GPU = False
     os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 else:
     raise Exception("UNKOWN USER")
 
+if ASSIGN_GPU:
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 EXPERIMENT_NAME = f"{OUTPUT_DIRECTORY_NAME}/{DATASET_NAME}"
 RESULTS_PATH = REPO_PATH / "result" / EXPERIMENT_NAME
@@ -66,8 +69,8 @@ RESULTS_PATH.mkdir(exist_ok=True, parents=True)
 MODELS_PATH = REPO_PATH / "models" / EXPERIMENT_NAME
 MODELS_PATH.mkdir(exist_ok=True, parents=True)
 
-TRAIN_DIR = NPZ_SAVE_LOC / "train"
-VAL_DIR = NPZ_SAVE_LOC / "val"
+TRAIN_DIR = NPZ_SAVE_LOC(TRAIN) / "train"
+VAL_DIR = NPZ_SAVE_LOC(TRAIN) / "val"
 
 baseline_configuration = dict(
     SPLIT_SEED=62,
@@ -119,7 +122,7 @@ TRAIN_INPUTS = [
     #'track_ID',
     'delta_R',
     "category",
-    "chi2_dof"
+    "chi2_dof",
     "track_num",
     "normalized_x",
     "normalized_y",
@@ -540,8 +543,6 @@ def train(experimental_configuration: dict = {}):
             precision_metric.update_state(val_true_labels, val_predictions)
 
             val_f1 = val_f1_score.result().numpy()
-            precision = precision_metric.result().numpy()
-            recall = recall_metric.result().numpy()
 
             print(f"\n Validation F1 Score: {val_f1}")
             print(f"\nValidation loss: {val_loss_tracker.result():.4e}")

@@ -42,8 +42,6 @@ def build_arrays(data_folder_path, chunk_file_name):
         print(f"Already converted, skipping: {chunk_file_name}")
         return
     
-    # /home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/attempt_1_june_18/full_set/SavedNpz/deltaR=0.2/energy_scale=1/train/user.mswiatlo.39955678._000005.mltree.root_chunk_0_train.parquet
-    # /home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/attempt_1_june_18/full_set/SavedNpz/deltaR=0.2/energy_scale=1/train/user.mswiatlo.39955678._000008.mltree.root_chunk_0_train.parquet.npz
 
     ak_array = read_parquet(os.path.join(data_folder_path, chunk_file_name))
 

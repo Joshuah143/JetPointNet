@@ -29,12 +29,12 @@ sweep_configuration = {
     "method": "bayes",
     "metric": {"goal": "maximize", "name": "val/f1_score"},
     "parameters": {
-        "LR": {"distribution": "uniform", "min": 0.001, "max": 0.1},
+        "LR": {"distribution": "uniform", "min": 0.001, "max": 0.2},
         "BATCH_SIZE": {
             # "distribution": "q_log_uniform_values",
             # "min": 32,
             # "max": 512,
-            "values": [256, 512]
+            "values": [256, 512, 1024]
         },
         # "LOSS_FUNCTION": {"values": ["BinaryCrossentropy", "BinaryFocalCrossentropy"]},
         # "LOSS_ENERGY_WEIGHTING": {
@@ -54,6 +54,11 @@ sweep_configuration = {
         # "LR_DECAY": {"max": 1.0, "min": 0.01},
     },
 }
+
+if __name__ == "__main__":
+    for hyperparam, value in baseline_configuration.items():
+        if hyperparam not in sweep_configuration["parameters"].keys():
+            sweep_configuration["parameters"][hyperparam] = {"value": value}
 
 
 if __name__ == "__main__":

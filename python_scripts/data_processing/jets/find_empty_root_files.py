@@ -21,7 +21,7 @@ from data_processing.jets.awk_utils import *
 from data_processing.jets.common_utils import *
 
 
-root_files = glob.glob(os.path.join(FILES_DIR, "*.root"))
+root_files = glob.glob(os.path.join(ROOT_FILES_DIR, "*.root"))
 print(len(root_files))
 empty = []
 for file in root_files:
