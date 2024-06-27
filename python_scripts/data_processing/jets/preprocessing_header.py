@@ -65,6 +65,10 @@ if USER == "luclissa":
     DATASET_NAME = "cern_grid"
     MAX_SAMPLE_LENGTH = 650
     NPZ_REGEX_INCLUDE = r".*" # all awk files included
+
+    # ===== TRAINING =====
+    TRAIN_DATASET_NAME = "attempt_1_june_18"
+    TRAIN_OUTPUT_DIRECTORY_NAME = "full_set"
 elif USER == "jhimmens":
     # ===== FIELDS TO CHANGE =====
     add_tracks_as_labels = False
@@ -95,7 +99,7 @@ elif USER == "jhimmens":
     MAX_SAMPLE_LENGTH = 650
     NPZ_REGEX_INCLUDE = f'^({prefix_match["JZ0"]}|{prefix_match["JZ1"]}|{prefix_match["JZ2"]}).*' # all awk files included
 
-    # ===== AWK TO NPZ =====
+    # ===== TRAINING =====
     TRAIN_DATASET_NAME = "attempt_1_june_18"
     TRAIN_OUTPUT_DIRECTORY_NAME = "full_set"
 else:
