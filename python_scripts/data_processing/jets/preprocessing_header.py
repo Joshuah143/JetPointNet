@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+import os
 
 # CERNBOX = os.environ["CERNBOX"]
 REPO_PATH = Path.home() / "workspace/jetpointnet"
@@ -19,58 +20,91 @@ HAS_FIXED_R, FIXED_R, FIXED_Z = (
     fixed_z,
 )  # Loading the calorimeter geometery
 
+prefix_match = {
+    "JZ0": 'user.mswiatlo.39955613',
+    "JZ1": 'user.mswiatlo.39955646',
+    "JZ2": 'user.mswiatlo.39955678',
+    "JZ3": 'user.mswiatlo.39955704',
+    "JZ4": 'user.mswiatlo.39955735',
+    "JZ5": 'user.mswiatlo.39955768',
+    "JZ6": 'user.mswiatlo.39955825',
+}
 
-# ===== FIELDS TO CHANGE =====
-CERN = True
+prefix_to_set = {j:i for i, j in prefix_match.items()}
+
+
 USER = Path.home().name
 if USER == "luclissa":
+    # ===== FIELDS TO CHANGE =====
     add_tracks_as_labels = False
-    NUM_EVENTS_PER_CHUNK = 200
+    ENERGY_SCALE = 1
+
+    # ===== ROOT TO AWK =====
+    AWK_OUTPUT_DIRECTORY_NAME = "500k_events_june19/"
+    AWK_DATASET_NAME = "cern_grid"
+    OVERWRITE_AWK = False
+    GEO_FILE_LOC = "/data/atlas/data/rho_delta/rho_small.root"
+    NUM_MAX_EVENTS_PER_CHUNK = 1000
+    # TEST_SPLIT_RATIO is implied to be the remaining percentage
     TRAIN_SPLIT_RATIO = 0.55
     VAL_SPLIT_RATIO = 0.3
-    # TEST_SPLIT_RATIO is implied to be the remaining percentage
-    NUM_THREAD_PER_CHUNK = 25  # root to awk
-    NUM_CHUNK_THREADS = 25  # awk to npz
-    DATASET_NAME = "ttbar"  # or "rho_full/"
-    OUTPUT_DIRECTORY_NAME = "benchmark"  # or "raw": NOTE: for tests change this
-    FILE_LOC = "/eos/home-m/mswiatlo/forLuca/mltree_large.root"
-    GEO_FILE_LOC = "/eos/home-m/mswiatlo/images/truthPerCell/cell_geo.root"
-    ENERGY_SCALE = 1
-elif CERN == True:
-    add_tracks_as_labels = False
-    NUM_EVENTS_PER_CHUNK = 200
-    TRAIN_SPLIT_RATIO = 0.55
-    VAL_SPLIT_RATIO = 0.3
-    # TEST_SPLIT_RATIO is implied to be the remaining percentage
-    NUM_THREAD_PER_CHUNK = 8  # root to awk
-    NUM_CHUNK_THREADS = 8  # awk to npz
-    # OUTPUT_DIRECTORY_NAME = "rho_full/"
-    # OUTPUT_DIRECTORY_NAME = "ttbar"
-    OUTPUT_DIRECTORY_NAME = "2000_events_w_fixed_hits/"
-    # DATASET_NAME = "benchmark"
-    DATASET_NAME = "cern_test"
-    FILE_LOC = "/eos/home-m/mswiatlo/forLuca/mltree_large.root"
-    GEO_FILE_LOC = "/eos/home-m/mswiatlo/images/truthPerCell/cell_geo.root"
-    ENERGY_SCALE = 1
+    AWK_THREADS_PER_CHUNK = 25  # root to awk
+    ROOT_FILES_DIR ="/eos/home-m/mswiatlo/forLuca/mltree_large.root" # NOTE: You will need to change this to a directory containing this file to be compatible
+
+    # ===== SAMPLE LENGTH SCRIPT =====
+    LEN_DATASET_NAME = "cern_grid"
+    LEN_OUTPUT_DIRECTORY_NAME = "500k_events_june19/"
+    SAMPLE_LENGTH_WORKERS = 5
+    DATASET_NAME = "cern_grid"
+
+    # ===== AWK TO NPZ =====
+    NPZ_DATASET_NAME = "cern_grid"
+    NPZ_OUTPUT_DIRECTORY_NAME = "500k_events_june19/"
+    OVERWRITE_NPZ = False
+    NPZ_NUM_CHUNK_THREADS = 25  # awk to npz
+    DATASET_NAME = "cern_grid"
+    MAX_SAMPLE_LENGTH = 650
+    NPZ_REGEX_INCLUDE = r".*" # all awk files included
+
+    # ===== TRAINING =====
+    TRAIN_DATASET_NAME = "attempt_1_june_18"
+    TRAIN_OUTPUT_DIRECTORY_NAME = "full_set"
 elif USER == "jhimmens":
+    # ===== FIELDS TO CHANGE =====
     add_tracks_as_labels = False
-    NUM_EVENTS_PER_CHUNK = 200
+    ENERGY_SCALE = 1
+
+    # ===== ROOT TO AWK =====
+    AWK_OUTPUT_DIRECTORY_NAME = "pipm_small/"
+    AWK_DATASET_NAME = "progressive_training"
+    OVERWRITE_AWK = False
+    GEO_FILE_LOC = "/fast_scratch_1/atlas/pflow/rho_small.root"
+    NUM_MAX_EVENTS_PER_CHUNK = 200
+    # TEST_SPLIT_RATIO is implied to be the remaining percentage
     TRAIN_SPLIT_RATIO = 0.55
     VAL_SPLIT_RATIO = 0.3
-    # TEST_SPLIT_RATIO is implied to be the remaining percentage
-    NUM_THREAD_PER_CHUNK = 25  # root to awk
-    NUM_CHUNK_THREADS = 30  # awk to npz
-    # OUTPUT_DIRECTORY_NAME = "rho_full/"
-    # OUTPUT_DIRECTORY_NAME = "ttbar"
-    OUTPUT_DIRECTORY_NAME = "2000_events_w_fixed_hits/"
-    # DATASET_NAME = "benchmark"
-    DATASET_NAME = "large_R"
-    FILE_LOC = "/fast_scratch_1/atlas/pflow/mltree_2000_fixedHits.root"
-    GEO_FILE_LOC = "/fast_scratch_1/atlas/pflow/rho_small.root"
-    ENERGY_SCALE = 1
-# ============================
+    AWK_THREADS_PER_CHUNK = 10  # root to awk
+    ROOT_FILES_DIR = "/fast_scratch_1/atlas/pflow/pipm" # "/fast_scratch_1/atlas/pflow/20240614/" full set, rho delta
+
+    # ===== SAMPLE LENGTH SCRIPT =====
+    LEN_DATASET_NAME = "pipm_small"
+    LEN_OUTPUT_DIRECTORY_NAME = "progressive_training/"
+    SAMPLE_LENGTH_WORKERS = 10
+
+    # ===== AWK TO NPZ =====
+    NPZ_DATASET_NAME = "attempt_1_june_18"
+    NPZ_OUTPUT_DIRECTORY_NAME = "full_set"
+    OVERWRITE_NPZ = True
+    NPZ_NUM_CHUNK_THREADS = 80  # awk to npz
+    MAX_SAMPLE_LENGTH = 650
+    NPZ_REGEX_INCLUDE = f'^({prefix_match["JZ0"]}|{prefix_match["JZ1"]}|{prefix_match["JZ2"]}).*' # all awk files included
+
+    # ===== TRAINING =====
+    TRAIN_DATASET_NAME = "attempt_1_june_18"
+    TRAIN_OUTPUT_DIRECTORY_NAME = "full_set"
 else:
-    raise Exception("UNKOWN USER")
+    raise Exception("User not found!")
+
 
 POINT_TYPE_LABELS = {0: "focus hit", 1: "cell", 2: "unfocus hit", -1: "padding"}
 POINT_TYPE_ENCODING = {v: k for k, v in POINT_TYPE_LABELS.items()}
@@ -91,19 +125,84 @@ MAX_DISTANCE = 0.2  # could potentially go up to about 0.5 as a hard max
 # FILE_LOC = "/eos/home-m/mswiatlo/forLuca/mltree_large.root"
 # GEO_FILE_LOC = "/eos/home-m/mswiatlo/images/truthPerCell/cell_geo.root"
 
-AWK_SAVE_LOC = (
-    REPO_PATH
-    / "pnet_data/processed_files"
-    / DATASET_NAME
-    / "AwkwardArrs"
-    / f"deltaR={MAX_DISTANCE}"
-)
-NPZ_SAVE_LOC = (
-    REPO_PATH
-    / "pnet_data/processed_files"
-    / DATASET_NAME
-    / OUTPUT_DIRECTORY_NAME
-    / "SavedNpz"
-    / f"deltaR={MAX_DISTANCE}"
-    / f"{ENERGY_SCALE=}".lower()
-)
+AWK = 'awk'
+NPZ = 'npz'
+LEN = 'len'
+TRAIN = 'train'
+
+def AWK_SAVE_LOC(working_file: str):
+    if working_file == AWK:
+        return (
+            REPO_PATH
+            / "pnet_data/processed_files"
+            / AWK_DATASET_NAME
+            / AWK_OUTPUT_DIRECTORY_NAME
+            / "AwkwardArrs"
+            / f"deltaR={MAX_DISTANCE}"
+        )
+    elif working_file == NPZ:
+        return (
+            REPO_PATH
+            / "pnet_data/processed_files"
+            / NPZ_DATASET_NAME
+            / NPZ_OUTPUT_DIRECTORY_NAME
+            / "AwkwardArrs"
+            / f"deltaR={MAX_DISTANCE}"
+        )
+    elif working_file == LEN:
+        return (
+            REPO_PATH
+            / "pnet_data/processed_files"
+            / LEN_DATASET_NAME
+            / LEN_OUTPUT_DIRECTORY_NAME
+            / "AwkwardArrs"
+            / f"deltaR={MAX_DISTANCE}"
+        )
+    else:
+        raise Exception("File information not found")
+        
+
+def NPZ_SAVE_LOC(working_file: str):
+    if working_file == AWK:
+        return (
+            REPO_PATH
+            / "pnet_data/processed_files"
+            / AWK_DATASET_NAME
+            / AWK_OUTPUT_DIRECTORY_NAME
+            / "SavedNpz"
+            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}"
+            / f"{ENERGY_SCALE=}".lower()
+        )
+    elif working_file == NPZ:
+        return (
+            REPO_PATH
+            / "pnet_data/processed_files"
+            / NPZ_DATASET_NAME
+            / NPZ_OUTPUT_DIRECTORY_NAME
+            / "SavedNpz"
+            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}"
+            / f"{ENERGY_SCALE=}".lower()
+        )
+    elif working_file == LEN:
+        return (
+            REPO_PATH
+            / "pnet_data/processed_files"
+            / LEN_DATASET_NAME
+            / LEN_OUTPUT_DIRECTORY_NAME
+            / "SavedNpz"
+            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}"
+            / f"{ENERGY_SCALE=}".lower()
+        )
+    elif working_file == TRAIN:
+        return (
+            REPO_PATH
+            / "pnet_data/processed_files"
+            / TRAIN_DATASET_NAME
+            / TRAIN_OUTPUT_DIRECTORY_NAME
+            / "SavedNpz"
+            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}"
+            / f"{ENERGY_SCALE=}".lower()
+        )
+    else:
+        raise Exception("File information not found!")
+        

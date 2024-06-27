@@ -29,14 +29,17 @@ Please note that `--no-cache-dir` option is suggested.
 
 ## Usage
 
-A basic usage flow would be the following:
+Data Preprocessing:
+
+**Note:** preprocessing with the ttbar set is possible, however with larger sets you should attempt to use already processed npz files to avoid a lengthy re-processing. Additionally for other sets you should use a grid job for the processing (see last set of instructions). The current data set is available as npz file on CERNBox, if you are using them you can skip these steps.
  - update configurations and paths inside `python_scripts/data_processing/preprocessing_header.py`
  - run `python_scripts/data_processing/jets_root_to_awk.py` to convert *root* data into *awkward array* format. 
-  This reads data from `FILE_LOC` and `GEO_LOC` and saves results into the `AWK_SAVE_LOC` (all defined in `preprocessing_header.py`)
+  This reads data from `FILE_LOC` or `FILES_DIR` and `GEO_LOC` and saves results into the `AWK_SAVE_LOC` (all defined in `preprocessing_header.py`)
  - run `python_scripts/data_processing/jets_awk_to_npz.py` to convert *awkward array* data into *npz* format. This reads data from `AWK_SAVE_LOC`
- - once you have preprocessed data, then you can start playing with training scripts at `python_scripts/jets_training/`. 
-  In particular, the script `jets_train.py` has been mainly tested so far
 
+Model Training:
+ - once you have preprocessed data, then you can start playing with training scripts at `python_scripts/jets_training/`. 
+  In particular, the script `jets_train.py` is used for running individual models and `jets_sweep.py` is used to preform sweeps.
 
 ## Notes
 
@@ -46,3 +49,10 @@ Also, raw data files are read from eos (namely */eos/home-m/mswiatlo/forLuca/*  
 ### Preprocessing dependency tree
 
 ![](development/Dependencies.png)
+
+## Running the grid job
+
+ + Join the VO and get a GRID certificate by following https://atlassoftwaredocs.web.cern.ch/ASWTutorial/basicSetup/grid_cert/ and https://atlassoftwaredocs.web.cern.ch/gridtutorial/grid-job/
+ + Run `setupATLAS; lsetup panda` to setup the environment
+ + Log into lxplus with your CERN credentials
+ + Note: More instructions to come as we run grid jobs, for now this is incomplete.

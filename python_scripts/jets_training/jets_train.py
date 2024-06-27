@@ -9,7 +9,6 @@
 import sys
 from pathlib import Path
 import os
-import json
 
 REPO_PATH = Path.home() / "workspace/jetpointnet"
 SCRIPT_PATH = REPO_PATH / "python_scripts"
@@ -38,6 +37,8 @@ from data_processing.jets.preprocessing_header import (
     MAX_DISTANCE,
     NPZ_SAVE_LOC,
     ENERGY_SCALE,
+    MAX_SAMPLE_LENGTH,
+    TRAIN,
 )
 
 # tf.config.run_functions_eagerly(True) - Useful when using the debugger - dont delete, but should not be used in production
@@ -48,15 +49,19 @@ print(f"Logged in as {USER}")
 if USER == "jhimmens":
     OUTPUT_DIRECTORY_NAME = "2000_events_w_fixed_hits"
     DATASET_NAME = "large_R"
-    # GPU_ID = "1"
+    GPU_ID = "1"
+    ASSIGN_GPU = True
 elif USER == "luclissa":
     OUTPUT_DIRECTORY_NAME = "ttbar"
     DATASET_NAME = "benchmark"
-    # GPU_ID = "0"
+    GPU_ID = "0"
+    ASSIGN_GPU = False
     os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 else:
     raise Exception("UNKOWN USER")
 
+if ASSIGN_GPU:
+    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 EXPERIMENT_NAME = f"{OUTPUT_DIRECTORY_NAME}/{DATASET_NAME}"
 RESULTS_PATH = REPO_PATH / "result" / EXPERIMENT_NAME
@@ -64,18 +69,17 @@ RESULTS_PATH.mkdir(exist_ok=True, parents=True)
 MODELS_PATH = REPO_PATH / "models" / EXPERIMENT_NAME
 MODELS_PATH.mkdir(exist_ok=True, parents=True)
 
-TRAIN_DIR = NPZ_SAVE_LOC / "train"
-VAL_DIR = NPZ_SAVE_LOC / "val"
-MAX_SAMPLE_LENGTH = 859
+TRAIN_DIR = NPZ_SAVE_LOC(TRAIN) / "train"
+VAL_DIR = NPZ_SAVE_LOC(TRAIN) / "val"
 
-experiment_configuration = dict(
+baseline_configuration = dict(
     SPLIT_SEED=62,
     TF_SEED=np.random.randint(0, 100),
     MAX_SAMPLE_LENGTH=MAX_SAMPLE_LENGTH,  # 278 for delta R of 0.1, 859 for 0.2
-    BATCH_SIZE=256,
-    EPOCHS=100,
+    BATCH_SIZE=1000,
+    EPOCHS=150,
     LR=0.1,
-    LR_DECAY=0.9,
+    LR_DECAY=0.95,
     LR_BETA1=0.98,
     LR_BETA2=0.999,
     ES_PATIENCE=15,
@@ -85,6 +89,9 @@ experiment_configuration = dict(
     OUTPUT_ACTIVATION_FUNCTION="sigmoid",  # softmax, linear (requires changes to the BCE fucntion in the loss function)
     FRACTIONAL_ENERGY_CUTOFF=0.5,
     OUTPUT_LAYER_SEGMENTATION_CUTOFF=0.5,
+    EARLY_STOPPING=False,
+    TRAIN_STEPS=500,
+    VAL_STEPS=500,
     # POTENTIALLY OVERWRITTEN BY THE WANDB SWEEP:
     # LR_MAX=0.000015,
     # LR_MIN=1e-5,
@@ -97,22 +104,25 @@ experiment_configuration = dict(
 
 # note that if you change the output activation function you must change the loss function
 if (
-    experiment_configuration["OUTPUT_ACTIVATION_FUNCTION"] in ["softmax", "sigmoid"]
-    and experiment_configuration["OUTPUT_LAYER_SEGMENTATION_CUTOFF"] != 0.5
+    baseline_configuration["OUTPUT_ACTIVATION_FUNCTION"] in ["softmax", "sigmoid"]
+    and baseline_configuration["OUTPUT_LAYER_SEGMENTATION_CUTOFF"] != 0.5
 ):
     raise Exception("Invalid OUTPUT_LAYER_SEGMENTATION_CUTOFF")
 elif (
-    experiment_configuration["OUTPUT_ACTIVATION_FUNCTION"] in ["linear"]
-    and experiment_configuration["OUTPUT_LAYER_SEGMENTATION_CUTOFF"] != 0
+    baseline_configuration["OUTPUT_ACTIVATION_FUNCTION"] in ["linear"]
+    and baseline_configuration["OUTPUT_LAYER_SEGMENTATION_CUTOFF"] != 0
 ):
     raise Exception("Invalid OUTPUT_LAYER_SEGMENTATION_CUTOFF")
+
+# last_checkpoint_path = f"{MODELS_PATH}/PointNet_last_{epoch=}.keras"
 
 TRAIN_INPUTS = [
     #'event_number',
     #'cell_ID',
     #'track_ID',
-    #'delta_R',
+    'delta_R',
     "category",
+    "chi2_dof",
     "track_num",
     "normalized_x",
     "normalized_y",
@@ -124,42 +134,80 @@ TRAIN_INPUTS = [
 
 
 def load_data_from_npz(npz_file):
-    data = np.load(npz_file)
-    feats = data["feats"][:, :MAX_SAMPLE_LENGTH][
+    all_feats = np.load(npz_file)["feats"]
+    feats = all_feats[:, :MAX_SAMPLE_LENGTH][
         TRAIN_INPUTS
     ]  # discard tracking information
-    frac_labels = data["frac_labels"][:, :MAX_SAMPLE_LENGTH]
-    energy_weights = data["tot_truth_e"][:, :MAX_SAMPLE_LENGTH]
+    frac_labels = all_feats[:, :MAX_SAMPLE_LENGTH]["truth_cell_fraction_energy"]
+    energy_weights = all_feats[:, :MAX_SAMPLE_LENGTH]["cell_E"]
     return feats, frac_labels, energy_weights
 
 
-# NOTE: works with BATCH_SIZE but don't fix last batch size issue
-def data_generator(data_dir, batch_size, drop_last=True):
+def _init_buffers():
+    return [], [], []
+
+
+def _format_batch(feats_buffer, targets_buffer, e_weights_buffer):
+    batch_feats = np.array(feats_buffer)
+    batch_targets = np.expand_dims(targets_buffer, axis=-1)
+    batch_e_weights = np.expand_dims(e_weights_buffer, axis=-1)
+
+    return batch_feats, batch_targets, batch_e_weights
+
+
+def data_generator(data_dir, batch_size, drop_last=True, **kwargs):
+
+    if kwargs.get("seed", 0):
+        np.random.seed(kwargs["seed"])
+
+    # get filenames and initialize buffers
     npz_files = glob.glob(os.path.join(data_dir, "*.npz"))
+    feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
+
     while True:
         np.random.shuffle(npz_files)
         for npz_file in npz_files:
-            feats, frac_labels, e_weights = load_data_from_npz(npz_file)
-            dataset_size = feats.shape[0]
-            for i in range(0, dataset_size, batch_size):
-                end_index = i + batch_size
-                if end_index > dataset_size:
-                    if drop_last:
-                        continue  # Drop last smaller batch
-                    else:
-                        batch_feats = feats[i:]
-                        batch_labels = frac_labels[i:]
-                        batch_e_weights = e_weights[i:]
-                else:
-                    batch_feats = feats[i:end_index]
-                    batch_labels = frac_labels[i:end_index]
-                    batch_e_weights = e_weights[i:end_index]
 
-                yield (
-                    batch_feats,
-                    batch_labels.reshape(*batch_labels.shape, 1),
-                    batch_e_weights.reshape(*batch_e_weights.shape, 1),
+            # Read data chunk and initialize counters
+            feats, frac_labels, e_weights = load_data_from_npz(npz_file)
+            file_size = feats.shape[0]
+            # initially all data are still not used: can fill full file in batch starting at index 0
+            unprocessed_size = file_size
+            last_batch_idx = 0
+
+            # loop through chunk until all points are processed
+            while unprocessed_size > 0:
+
+                # get N of elements remaining to reach to batch_size
+                fill_size = batch_size - len(feats_buffer)
+                # get fill_size elements starting from last_batch_idx
+                feats_buffer.extend(feats[last_batch_idx : last_batch_idx + fill_size])
+                targets_buffer.extend(
+                    frac_labels[last_batch_idx : last_batch_idx + fill_size]
                 )
+                e_weights_buffer.extend(
+                    e_weights[last_batch_idx : last_batch_idx + fill_size]
+                )
+
+                # update unprocessed points and last index
+                unprocessed_size -= fill_size
+                last_batch_idx += fill_size
+
+                # check if batch is full, in case yield + reset buffers
+                if len(feats_buffer) == batch_size:
+                    batch_feats, batch_targets, batch_e_weights = _format_batch(
+                        feats_buffer, targets_buffer, e_weights_buffer
+                    )
+                    feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
+                    yield batch_feats, batch_targets, batch_e_weights
+
+        # handle last batch of last chunk
+        if drop_last == False:
+            batch_feats, batch_targets, batch_e_weights = _format_batch(
+                feats_buffer, targets_buffer, e_weights_buffer
+            )
+            feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
+            yield batch_feats, batch_targets, batch_e_weights
 
 
 def calculate_steps(data_dir, batch_size):
@@ -215,14 +263,25 @@ def _setup_model(
 #         notes="This run reproduces Marko's setting. Consider this as the starting jet ML baseline.",
 #     )
 
+def merge_configurations(priority_config, baseline_config):
+    for hyperparam, value in priority_config.items():
+        if hyperparam in baseline_config.keys():
+            baseline_config[hyperparam] = {"value": value}
+        else:
+            raise AttributeError(f"{hyperparam} set in experimental config, but not found in baseline config, this parameter is not used and is likely set by error. Please check the config is in `baseline_config`.")
+    return baseline_config
 
-def train(config=None):
-    with wandb.init(project="pointcloud", config=config, job_type="training") as run:
+
+def train(experimental_configuration: dict = {}):
+    run_config = merge_configurations(experimental_configuration, baseline_configuration)
+    with wandb.init(
+        project="pointcloud", config=run_config, job_type="training"
+    ) as run:
         config = wandb.config
 
         # number of steps and seed
-        train_steps = calculate_steps(TRAIN_DIR, config.BATCH_SIZE)  # 47
-        val_steps = calculate_steps(VAL_DIR, config.BATCH_SIZE)  # 26
+        train_steps = config.TRAIN_STEPS # calculate_steps(TRAIN_DIR, config.BATCH_SIZE)  # 47
+        val_steps = config.VAL_STEPS # calculate_steps(VAL_DIR, config.BATCH_SIZE)  # 26
         print(f"{train_steps = };\t{val_steps = }")
 
         seed = config.TF_SEED
@@ -313,7 +372,8 @@ def train(config=None):
 
         # Callbacks
         # ModelCheckpoint
-        best_checkpoint_path = f"{MODELS_PATH}/PointNet_best.keras"
+        best_checkpoint_path = f"{MODELS_PATH}/PointNet_best_name={run.name}.keras"
+        
         checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
             filepath=best_checkpoint_path,
             save_best_only=True,
@@ -357,13 +417,13 @@ def train(config=None):
             # decay=config.LR_DECAY,
         )
 
-        try:
-            logits = config.OUTPUT_ACTIVATION_FUNCTION == "linear"
-            loss_function = getattr(tf.keras.losses, config.LOSS_FUNCTION)(
-                from_logits=logits
-            )
-        except AttributeError as e:
-            print(f"{e}")
+        
+        # Will raise AttributeError if the loss function is not found
+        logits = config.OUTPUT_ACTIVATION_FUNCTION == "linear"
+        loss_function = getattr(tf.keras.losses, config.LOSS_FUNCTION)(
+            from_logits=logits # NOTE: False for "sigmoid", True for "linear"
+        )
+            
         # NOTE: the match/case below may still be useful in case of differential processing depending on the chosen loss function
         # match config.LOSS_FUNCTION:
         #     case "BCE":
@@ -376,10 +436,6 @@ def train(config=None):
         #         )
         #     case _:
         # raise Exception("Undefined Loss Function")
-
-        loss_function = tf.keras.losses.BinaryCrossentropy(
-            from_logits=False
-        )  # NOTE: False for "sigmoid", True for "linear"
 
         for epoch in range(config.EPOCHS):
             print("\nStart of epoch %d" % (epoch,))
@@ -441,10 +497,10 @@ def train(config=None):
             print(f"\nTime taken for training: {time.time() - start_time:.2f} sec")
 
             batch_loss_val, batch_accuracy_val, batch_weighted_accuracy_val = [], [], []
-            for step, (x_batch_val, y_batch_val, e_weight_val) in enumerate(
+            for step, (x_batch_val_named, y_batch_val, e_weight_val) in enumerate(
                 data_generator(VAL_DIR, config.BATCH_SIZE, False)
             ):
-                x_batch_val = rfn.structured_to_unstructured(x_batch_val)
+                x_batch_val = rfn.structured_to_unstructured(x_batch_val_named)
                 if step >= val_steps:
                     break
                 (
@@ -459,7 +515,7 @@ def train(config=None):
                 val_reg_acc.update_state(val_reg_acc_value)
                 val_weighted_acc.update_state(val_weighted_acc_value)
 
-                mask = y_batch_val != -1  # remove non-energy points
+                mask = x_batch_val_named['category'] == 1   # remove non-energy points
                 val_true_labels.extend(
                     (y_batch_val[mask] > config.FRACTIONAL_ENERGY_CUTOFF).astype(
                         np.float32
@@ -480,15 +536,13 @@ def train(config=None):
             val_predictions = tf.convert_to_tensor(val_predictions)
 
             val_f1_score.update_state(
-                tf.expand_dims(val_true_labels, axis=-1),
-                tf.expand_dims(val_predictions, axis=-1),
+                val_true_labels, # tf.expand_dims(val_true_labels, axis=-1),
+                val_predictions # tf.expand_dims(val_predictions, axis=-1),
             )
             recall_metric.update_state(val_true_labels, val_predictions)
             precision_metric.update_state(val_true_labels, val_predictions)
 
             val_f1 = val_f1_score.result().numpy()
-            precision = precision_metric.result().numpy()
-            recall = recall_metric.result().numpy()
 
             print(f"\n Validation F1 Score: {val_f1}")
             print(f"\nValidation loss: {val_loss_tracker.result():.4e}")
@@ -516,7 +570,6 @@ def train(config=None):
             )
 
             # callbacks
-            # lr_callback.on_epoch_end(epoch)
 
             # discard first epochs to trigger callbacks
             if epoch > 5 & (val_weighted_acc.result().numpy() < 1):
@@ -532,24 +585,24 @@ def train(config=None):
                         "val/precision": precision_metric.result().numpy(),
                     },
                 )
-                early_stopping_callback.on_epoch_end(
-                    epoch,
-                    logs={
-                        "val_loss": val_loss_tracker.result(),
-                        "val/accuracy": val_reg_acc.result(),
-                        "val_weighted_accuracy": val_weighted_acc.result(),
-                        "val/f1_score": val_f1_score.result().numpy()[0],
-                        "val/recall": recall_metric.result().numpy(),
-                        "val/precision": precision_metric.result().numpy(),
-                    },
-                )
-                if early_stopping_callback.stopped_epoch > 0:
-                    print(f"Early stopping triggered at epoch {epoch}")
-                    break
-
+                if config.EARLY_STOPPING:
+                    early_stopping_callback.on_epoch_end(
+                        epoch,
+                        logs={
+                            "val_loss": val_loss_tracker.result(),
+                            "val/accuracy": val_reg_acc.result(),
+                            "val_weighted_accuracy": val_weighted_acc.result(),
+                            "val/f1_score": val_f1_score.result().numpy()[0],
+                            "val/recall": recall_metric.result().numpy(),
+                            "val/precision": precision_metric.result().numpy(),
+                        },
+                    )
+                    if early_stopping_callback.model.stop_training:
+                        print(f"Early stopping triggered at epoch {epoch}")
+                        break
         print("\n\nTraining completed!")
 
-        last_checkpoint_path = f"{MODELS_PATH}/PointNet_last_{epoch=}.keras"
+        last_checkpoint_path = f"{MODELS_PATH}/PointNet_last_{epoch=}_name={run.name}.keras"
         model.save(last_checkpoint_path)
 
         # Log the best and last models to wandb
@@ -564,8 +617,4 @@ def train(config=None):
 
 
 if __name__ == "__main__":
-    # experiment_configuration = {
-    #     "tf_seed": np.random.randint(0, 100),  # TF_SEED
-    #     "BATCH_SIZE": BATCH_SIZE,
-    # }
-    train(experiment_configuration)
+    train({})

@@ -12,18 +12,19 @@ HAS_FIXED_R, FIXED_R, FIXED_Z = has_fixed_r, fixed_r, fixed_z
 from data_processing.jets.preprocessing_header import *
 from data_processing.jets.common_utils import calculate_delta_r
 
-
-
 def add_train_label_record(
         *, # ensures that all arguments must be named
         track_points: list,
         event_number: int,
         category: int | str,
         delta_R: float,
+        truth_cell_fraction_energy: float,
+        truth_cell_total_energy: float,
         normalized_x: float,
         normalized_y: float,
         normalized_z: float,
         normalized_distance: float,
+        chi2_dof: float,
         cell_E: float = -1,
         track_pt: float = -1,
         cell_ID: int = -1,
@@ -39,21 +40,23 @@ def add_train_label_record(
                         track_ID,
                         delta_R,
                         ## above is only for traceability, should not be included in training data
+                        truth_cell_fraction_energy,
+                        truth_cell_total_energy,
+                        ## above is for the y values of the 
                         category,
                         track_num, # used to associate non focal track interactions without track ID leakage
                         normalized_x,
                         normalized_y,
                         normalized_z,
                         normalized_distance,
+                        chi2_dof,
                         cell_E,
                         track_pt
                     )
                 )
     
 
-
-
-def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
+def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1, include_chi2_dof=False):
     samples = []
 
     for event in tracks_sample_array:
@@ -99,35 +102,17 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                     track_ID=track["trackID"],
                     category=POINT_TYPE_ENCODING["focus hit"],
                     delta_R=calculate_delta_r(track["trackEta"], track["trackPhi"], intersection["eta"], intersection["phi"]),
+                    truth_cell_fraction_energy=-1,
+                    truth_cell_total_energy=-1,
                     normalized_x=normalized_x,
                     normalized_y=normalized_y,
                     normalized_z=normalized_z,
                     normalized_distance=0,
                     track_pt=track["trackPt"],
+                    chi2_dof=track["trackChiSquared/trackNumberDOF"],
                     cell_E=-1,
                     cell_ID=-1,
                     track_num=0
-                )
-
-            for cell in track["associated_cells"]:
-                normalized_x = (cell["X"] - min_x) / range_x
-                normalized_y = (cell["Y"] - min_y) / range_y
-                normalized_z = (cell["Z"] - min_z) / range_z
-                normalized_distance = cell["distance_to_track"] / max_distance
-                add_train_label_record(
-                    track_points=track_array,
-                    event_number=track["eventNumber"],
-                    track_ID=-1,
-                    category=POINT_TYPE_ENCODING["cell"],
-                    delta_R=calculate_delta_r(track["trackEta"], track["trackPhi"], cell["eta"], cell["phi"]),
-                    normalized_x=normalized_x,
-                    normalized_y=normalized_y,
-                    normalized_z=normalized_z,
-                    normalized_distance=normalized_distance,
-                    track_pt=-1,
-                    cell_E=cell["E"] * energy_scale,
-                    cell_ID=cell["ID"],
-                    track_num=-1
                 )
 
             for track_idx, associated_track in enumerate(track["associated_tracks"]):
@@ -144,15 +129,43 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                         track_ID=associated_track["trackId"],
                         category=POINT_TYPE_ENCODING["unfocus hit"],
                         delta_R=intersection["delta_R_adj"],
+                        truth_cell_fraction_energy=-1,
+                        truth_cell_total_energy=-1,
                         normalized_x=normalized_x,
                         normalized_y=normalized_y,
                         normalized_z=normalized_z,
                         normalized_distance=normalized_distance,
+                        chi2_dof=associated_track["trackChiSquared/trackNumberDOF"] if include_chi2_dof else -1,
                         track_pt=associated_track["trackPt"],
                         cell_E=-1,
                         cell_ID=-1,
                         track_num=track_idx + 1
                     )
+
+            # sort by delta R so that if the event gets cut far cells will get cut first
+            for cell in sorted(track["associated_cells"], key=lambda cell: calculate_delta_r(track["trackEta"], track["trackPhi"], cell["eta"], cell["phi"])):
+                normalized_x = (cell["X"] - min_x) / range_x
+                normalized_y = (cell["Y"] - min_y) / range_y
+                normalized_z = (cell["Z"] - min_z) / range_z
+                normalized_distance = cell["distance_to_track"] / max_distance
+                add_train_label_record(
+                    track_points=track_array,
+                    event_number=track["eventNumber"],
+                    track_ID=-1,
+                    category=POINT_TYPE_ENCODING["cell"],
+                    delta_R=calculate_delta_r(track["trackEta"], track["trackPhi"], cell["eta"], cell["phi"]),
+                    truth_cell_fraction_energy=cell["Fraction_Label"],
+                    truth_cell_total_energy=cell["Total_Truth_Energy"],
+                    normalized_x=normalized_x,
+                    normalized_y=normalized_y,
+                    normalized_z=normalized_z,
+                    normalized_distance=normalized_distance,
+                    chi2_dof=-1,
+                    track_pt=-1,
+                    cell_E=cell["E"] * energy_scale,
+                    cell_ID=cell["ID"],
+                    track_num=-1
+                )
 
             # Now, the sample is truncated to max_sample_length before padding is considered
             track_array = track_array[:max_sample_length]
@@ -167,10 +180,13 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                         track_ID=-1,
                         category=POINT_TYPE_ENCODING["padding"],
                         delta_R=-1,
+                        truth_cell_fraction_energy=-1,
+                        truth_cell_total_energy=-1,
                         normalized_x=-1,
                         normalized_y=-1,
                         normalized_z=-1,
                         normalized_distance=-1,
+                        chi2_dof=-1,
                         track_pt=-1,
                         cell_E=-1,
                         cell_ID=-1,
@@ -181,13 +197,16 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                 ('event_number', np.int32),
                 ('cell_ID', np.int32),
                 ('track_ID', np.int32),
-                ('delta_R', np.float32),             
+                ('delta_R', np.float32),
+                ('truth_cell_fraction_energy', np.float32),
+                ('truth_cell_total_energy', np.float32),
                 ('category', np.int8),
                 ('track_num', np.int32),
                 ('normalized_x', np.float32),
                 ('normalized_y', np.float32),
                 ('normalized_z', np.float32),
                 ('normalized_distance', np.float32),
+                ("chi2_dof", np.float32),
                 ('cell_E', np.float32),
                 ('track_pt', np.float32),
             ])
@@ -199,8 +218,6 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
 
     samples_array = np.array(samples)
 
-    # samples_array = np.array(samples, dtype=np.float32)
-
     samples_array = np.nan_to_num(samples_array, nan=0.0)
 
     return samples_array
@@ -209,6 +226,8 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
 # =======================================================================================================================
 
 
+# DEPRECATED - MOVED TO THE INPUT ARRAY
+"""
 def build_labels_array(
     tracks_sample_array, max_sample_length, label_string, label_scale=1
 ):
@@ -269,4 +288,4 @@ def build_labels_array(
     # Replace NaN values with 0
     labels_array = np.nan_to_num(labels_array, nan=0.0)
 
-    return labels_array
+    return labels_array"""
