@@ -30,28 +30,22 @@ sweep_configuration = {
     "metric": {"goal": "maximize", "name": "val/f1_score"},
     "parameters": {
         "LR": {"distribution": "uniform", "min": 0.001, "max": 0.2},
-        "BATCH_SIZE": {
-            # "distribution": "q_log_uniform_values",
-            # "min": 32,
-            # "max": 512,
-            "values": [256, 512, 1024]
+        "LOSS_FUNCTION": {"values": ["BinaryCrossentropy", "BinaryFocalCrossentropy"]},
+        "LOSS_ENERGY_WEIGHTING": {
+            "values": [
+                "absolute",
+                "square",
+                "normalize",
+                "standardize",
+                "threshold",
+                "none",
+            ]
         },
-        # "LOSS_FUNCTION": {"values": ["BinaryCrossentropy", "BinaryFocalCrossentropy"]},
-        # "LOSS_ENERGY_WEIGHTING": {
-        #     "values": [
-        #         "absolute",
-        #         "square",
-        #         "normalize",
-        #         "standardize",
-        #         "threshold",
-        #         "none",
-        #     ]
-        # },
         # "LR_MAX": {"max": 0.2, "min": 0.001},
         # "LR_MIN": {"max": 0.01, "min": 0.00001},
         # "LR_RAMP_EP": {"max": 10, "min": 1},
         # "LR_SUS_EP": {"max": 10, "min": 0},
-        # "LR_DECAY": {"max": 1.0, "min": 0.01},
+        "LR_DECAY": {"max": 1.0, "min": 0.01},
     },
 }
 

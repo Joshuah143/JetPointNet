@@ -19,6 +19,31 @@ from data_processing.jets.preprocessing_header import *
 from data_processing.jets.awk_utils import *
 from data_processing.jets.common_utils import *
 
+track_layer_branches = [f"trackEta_{layer}" for layer in calo_layers] + [
+    f"trackPhi_{layer}" for layer in calo_layers
+]
+jets_other_included_fields = [
+    "trackSubtractedCaloEnergy",
+    "trackPt",
+    "nTrack",
+    "cluster_cell_ID",
+    "trackNumberDOF",
+    "trackChiSquared",
+    "cluster_cell_E",
+    "cluster_cell_hitsTruthIndex",
+    "cluster_cell_hitsTruthE",
+    "trackTruthParticleIndex",
+    "eventNumber",
+]
+
+fields_list = track_layer_branches + jets_other_included_fields
+
+cellgeo = uproot.open(str(GEO_FILE_LOC) + ":CellGeo")
+cell_ID_geo = cellgeo["cell_geo_ID"].array(library="np")[0]
+eta_geo = cellgeo["cell_geo_eta"].array(library="np")[0]
+phi_geo = cellgeo["cell_geo_phi"].array(library="np")[0]
+rPerp_geo = cellgeo["cell_geo_rPerp"].array(library="np")[0]
+
 
 def split_and_save_to_disk(processed_data, base_filename, id_splits: dict, save_locations: dict):
     """
@@ -243,7 +268,7 @@ def event_handler_wrapper(filename):
                 print(f"\nProcessing chunk {chunk_counter + 1} of size {len(chunk)}")
 
                 processed_data = process_chunk(chunk, cell_ID_geo, eta_geo, phi_geo, rPerp_geo)
-
+                base_filename = f"{filename}_chunk_{chunk_counter}"
                 split_and_save_to_disk(processed_data, base_filename, id_split, save_locations)
 
                 chunk_counter += 1
@@ -251,10 +276,7 @@ def event_handler_wrapper(filename):
         print(f"Skipping {filename}, no EventTree found")
 
 
-if __name__ == "__main__":
-    num_files_completed = 0
-    cellgeo = uproot.open(str(GEO_FILE_LOC) + ":CellGeo")
-
+def main():
     # print("Events Keys:")
     # for key in events.keys():
     #     print(key)
@@ -262,32 +284,6 @@ if __name__ == "__main__":
     # for key in cellgeo.keys():
     #     print(key)
     # print()
-
-    track_layer_branches = [f"trackEta_{layer}" for layer in calo_layers] + [
-        f"trackPhi_{layer}" for layer in calo_layers
-    ]
-    jets_other_included_fields = [
-        "trackSubtractedCaloEnergy",
-        "trackPt",
-        "nTrack",
-        "cluster_cell_ID",
-        "trackNumberDOF",
-        "trackChiSquared",
-        "cluster_cell_E",
-        "cluster_cell_hitsTruthIndex",
-        "cluster_cell_hitsTruthE",
-        "trackTruthParticleIndex",
-        "eventNumber",
-    ]
-    fields_list = track_layer_branches + jets_other_included_fields
-
-    cell_ID_geo = cellgeo["cell_geo_ID"].array(library="np")[0]
-    eta_geo = cellgeo["cell_geo_eta"].array(library="np")[0]
-    phi_geo = cellgeo["cell_geo_phi"].array(library="np")[0]
-    rPerp_geo = cellgeo["cell_geo_rPerp"].array(library="np")[0]
-
-    # >>> len(TRAIN_IDS), len(VAL_IDS), len(TEST_IDS)
-    # (1100, 600, 300)
 
     start_time = time.time()
 
@@ -304,3 +300,7 @@ if __name__ == "__main__":
 
     end_time = time.time()
     print(f"Total Time Elapsed: {(end_time - start_time) / 60 / 60:.2f} Hours")
+
+
+if __name__ == "__main__":
+    main()

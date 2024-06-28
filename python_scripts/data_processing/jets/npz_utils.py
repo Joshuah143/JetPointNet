@@ -56,12 +56,12 @@ def add_train_label_record(
                 )
     
 
-def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1, include_chi2_dof=False):
+def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1, include_chi2_dof=True):
     samples = []
 
     for event in tracks_sample_array:
         for track in event:
-            if len(track["associated_cells"]) < 25:
+            if len(track["associated_cells"]) < MIN_TRACK_CELL_HITS:
                 continue
 
             track_array = []

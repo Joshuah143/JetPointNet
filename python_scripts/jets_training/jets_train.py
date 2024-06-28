@@ -39,6 +39,9 @@ from data_processing.jets.preprocessing_header import (
     ENERGY_SCALE,
     MAX_SAMPLE_LENGTH,
     TRAIN,
+    TRAIN_OUTPUT_DIRECTORY_NAME,
+    TRAIN_DATASET_NAME,
+    TRAIN
 )
 
 # tf.config.run_functions_eagerly(True) - Useful when using the debugger - dont delete, but should not be used in production
@@ -47,13 +50,9 @@ from data_processing.jets.preprocessing_header import (
 USER = Path.home().name
 print(f"Logged in as {USER}")
 if USER == "jhimmens":
-    OUTPUT_DIRECTORY_NAME = "2000_events_w_fixed_hits"
-    DATASET_NAME = "large_R"
-    GPU_ID = "1"
+    GPU_ID = "3"
     ASSIGN_GPU = True
 elif USER == "luclissa":
-    OUTPUT_DIRECTORY_NAME = "ttbar"
-    DATASET_NAME = "benchmark"
     GPU_ID = "0"
     ASSIGN_GPU = False
     os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
@@ -61,9 +60,9 @@ else:
     raise Exception("UNKOWN USER")
 
 if ASSIGN_GPU:
-    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+    os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID
 
-EXPERIMENT_NAME = f"{OUTPUT_DIRECTORY_NAME}/{DATASET_NAME}"
+EXPERIMENT_NAME = f"{TRAIN_OUTPUT_DIRECTORY_NAME}/{TRAIN_DATASET_NAME}"
 RESULTS_PATH = REPO_PATH / "result" / EXPERIMENT_NAME
 RESULTS_PATH.mkdir(exist_ok=True, parents=True)
 MODELS_PATH = REPO_PATH / "models" / EXPERIMENT_NAME
@@ -76,8 +75,8 @@ baseline_configuration = dict(
     SPLIT_SEED=62,
     TF_SEED=np.random.randint(0, 100),
     MAX_SAMPLE_LENGTH=MAX_SAMPLE_LENGTH,  # 278 for delta R of 0.1, 859 for 0.2
-    BATCH_SIZE=1000,
-    EPOCHS=150,
+    BATCH_SIZE=1024,
+    EPOCHS=100,
     LR=0.1,
     LR_DECAY=0.95,
     LR_BETA1=0.98,
@@ -275,7 +274,7 @@ def merge_configurations(priority_config, baseline_config):
 def train(experimental_configuration: dict = {}):
     run_config = merge_configurations(experimental_configuration, baseline_configuration)
     with wandb.init(
-        project="pointcloud", config=run_config, job_type="training"
+        project="pointcloud", config=run_config, job_type="training", tags=[TRAIN_OUTPUT_DIRECTORY_NAME, TRAIN_DATASET_NAME]
     ) as run:
         config = wandb.config
 
