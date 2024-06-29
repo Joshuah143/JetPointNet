@@ -50,7 +50,7 @@ from data_processing.jets.preprocessing_header import (
 USER = Path.home().name
 print(f"Logged in as {USER}")
 if USER == "jhimmens":
-    GPU_ID = "3"
+    GPU_ID = "1"
     ASSIGN_GPU = True
 elif USER == "luclissa":
     GPU_ID = "0"
@@ -59,7 +59,7 @@ elif USER == "luclissa":
 else:
     raise Exception("UNKOWN USER")
 
-if ASSIGN_GPU:
+if ASSIGN_GPU and __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID
 
 EXPERIMENT_NAME = f"{TRAIN_OUTPUT_DIRECTORY_NAME}/{TRAIN_DATASET_NAME}"
@@ -76,21 +76,21 @@ baseline_configuration = dict(
     TF_SEED=np.random.randint(0, 100),
     MAX_SAMPLE_LENGTH=MAX_SAMPLE_LENGTH,  # 278 for delta R of 0.1, 859 for 0.2
     BATCH_SIZE=1024,
-    EPOCHS=100,
-    LR=0.1,
-    LR_DECAY=0.95,
+    EPOCHS=500,
+    LR=0.06,
+    LR_DECAY=0.99,
     LR_BETA1=0.98,
     LR_BETA2=0.999,
     ES_PATIENCE=15,
     ACC_ENERGY_WEIGHTING="square",
     LOSS_ENERGY_WEIGHTING="square",
-    LOSS_FUNCTION="BinaryCrossentropy",
+    LOSS_FUNCTION="BinaryFocalCrossentropy",
     OUTPUT_ACTIVATION_FUNCTION="sigmoid",  # softmax, linear (requires changes to the BCE fucntion in the loss function)
     FRACTIONAL_ENERGY_CUTOFF=0.5,
     OUTPUT_LAYER_SEGMENTATION_CUTOFF=0.5,
     EARLY_STOPPING=False,
-    TRAIN_STEPS=500,
-    VAL_STEPS=500,
+    TRAIN_STEPS=200,
+    VAL_STEPS=200,
     # POTENTIALLY OVERWRITTEN BY THE WANDB SWEEP:
     # LR_MAX=0.000015,
     # LR_MIN=1e-5,
@@ -289,7 +289,7 @@ def train(experimental_configuration: dict = {}):
 
         # training and validation steps
         @tf.function
-        def train_step(x, y, energy_weights, model, optimizer, loss_function):
+        def train_step(x, y, energy_weights, model, loss_function):
             with tf.GradientTape() as tape:
                 predictions = model(x, training=True)
                 loss = masked_weighted_loss(
@@ -476,7 +476,6 @@ def train(experimental_configuration: dict = {}):
                     y_batch_train,
                     e_weight_train,
                     model,
-                    optimizer,
                     loss_function,
                 )
                 optimizer.apply_gradients(zip(grads, model.trainable_variables))

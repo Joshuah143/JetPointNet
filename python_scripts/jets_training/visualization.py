@@ -17,9 +17,10 @@ elif USER == "luclissa":
 else:
     raise Exception("UNKNOWN USER")
 
+
 if __name__ == "__main__":
     # os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
-    os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID  # Set GPU
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""  # Set GPU
 
 print("Running Visualization Script!")
 
@@ -43,10 +44,10 @@ from jets_training.jets_train import (
     TRAIN_INPUTS,
     MAX_SAMPLE_LENGTH,
     baseline_configuration,
-    best_checkpoint_path,
-    EXPERIMENT_NAME
+    EXPERIMENT_NAME,
+    TRAIN
 )
-from data_processing.jets.preprocessing_header import NPZ_SAVE_LOC, AWK_SAVE_LOC, POINT_TYPE_ENCODING
+from data_processing.jets.preprocessing_header import NPZ_SAVE_LOC, POINT_TYPE_ENCODING
 
 OUTPUT_ACTIVATION_FUNCTION = baseline_configuration['OUTPUT_ACTIVATION_FUNCTION']
 FRACTIONAL_ENERGY_CUTOFF = baseline_configuration['FRACTIONAL_ENERGY_CUTOFF']
@@ -79,12 +80,12 @@ USE_BINARY_ATTRIBUTION_MODEL = True
 USE_BINARY_ATTRIBUTION_TRUTH = True
 RENDER_IMAGES = True
 USE_TRUTH_E = False
-MAX_FILES = 1
+MAX_FILES = 10
 MAX_WINDOWS = 30 # can take -1 for all 
-INCLUDED_DATASETS = ['VAL'] # , 'VAL', 'TRAIN']
+NPZ_LOC = Path("/home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/progressive_training/rho/SavedNpz/deltaR=0.2_maxLen=650/energy_scale=1")
+model_path = "/home/jhimmens/workspace/jetpointnet/models/keep/PointNet_best_name=earnest-sweep-1.keras"
 
 
-model_path = best_checkpoint_path
 print(f"Using: {model_path}")
 
 model = PointNetSegmentation(MAX_SAMPLE_LENGTH, 
@@ -94,25 +95,25 @@ model = PointNetSegmentation(MAX_SAMPLE_LENGTH,
 
 model.load_weights(model_path)
 
+
 def load_data_from_npz(npz_file):
-    data = np.load(npz_file)
-    feats = data['feats'][:, :MAX_SAMPLE_LENGTH]  # Shape: (num_samples, 859, 6)
-    frac_labels = data['frac_labels'][:, :MAX_SAMPLE_LENGTH]  # Shape: (num_samples, 859)
-    tot_labels = data['tot_labels'][:, :MAX_SAMPLE_LENGTH]  # Shape: (num_samples, 859)
-    tot_truth_e = data['tot_truth_e'][:, :MAX_SAMPLE_LENGTH]  # Shape: (num_samples, 859) (This is the true total energy deposited by particles into this cell)
-    return feats, frac_labels, tot_labels, tot_truth_e
+    all_feats = np.load(npz_file)["feats"]
+    feats = all_feats[:, :MAX_SAMPLE_LENGTH]  # discard tracking information
+    frac_labels = all_feats[:, :MAX_SAMPLE_LENGTH]["truth_cell_fraction_energy"]
+    energy_weights = all_feats[:, :MAX_SAMPLE_LENGTH]["cell_E"]
+    return feats, frac_labels, energy_weights
 
 if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     metadata_list = []
 
 images_rendered = 0
 
-for file_idx, data_file in enumerate(sum([glob.glob(os.path.join(NPZ_SAVE_LOC / i.lower(), "*.npz")) for i in INCLUDED_DATASETS], [])):
+for file_idx, data_file in enumerate(glob.glob(os.path.join(NPZ_LOC / 'val', "*.npz"))):
     print(data_file)
     if file_idx > MAX_FILES:
         break
     filename_npz = data_file
-    feats, fractional_energy, _, total_truth_energy = load_data_from_npz(filename_npz)
+    feats, fractional_energy, total_truth_energy = load_data_from_npz(filename_npz)
 
     filtered_features = feats[TRAIN_INPUTS]
 
@@ -138,9 +139,10 @@ for file_idx, data_file in enumerate(sum([glob.glob(os.path.join(NPZ_SAVE_LOC / 
         cell_total_energy = []
 
         non_focus_tracks = {}
+        delta_r_dict = {}
+        pt_dict = {}
 
         for point_index, point in enumerate(window):
-
             # this would be much nicer as a match-case statement, but it kept giving me issues
             if point['category'] == POINT_TYPE_ENCODING["focus hit"]:
                 focus_hit_x.append(point["normalized_x"])
@@ -172,6 +174,8 @@ for file_idx, data_file in enumerate(sum([glob.glob(os.path.join(NPZ_SAVE_LOC / 
                         'non_focus_hit_x': [point["normalized_x"]],
                         'non_focus_hit_y': [point["normalized_y"]],
                         'non_focus_hit_z': [point["normalized_z"]],
+                        'non_focus_pt': point["track_pt"],
+                        'delta_R': point["delta_R"],
                     }
             elif point['category'] == POINT_TYPE_ENCODING["padding"]:
                 pass
@@ -209,6 +213,8 @@ for file_idx, data_file in enumerate(sum([glob.glob(os.path.join(NPZ_SAVE_LOC / 
             'total_truth_E': sum(total_truth_energy[window_index]),
             'total_real_E': sum(window["cell_E"]),
             'track_pt': window['track_pt'][0],
+            'tracks_std_delta_R': 0,
+            'tracks_std_pt': 0,
             'truth_attributions': positive,
             'rate_truth_activations': np.sum(cell_truth_attribution == 1)/nCells,
             'model_attributions': predicted_positive,
@@ -242,12 +248,6 @@ for file_idx, data_file in enumerate(sum([glob.glob(os.path.join(NPZ_SAVE_LOC / 
         }
 
         # model performace
-        """
-        denisty - number of other track
-        pt
-        eta
-        delta r to nearest track 
-        """
 
         metadata_list.append(track_information)
 
@@ -255,7 +255,7 @@ for file_idx, data_file in enumerate(sum([glob.glob(os.path.join(NPZ_SAVE_LOC / 
             images_rendered += 1
             # convert to plot:
             fig = plt.figure(figsize=(22, 7))
-            fig.suptitle(f'Event: {window[0]["event_number"]} Track: {window[0]["track_ID"]}, $\sum E={sum(cell_total_energy)}$, nCells={len(cell_x_list)}, pt={window["track_pt"][0]:.2f}')
+            fig.suptitle(f'Event: {window[0]["event_number"]} Track: {window[0]["track_ID"]}, $\sum E={sum(cell_total_energy):.2f}$, nCells={len(cell_x_list)}, pt={window["track_pt"][0]:.2f}')
 
             ax1 = fig.add_subplot(131, projection='3d')
             ax2 = fig.add_subplot(132, projection='3d')
@@ -345,7 +345,7 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     # might want to try using density=True to make this hists simpler to see
 
 
-    plt.title(f'Truth to Model activations with nTracks={number_of_tracks_in_set}\n Including: {INCLUDED_DATASETS}')
+    plt.title(f'Truth to Model activations with nTracks={number_of_tracks_in_set}\n ')
     plt.hist2d(metadata['truth_attributions'], metadata['model_attributions'], bins=50, cmap='viridis', norm=LogNorm()) # range=[x_bounds, y_bounds]
     plt.colorbar(label='Counts')
     plt.xlabel('Truth activations')
@@ -354,7 +354,7 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     plt.savefig(HIST_PATH / 'raw_model_activation_hist.png', dpi=500)
     plt.clf()
 
-    plt.title(f'Truth to Model activations with nTracks={number_of_tracks_after_mask}\n Including: {INCLUDED_DATASETS} where {mask_name}')
+    plt.title(f'Truth to Model activations with nTracks={number_of_tracks_after_mask}\n  where {mask_name}')
     plt.hist2d(np.array(metadata['truth_attributions'])[mask], np.array(metadata['model_attributions'])[mask], bins=50, cmap='viridis', norm=LogNorm()) # range=[x_bounds, y_bounds]
     plt.colorbar(label='Counts')
     plt.xlabel('Truth activations')
@@ -363,7 +363,7 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     plt.savefig(HIST_PATH / 'masked_model_activation_hist.png', dpi=500)
     plt.clf()
 
-    plt.title(f'Model activations to number of cells with nTracks={number_of_tracks_in_set}\n Including: {INCLUDED_DATASETS}')
+    plt.title(f'Model activations to number of cells with nTracks={number_of_tracks_in_set}\n ')
     plt.hist2d(metadata['n_cells'], metadata['model_attributions'], bins=50, cmap='viridis', norm=LogNorm()) # range=[x_bounds, y_bounds]
     plt.colorbar(label='Counts')
     plt.xlabel('Number of cells')
@@ -372,7 +372,7 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     plt.savefig(HIST_PATH / 'cell_to_activation_hist.png', dpi=500)
     plt.clf()
 
-    plt.title(f'Model activations to number of cells with nTracks={number_of_tracks_after_mask}\n Including: {INCLUDED_DATASETS} where {mask_name}')
+    plt.title(f'Model activations to number of cells with nTracks={number_of_tracks_after_mask}\n  where {mask_name}')
     plt.hist2d(np.array(metadata['n_cells'])[mask], np.array(metadata['model_attributions'])[mask], bins=50, cmap='viridis', norm=LogNorm()) # range=[x_bounds, y_bounds]
     plt.colorbar(label='Counts')
     plt.xlabel('Number of cells')
@@ -420,7 +420,7 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     plt.clf()
 
 
-    plt.title(f'Accuracy per track with nTracksMasked={number_of_tracks_after_mask}\n nTracksUnmasked={number_of_tracks_in_set} where {mask_name} Including: {INCLUDED_DATASETS}')
+    plt.title(f'Accuracy per track with nTracksMasked={number_of_tracks_after_mask}\n nTracksUnmasked={number_of_tracks_in_set} where {mask_name} ')
     data = metadata['accuracy']
     data_arr = [data, data[mask]]
     labels = ["Unmasked", "Masked"]
@@ -430,7 +430,7 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     plt.savefig(HIST_PATH / 'cell_accuracy_hist.png', dpi=500)
     plt.clf()
 
-    plt.title(f'F1 score per track with nTracks={number_of_tracks_in_set}\n nTracksUnmasked={number_of_tracks_in_set} where {mask_name} Including: {INCLUDED_DATASETS}')
+    plt.title(f'F1 score per track with nTracks={number_of_tracks_in_set}\n nTracksUnmasked={number_of_tracks_in_set} where {mask_name} ')
     data = metadata['f1_score']
     data_arr = [data, data[mask]]
     labels = ["Unmasked", "Masked"]
@@ -441,7 +441,7 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     plt.savefig(HIST_PATH / 'cell_f1_hist.png', dpi=500)
     plt.clf()
 
-    plt.title(f'Cell attribution rates per track with nTracks={number_of_tracks_in_set}\n Including: {INCLUDED_DATASETS}')
+    plt.title(f'Cell attribution rates per track with nTracks={number_of_tracks_in_set}\n ')
     rates = [metadata['false_positive_rate'], metadata['false_negative_rate'], metadata['true_positive_rate'], metadata['true_negative_rate']]
     labels = ['False Positive Rate', 'False Negative Rate', 'True Positive Rate', 'True Negative Rate']
     plt.hist(rates, label=labels, bins=50, histtype='step', fill=False)
@@ -453,7 +453,7 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     plt.clf()
     
     # Fifth Hist
-    plt.title(f'Cell attribution rates per track with nTracks={number_of_tracks_in_set}\n Including: {INCLUDED_DATASETS}')
+    plt.title(f'Cell attribution rates per track with nTracks={number_of_tracks_in_set}\n ')
     rates = [metadata['positive_predictive_value'], metadata['false_discovery_rate'], metadata['false_omission_rate'], metadata['negative_predictive_value']]
     labels = ['Positive Predictive Value', 'False Discovery Rate', 'False Omission Rate', 'Negative Predictive Value']
     plt.hist(rates, label=labels, bins=50, histtype='step', fill=False)
@@ -465,7 +465,7 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     plt.clf()
 
 
-    plt.title(f'Percent Truth Activation with nTracks={number_of_tracks_in_set}\n nTracksUnmasked={number_of_tracks_in_set} where {mask_name} Including: {INCLUDED_DATASETS}')
+    plt.title(f'Percent Truth Activation with nTracks={number_of_tracks_in_set}\n nTracksUnmasked={number_of_tracks_in_set} where {mask_name} ')
     data = metadata['rate_truth_activations']
     data_arr = [data, data[mask]]
     labels = ["Unmasked", "Masked"]

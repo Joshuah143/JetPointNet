@@ -27,6 +27,8 @@ from multiprocessing import Pool
 
 
 DATA_FOLDERS = ["train", "val", "test"]
+global_max_sample_length = MAX_SAMPLE_LENGTH #find_global_max_sample_length()
+
 
 def read_parquet(filename):
     table = pq.read_table(filename)
@@ -34,7 +36,9 @@ def read_parquet(filename):
     return ak_array
 
 
-def build_arrays(data_folder_path, chunk_file_name):
+def build_arrays(data_folder_path, chunk_file_name, npz_data_folder_path):
+
+    print(data_folder_path, chunk_file_name, npz_data_folder_path)
 
     if not OVERWRITE_NPZ:
         print(f"Testing for existence of {os.path.join(NPZ_SAVE_LOC(NPZ), data_folder_path.split('/')[-1], chunk_file_name + '.npz')}")
@@ -64,17 +68,13 @@ def build_arrays_wrapper(args):
     return build_arrays(*args)
 
 
-if __name__ == "__main__":
-
+def main():
     # Make sure this happens after SAVE_LOC is defined and created if necessary
     for folder in DATA_FOLDERS:
         folder_path = os.path.join(AWK_SAVE_LOC(NPZ), folder)
         os.makedirs(
             folder_path, exist_ok=True
         )  # This line ensures the AWK_SAVE_LOC(NPZ) directories exist
-
-    global_max_sample_length = MAX_SAMPLE_LENGTH #find_global_max_sample_length()
-    print(f"{global_max_sample_length = }")
 
     start_time = time.time()
     for data_folder in DATA_FOLDERS:
@@ -95,7 +95,7 @@ if __name__ == "__main__":
                 tqdm(
                     pool.imap_unordered(
                         build_arrays_wrapper,
-                        zip([data_folder_path] * num_chunks, sorted(chunk_files)),
+                        zip([data_folder_path] * num_chunks, sorted(chunk_files), [npz_data_folder_path] * num_chunks),
                     ),
                     total=num_chunks,
                 )
@@ -105,3 +105,6 @@ if __name__ == "__main__":
 
     end_time = time.time()
     print(f"Processing took: {(end_time - start_time):.2f} seconds")
+
+if __name__ == "__main__":
+    main()

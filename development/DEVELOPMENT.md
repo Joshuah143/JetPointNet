@@ -76,4 +76,6 @@ scp -r /home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/attempt_1_
 ### using rsync
 rsync -avz --delete /home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/attempt_1_june_18/full_set/SavedNpz jhimmens@lxplus.cern.ch:/eos/user/j/jhimmens/jetpointnet/data/attempt_1_june_18/full_set/
 
-rsync -avzP /home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/attempt_1_june_18/full_set/SavedNpz m1:/data/atlas/pflow_npz_train/SavedNpz
+rsync -avzP /home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/progressive_training/rho_delta m1:/data/atlas/pflow_npz_train/rho_delta/
+
+rsync -avzP /home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/progressive_training/rho_delta jhimmens@lxplus.cern.ch:/eos/user/j/jhimmens/jetpointnet/data/rho_delta

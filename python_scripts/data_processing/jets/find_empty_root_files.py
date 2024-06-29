@@ -21,13 +21,14 @@ from data_processing.jets.awk_utils import *
 from data_processing.jets.common_utils import *
 
 
-root_files = glob.glob(os.path.join(ROOT_FILES_DIR, "*.root"))
+root_files = glob.glob(os.path.join(ROOT_FILES_DIR, "**/*.root"), recursive=True)
 print(len(root_files))
 empty = []
 for file in root_files:
-    with uproot.open(file) as root:
-        if len(root.keys()) == 0:
-            empty.append(file)
+    if os.path.isfile(file):
+        with uproot.open(file) as root:
+            if len(root.keys()) == 0:
+                empty.append(file)
 
 with open('empty_roots.json', 'w') as f:
     json.dump(empty, f, indent='\t')
