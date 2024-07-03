@@ -80,16 +80,16 @@ elif USER == "jhimmens":
     MAX_SAMPLE_LENGTH = 650
 
     # ===== ROOT TO AWK =====
-    AWK_OUTPUT_DIRECTORY_NAME = "rho_delta"
+    AWK_OUTPUT_DIRECTORY_NAME = "delta"
     AWK_DATASET_NAME = "progressive_training"
-    OVERWRITE_AWK = True
+    OVERWRITE_AWK = False
     GEO_FILE_LOC = "/fast_scratch_1/atlas/pflow/rho_small.root"
     NUM_MAX_EVENTS_PER_CHUNK = 1000
     # TEST_SPLIT_RATIO is implied to be the remaining percentage
     TRAIN_SPLIT_RATIO = 0.55
     VAL_SPLIT_RATIO = 0.3
-    AWK_THREADS_PER_CHUNK = 40  # root to awk
-    ROOT_FILES_DIR = "/fast_scratch_1/atlas/pflow/20240626/" 
+    AWK_THREADS_PER_CHUNK = 50  # root to awk
+    ROOT_FILES_DIR = "/fast_scratch_1/atlas/pflow/20240626/user.mswiatlo.mc21_13p6TeV.900147.singleDelta.recon.ESD.e8537_e8455_s3986_s3874_r14060_2024.06.26.v1_mltree.root" 
 
     # rho+delta: /fast_scratch_1/atlas/pflow/20240626/
     # dijet: /fast_scratch_1/atlas/pflow/20240614/
@@ -97,19 +97,19 @@ elif USER == "jhimmens":
     # delta: /fast_scratch_1/atlas/pflow/20240626/user.mswiatlo.mc21_13p6TeV.900147.singleDelta.recon.ESD.e8537_e8455_s3986_s3874_r14060_2024.06.26.v1_mltree.root
 
     # ===== SAMPLE LENGTH SCRIPT =====
-    LEN_OUTPUT_DIRECTORY_NAME = "rho_delta"
+    LEN_OUTPUT_DIRECTORY_NAME = "rho"
     LEN_DATASET_NAME = "progressive_training"
     SAMPLE_LENGTH_WORKERS = 80
 
     # ===== AWK TO NPZ =====
-    NPZ_OUTPUT_DIRECTORY_NAME = "rho_delta"
+    NPZ_OUTPUT_DIRECTORY_NAME = "delta"
     NPZ_DATASET_NAME = "progressive_training"
     OVERWRITE_NPZ = False
     NPZ_NUM_CHUNK_THREADS = 80  # awk to npz
     NPZ_REGEX_INCLUDE = f'.*' # all awk files included
 
     # ===== TRAINING =====
-    TRAIN_OUTPUT_DIRECTORY_NAME = "rho_delta"
+    TRAIN_OUTPUT_DIRECTORY_NAME = "delta"
     TRAIN_DATASET_NAME = "progressive_training"
 else:
     raise Exception("User not found!")
@@ -138,6 +138,7 @@ AWK = 'awk'
 NPZ = 'npz'
 LEN = 'len'
 TRAIN = 'train'
+TUNE = 'tune'
 
 def AWK_SAVE_LOC(working_file: str):
     if working_file == AWK:

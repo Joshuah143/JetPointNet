@@ -124,10 +124,15 @@ def hard_sigmoid(x):
 # ============ Main Model Blocks ========================================================================================
 
 
-def conv_mlp(input_tensor, filters, dropout_rate=None, apply_attention=False):
-    x = tf.keras.layers.Conv1D(filters=filters, kernel_size=1, activation="relu")(
-        input_tensor
-    )
+def conv_mlp(input_tensor, filters, dropout_rate=None, apply_attention=False, name=None):
+    if name is not None:
+        x = tf.keras.layers.Conv1D(filters=filters, kernel_size=1, activation="relu", name=name)(
+            input_tensor
+        )
+    else: 
+        x = tf.keras.layers.Conv1D(filters=filters, kernel_size=1, activation="relu")(
+            input_tensor
+        )
     x = tf.keras.layers.BatchNormalization()(x)
 
     if apply_attention:
@@ -220,19 +225,19 @@ def PointNetSegmentation(
         input_points_masked, num_features
     )  # Assuming TNet is properly defined elsewhere
     x = tf.keras.layers.Dot(axes=(2, 1))([input_points_masked, input_tnet])
-    x = conv_mlp(x, 96)  # Assuming conv_mlp is properly defined elsewhere
-    x = conv_mlp(x, 96)
+    x = conv_mlp(x, 96)  # JH: This should be 64
+    x = conv_mlp(x, 96)  # JH: This should be 64
     point_features = x
 
     # T-Net for feature transformation
     feature_tnet = TNet(x, 96, add_regularization=True)
     x = tf.keras.layers.Dot(axes=(2, 1))([x, feature_tnet])
-    x = conv_mlp(x, 128)
-    x = conv_mlp(x, 256)
+    x = conv_mlp(x, 128) # JH: this should be 64?
+    x = conv_mlp(x, 256) # JG: this should be 128?
     x = conv_mlp(x, 1024)
 
     # Get global features and expand
-    global_feature = tf.keras.layers.GlobalMaxPooling1D()(x)
+    global_feature = tf.keras.layers.GlobalMaxPooling1D(name="GlobalPooling")(x)
     global_feature_expanded = tf.keras.layers.Lambda(lambda x: tf.expand_dims(x, 1))(
         global_feature
     )
@@ -242,10 +247,14 @@ def PointNetSegmentation(
 
     # Concatenate point features with global features
     c = tf.keras.layers.Concatenate()([point_features, global_feature_expanded])
-    c = conv_mlp(c, 512, apply_attention=False)
-    c = conv_mlp(c, 256, apply_attention=False)
 
-    c = conv_mlp(c, 128, dropout_rate=0.3)
+    c = conv_mlp(c, 512, apply_attention=False, name="PointFeats512")
+    c = conv_mlp(c, 256, apply_attention=False, name="PointFeats256")
+
+    # JH: there should be another MLP here?
+
+
+    c = conv_mlp(c, 128, dropout_rate=0.3, name="PointFeats128")
 
     segmentation_output = tf.keras.layers.Conv1D(
         num_classes, kernel_size=1, activation=output_activation_function, name="SEG"

@@ -50,7 +50,7 @@ from data_processing.jets.preprocessing_header import (
 USER = Path.home().name
 print(f"Logged in as {USER}")
 if USER == "jhimmens":
-    GPU_ID = "1"
+    GPU_ID = "5"
     ASSIGN_GPU = True
 elif USER == "luclissa":
     GPU_ID = "0"
@@ -71,26 +71,36 @@ MODELS_PATH.mkdir(exist_ok=True, parents=True)
 TRAIN_DIR = NPZ_SAVE_LOC(TRAIN) / "train"
 VAL_DIR = NPZ_SAVE_LOC(TRAIN) / "val"
 
+tune_model_path = "/home/jhimmens/workspace/jetpointnet/models/rho/progressive_training/PointNet_best_name=dark-music-823.keras"
+
+EPOCH_COMPLEXITY=1024*200
+BATCH_SIZE=1024
+STEPS = EPOCH_COMPLEXITY//BATCH_SIZE
+
 baseline_configuration = dict(
     SPLIT_SEED=62,
+    EPOCH_COMPLEXITY=EPOCH_COMPLEXITY,
     TF_SEED=np.random.randint(0, 100),
     MAX_SAMPLE_LENGTH=MAX_SAMPLE_LENGTH,  # 278 for delta R of 0.1, 859 for 0.2
-    BATCH_SIZE=1024,
+    BATCH_SIZE=BATCH_SIZE,
     EPOCHS=500,
-    LR=0.06,
-    LR_DECAY=0.99,
+    IS_TUNE=False,
+    TRAIN_LR=0.05,
+    TUNE_LR=0.01,
+    TRAIN_LR_DECAY=0.999,
+    TUNE_LR_DECAY=0.99,
     LR_BETA1=0.98,
     LR_BETA2=0.999,
     ES_PATIENCE=15,
     ACC_ENERGY_WEIGHTING="square",
     LOSS_ENERGY_WEIGHTING="square",
-    LOSS_FUNCTION="BinaryFocalCrossentropy",
+    LOSS_FUNCTION="BinaryCrossentropy",
     OUTPUT_ACTIVATION_FUNCTION="sigmoid",  # softmax, linear (requires changes to the BCE fucntion in the loss function)
     FRACTIONAL_ENERGY_CUTOFF=0.5,
     OUTPUT_LAYER_SEGMENTATION_CUTOFF=0.5,
     EARLY_STOPPING=False,
-    TRAIN_STEPS=200,
-    VAL_STEPS=200,
+    TRAIN_STEPS=STEPS,
+    VAL_STEPS=STEPS,
     # POTENTIALLY OVERWRITTEN BY THE WANDB SWEEP:
     # LR_MAX=0.000015,
     # LR_MIN=1e-5,
@@ -154,7 +164,7 @@ def _format_batch(feats_buffer, targets_buffer, e_weights_buffer):
     return batch_feats, batch_targets, batch_e_weights
 
 
-def data_generator(data_dir, batch_size, drop_last=True, **kwargs):
+def data_generator(data_dir, batch_size: int, epoch: int, drop_last=True, **kwargs):
 
     if kwargs.get("seed", 0):
         np.random.seed(kwargs["seed"])
@@ -219,7 +229,7 @@ def calculate_steps(data_dir, batch_size):
 
 
 def _setup_model(
-    num_points: int, num_features: int, output_activation: str, num_classes: int = 1
+    num_points: int, num_features: int, output_activation: str, num_classes: int = 1, fine_tune: bool = False
 ):
     model = PointNetSegmentation(
         num_points=num_points,
@@ -227,6 +237,16 @@ def _setup_model(
         num_classes=num_classes,
         output_activation_function=output_activation,
     )
+
+    if fine_tune:
+        model.load_weights(tune_model_path)
+
+        model.trainable = True
+
+       # print(model.summary()) - we are ok to set roughly last 12 as trainable in a tune situation
+
+        for layer in model.layers[:-4]:
+            layer.trainable = False
 
     trainable_count = np.sum([K.count_params(w) for w in model.trainable_weights])
     non_trainable_count = np.sum(
@@ -350,6 +370,7 @@ def train(experimental_configuration: dict = {}):
             num_features=len(TRAIN_INPUTS),
             num_classes=1,
             output_activation=config.OUTPUT_ACTIVATION_FUNCTION,
+            fine_tune=config.IS_TUNE
         )
 
         train_loss_tracker = tf.metrics.Mean(name="train_loss")
@@ -403,9 +424,9 @@ def train(experimental_configuration: dict = {}):
         #     verbose=1,
         # )
         lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-            initial_learning_rate=config.LR,
+            initial_learning_rate=config.TRAIN_LR if not config.IS_TUNE else config.TUNE_LR,
             decay_steps=train_steps,
-            decay_rate=config.LR_DECAY,
+            decay_rate=config.TRAIN_LR_DECAY if not config.IS_TUNE else config.TUNE_LR_DECAY,
         )
 
         # Optimizer & Loss
@@ -465,7 +486,7 @@ def train(experimental_configuration: dict = {}):
                 [],
             )
             for step, (x_batch_train, y_batch_train, e_weight_train) in enumerate(
-                data_generator(TRAIN_DIR, config.BATCH_SIZE)
+                data_generator(TRAIN_DIR, config.BATCH_SIZE, epoch)
             ):
 
                 x_batch_train = rfn.structured_to_unstructured(x_batch_train)
@@ -496,7 +517,7 @@ def train(experimental_configuration: dict = {}):
 
             batch_loss_val, batch_accuracy_val, batch_weighted_accuracy_val = [], [], []
             for step, (x_batch_val_named, y_batch_val, e_weight_val) in enumerate(
-                data_generator(VAL_DIR, config.BATCH_SIZE, False)
+                data_generator(VAL_DIR, config.BATCH_SIZE, epoch, False)
             ):
                 x_batch_val = rfn.structured_to_unstructured(x_batch_val_named)
                 if step >= val_steps:
