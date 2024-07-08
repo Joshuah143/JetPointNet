@@ -44,6 +44,7 @@ from data_processing.jets.preprocessing_header import (
     TRAIN
 )
 
+
 # tf.config.run_functions_eagerly(True) - Useful when using the debugger - dont delete, but should not be used in production
 
 # SET PATHS FOR I/O AND CONFIG
@@ -71,23 +72,34 @@ MODELS_PATH.mkdir(exist_ok=True, parents=True)
 TRAIN_DIR = NPZ_SAVE_LOC(TRAIN) / "train"
 VAL_DIR = NPZ_SAVE_LOC(TRAIN) / "val"
 
-tune_model_path = "/home/jhimmens/workspace/jetpointnet/models/rho/progressive_training/PointNet_best_name=dark-music-823.keras"
 
-EPOCH_COMPLEXITY=1024*200
-BATCH_SIZE=1024
-STEPS = EPOCH_COMPLEXITY//BATCH_SIZE
+
+REPLAY_SIMPLE_DS = Path("/home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/progressive_training/delta/SavedNpz/deltaR=0.2_maxLen=650/energy_scale=1")
+REPLAY_SIMPLE_DS_NAME = 'delta'
+
+REPLAY_COMPLEX_DS = Path("/home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/attempt_1_june_18/full_set/SavedNpz/deltaR=0.2_maxLen=650/energy_scale=1")
+REPLAY_COMPLEX_DS_NAME = 'dijet'
+
+replay_model_path = Path("/home/jhimmens/workspace/jetpointnet/models/delta/progressive_training/PointNet_best_name=autumn-pyramid-836.keras")
+tune_model_path = Path("/home/jhimmens/workspace/jetpointnet/models/rho/progressive_training/PointNet_best_name=dark-music-823.keras")
+
 
 baseline_configuration = dict(
     SPLIT_SEED=62,
-    EPOCH_COMPLEXITY=EPOCH_COMPLEXITY,
+    EPOCH_COMPLEXITY=(EPOCH_COMPLEXITY := 1024*200),
     TF_SEED=np.random.randint(0, 100),
     MAX_SAMPLE_LENGTH=MAX_SAMPLE_LENGTH,  # 278 for delta R of 0.1, 859 for 0.2
-    BATCH_SIZE=BATCH_SIZE,
+    BATCH_SIZE=(BATCH_SIZE := 1024),
     EPOCHS=500,
     IS_TUNE=False,
-    TRAIN_LR=0.05,
+    REPLAY=(REPLAY := True),
+    REPLAY_LINEAR_DECAY_RATE=0.02, # decrease of data from simple set
+    REPLAY_MIN_FREQ=0.10, # steady state of simple set
+    TRAIN_LR=0.005,
+    SAVE_INTERMEDIATES=True,
+    SAVE_FREQ=10, # Save intermediate models
     TUNE_LR=0.01,
-    TRAIN_LR_DECAY=0.999,
+    TRAIN_LR_DECAY=1,
     TUNE_LR_DECAY=0.99,
     LR_BETA1=0.98,
     LR_BETA2=0.999,
@@ -99,8 +111,8 @@ baseline_configuration = dict(
     FRACTIONAL_ENERGY_CUTOFF=0.5,
     OUTPUT_LAYER_SEGMENTATION_CUTOFF=0.5,
     EARLY_STOPPING=False,
-    TRAIN_STEPS=STEPS,
-    VAL_STEPS=STEPS,
+    TRAIN_STEPS=EPOCH_COMPLEXITY//BATCH_SIZE,
+    VAL_STEPS=EPOCH_COMPLEXITY//BATCH_SIZE,
     # POTENTIALLY OVERWRITTEN BY THE WANDB SWEEP:
     # LR_MAX=0.000015,
     # LR_MIN=1e-5,
@@ -164,7 +176,7 @@ def _format_batch(feats_buffer, targets_buffer, e_weights_buffer):
     return batch_feats, batch_targets, batch_e_weights
 
 
-def data_generator(data_dir, batch_size: int, epoch: int, drop_last=True, **kwargs):
+def data_generator(data_dir, batch_size: int, drop_last=True, **kwargs):
 
     if kwargs.get("seed", 0):
         np.random.seed(kwargs["seed"])
@@ -219,6 +231,32 @@ def data_generator(data_dir, batch_size: int, epoch: int, drop_last=True, **kwar
             yield batch_feats, batch_targets, batch_e_weights
 
 
+def progressive_data_generator(simple_data_dir, complex_data_dir, batch_size: int, epoch: int, linear_decay: int, memory:int, drop_last=True,  **kwargs):
+    percent_simple_data = max(1-epoch*linear_decay, memory)
+    
+
+    while True:
+        for (simple_feats, simple_targets, simple_e_weights), (complex_feats, complex_targets, complex_e_weights) in zip(
+                                            data_generator(simple_data_dir, 
+                                                            int(batch_size*percent_simple_data), 
+                                                            drop_last, 
+                                                            **kwargs), 
+                                            data_generator(complex_data_dir, 
+                                                           int(batch_size*(1-percent_simple_data)), 
+                                                           drop_last, 
+                                                           **kwargs)):
+            if simple_feats.size == 0:
+                total_feats, total_targets, total_e_weights = complex_feats, complex_targets, complex_e_weights
+            elif complex_feats.size == 0:
+                total_feats, total_targets, total_e_weights = simple_feats, simple_targets, simple_e_weights
+            else:
+                total_feats = np.concatenate([simple_feats, complex_feats], axis=0)
+                total_targets = np.concatenate([simple_targets, complex_targets], axis=0)
+                total_e_weights = np.concatenate([simple_e_weights, complex_e_weights], axis=0)
+            
+            yield total_feats, total_targets, total_e_weights
+
+
 def calculate_steps(data_dir, batch_size):
     total_samples = 0
     npz_files = glob.glob(os.path.join(data_dir, "*.npz"))
@@ -229,7 +267,12 @@ def calculate_steps(data_dir, batch_size):
 
 
 def _setup_model(
-    num_points: int, num_features: int, output_activation: str, num_classes: int = 1, fine_tune: bool = False
+    num_points: int, 
+    num_features: int, 
+    output_activation: str, 
+    num_classes: int = 1, 
+    fine_tune: bool = False,
+    replay: bool = False
 ):
     model = PointNetSegmentation(
         num_points=num_points,
@@ -237,6 +280,9 @@ def _setup_model(
         num_classes=num_classes,
         output_activation_function=output_activation,
     )
+
+    if fine_tune and replay:
+        raise Exception('CANNOT FINE TUNE AND REPLAY SIMULTANEOUSLY')
 
     if fine_tune:
         model.load_weights(tune_model_path)
@@ -247,6 +293,9 @@ def _setup_model(
 
         for layer in model.layers[:-4]:
             layer.trainable = False
+
+    if replay:
+         model.load_weights(replay_model_path)
 
     trainable_count = np.sum([K.count_params(w) for w in model.trainable_weights])
     non_trainable_count = np.sum(
@@ -294,7 +343,10 @@ def merge_configurations(priority_config, baseline_config):
 def train(experimental_configuration: dict = {}):
     run_config = merge_configurations(experimental_configuration, baseline_configuration)
     with wandb.init(
-        project="pointcloud", config=run_config, job_type="training", tags=[TRAIN_OUTPUT_DIRECTORY_NAME, TRAIN_DATASET_NAME]
+        project="pointcloud", 
+        config=run_config, 
+        job_type="training", 
+        tags=[TRAIN_OUTPUT_DIRECTORY_NAME, TRAIN_DATASET_NAME] if not REPLAY else [f"from={REPLAY_SIMPLE_DS_NAME}", f"to={REPLAY_COMPLEX_DS_NAME}"]
     ) as run:
         config = wandb.config
 
@@ -370,7 +422,8 @@ def train(experimental_configuration: dict = {}):
             num_features=len(TRAIN_INPUTS),
             num_classes=1,
             output_activation=config.OUTPUT_ACTIVATION_FUNCTION,
-            fine_tune=config.IS_TUNE
+            fine_tune=config.IS_TUNE,
+            replay=config.REPLAY
         )
 
         train_loss_tracker = tf.metrics.Mean(name="train_loss")
@@ -486,7 +539,12 @@ def train(experimental_configuration: dict = {}):
                 [],
             )
             for step, (x_batch_train, y_batch_train, e_weight_train) in enumerate(
-                data_generator(TRAIN_DIR, config.BATCH_SIZE, epoch)
+               data_generator(TRAIN_DIR, config.BATCH_SIZE, False) if not config.REPLAY else progressive_data_generator(REPLAY_SIMPLE_DS / 'train',
+                                                                                                                       REPLAY_COMPLEX_DS / 'train',
+                                                                                                                       config.BATCH_SIZE,
+                                                                                                                       epoch,
+                                                                                                                       config.REPLAY_LINEAR_DECAY_RATE,
+                                                                                                                       config.REPLAY_MIN_FREQ,)
             ):
 
                 x_batch_train = rfn.structured_to_unstructured(x_batch_train)
@@ -515,9 +573,16 @@ def train(experimental_configuration: dict = {}):
             print(f"\nTraining loss over epoch: {train_loss_tracker.result():.4e}")
             print(f"\nTime taken for training: {time.time() - start_time:.2f} sec")
 
+            
+
             batch_loss_val, batch_accuracy_val, batch_weighted_accuracy_val = [], [], []
             for step, (x_batch_val_named, y_batch_val, e_weight_val) in enumerate(
-                data_generator(VAL_DIR, config.BATCH_SIZE, epoch, False)
+                data_generator(VAL_DIR, config.BATCH_SIZE, False) if not config.REPLAY else progressive_data_generator(REPLAY_SIMPLE_DS / 'val',
+                                                                                                                       REPLAY_COMPLEX_DS / 'val',
+                                                                                                                       config.BATCH_SIZE,
+                                                                                                                       epoch,
+                                                                                                                       config.REPLAY_LINEAR_DECAY_RATE,
+                                                                                                                       config.REPLAY_MIN_FREQ,)
             ):
                 x_batch_val = rfn.structured_to_unstructured(x_batch_val_named)
                 if step >= val_steps:
@@ -580,6 +645,7 @@ def train(experimental_configuration: dict = {}):
                     "val/f1_score": val_f1_score.result().numpy()[0],
                     "val/recall": recall_metric.result().numpy(),
                     "val/precision": precision_metric.result().numpy(),
+                    "percent_simple_data": max(1-epoch*config.REPLAY_LINEAR_DECAY_RATE, config.REPLAY_MIN_FREQ) if config.REPLAY else 1,
                     # "gradients": [tf.reduce_mean(tf.abs(grad)).numpy() for grad in grads],
                     # "weights": [
                     #     tf.reduce_mean(tf.abs(weight)).numpy()
@@ -591,7 +657,12 @@ def train(experimental_configuration: dict = {}):
             # callbacks
 
             # discard first epochs to trigger callbacks
-            if epoch > 5 & (val_weighted_acc.result().numpy() < 1):
+            if epoch > 5:
+
+                if config.SAVE_INTERMEDIATES and epoch % config.SAVE_FREQ == 0:
+                    checkpoint_path = f"{MODELS_PATH}/PointNet_{epoch=}_name={run.name}.keras"
+                    model.save(checkpoint_path)
+
                 checkpoint_callback.on_epoch_end(
                     epoch,
                     # TODO: adapt for user-defined metric tracking

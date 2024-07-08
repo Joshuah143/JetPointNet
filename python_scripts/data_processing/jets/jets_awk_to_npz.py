@@ -21,7 +21,6 @@ import numpy as np
 import pandas as pd
 import os
 import time
-import re
 from tqdm.auto import tqdm
 from multiprocessing import Pool
 
@@ -86,7 +85,7 @@ def main():
         chunk_files = [
             f
             for f in os.listdir(data_folder_path)
-            if f.endswith(".parquet") and bool(re.fullmatch(NPZ_REGEX_INCLUDE, f))
+            if f.endswith(".parquet") and any(f.startswith(i) for i in NPZ_ALLOWED_PREFIXES)
         ]
         num_chunks = len(chunk_files)
 

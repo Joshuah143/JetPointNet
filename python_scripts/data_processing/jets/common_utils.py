@@ -65,6 +65,7 @@ def calculate_max_sample_length_simplified(tracks_array):
     current_index = 0
     track_points_arr = []
     cells_in_track_arr = []
+    number_of_adj_arr = []
     for event in tracks_array:
         for track in event:
             n_focus_track_hits = len(track["track_layer_intersections"])
@@ -80,7 +81,8 @@ def calculate_max_sample_length_simplified(tracks_array):
             current_index += 1
             track_points_arr.append(length)
             cells_in_track_arr.append(len(track["associated_cells"]))
-    return track_points_arr, cells_in_track_arr
+            number_of_adj_arr.append(len(track["associated_tracks"]))
+    return track_points_arr, cells_in_track_arr, number_of_adj_arr
 
 
 def calculate_max_sample_length(tracks_array):

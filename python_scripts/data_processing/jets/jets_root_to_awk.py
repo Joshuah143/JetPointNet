@@ -81,11 +81,12 @@ def split_and_save_to_disk(processed_data, base_filename, id_splits: dict, save_
         data = processed_data[mask]
         ak.to_parquet(data, os.path.join(folder, base_filename.split("/")[-1] + f"_{split}.parquet"))
 
-def setup_directories():
+
+def setup_directories(dataset_name):
     # Directories for train, val, and test sets
-    train_dir = os.path.join(AWK_SAVE_LOC(AWK), "train")
-    val_dir = os.path.join(AWK_SAVE_LOC(AWK), "val")
-    test_dir = os.path.join(AWK_SAVE_LOC(AWK), "test")
+    train_dir = os.path.join(AWK_SAVE_LOC(AWK), "train", dataset_name)
+    val_dir = os.path.join(AWK_SAVE_LOC(AWK), "val", dataset_name)
+    test_dir = os.path.join(AWK_SAVE_LOC(AWK), "test", dataset_name)
 
     # Ensure directories exist
     os.makedirs(AWK_SAVE_LOC(AWK), exist_ok=True)
@@ -238,15 +239,18 @@ def process_chunk(chunk, cell_ID_geo, cell_eta_geo, cell_phi_geo, cell_rPerp_geo
     combined_array = ak.concatenate(results)
     return combined_array
 
-def event_handler_wrapper(filename):
-    print(f"Handling {filename}")
+def event_handler_wrapper(filepath):
+    print(f"Handling {filepath}")
 
-    save_locations = setup_directories()
+    data_set_name = prefix_to_set[filepath.split("/")[-1][:FILE_PREFIX_LEN]]
+    save_locations = setup_directories(data_set_name)
     chunk_counter = 0
 
-    base_filename = f"{filename}_chunk_{chunk_counter}"
+    base_filename = f"{filepath}_chunk_{chunk_counter}"
+
+    root_filename = base_filename.split("/")[-1]
     
-    existence_test_file  = base_filename.split("/")[-1] + f"_train.parquet"
+    existence_test_file = root_filename + f"_train.parquet"
 
     if not OVERWRITE_AWK:
         print(f"Testing for existence of: {os.path.join(save_locations['train_dir'], existence_test_file)}")
@@ -257,7 +261,7 @@ def event_handler_wrapper(filename):
         return
 
     try:
-        with uproot.open(filename + ":EventTree") as events:
+        with uproot.open(filepath + ":EventTree") as events:
             id_split = split_data(
                 events, split_seed=62, retrieve=False
             )
@@ -268,12 +272,12 @@ def event_handler_wrapper(filename):
                 print(f"\nProcessing chunk {chunk_counter + 1} of size {len(chunk)}")
 
                 processed_data = process_chunk(chunk, cell_ID_geo, eta_geo, phi_geo, rPerp_geo)
-                base_filename = f"{filename}_chunk_{chunk_counter}"
+                base_filename = f"{filepath}_chunk_{chunk_counter}"
                 split_and_save_to_disk(processed_data, base_filename, id_split, save_locations)
 
                 chunk_counter += 1
-    except ValueError: #uproot.exceptions.KeyInFileError:
-        print(f"Skipping {filename}, no EventTree found")
+    except uproot.exceptions.KeyInFileError:
+        print(f"Skipping {filepath}, no EventTree found")
 
 
 def main():

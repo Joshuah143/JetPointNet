@@ -34,6 +34,7 @@ import math
 import time
 import pandas
 from sklearn.metrics import ConfusionMatrixDisplay
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 from sklearn import metrics
 import awkward as ak
 import pyarrow.parquet as pq
@@ -60,6 +61,11 @@ from sklearn.exceptions import UndefinedMetricWarning
 # Suppress the specific warning
 warnings.filterwarnings("ignore", category=UndefinedMetricWarning)
 
+TRAIN_OUTPUT_DIRECTORY_NAME = "dijet"
+TRAIN_DATASET_NAME = "progress_10_epochs_856_training"
+
+
+EXPERIMENT_NAME = f"{TRAIN_OUTPUT_DIRECTORY_NAME}/{TRAIN_DATASET_NAME}"
 RESULTS_PATH = REPO_PATH / "results"
 RESULTS_PATH.mkdir(exist_ok=True)
 MODELS_PATH = REPO_PATH / "models"
@@ -82,9 +88,15 @@ RENDER_IMAGES = True
 USE_TRUTH_E = False
 MAX_FILES = 10
 MAX_WINDOWS = 30 # can take -1 for all 
-NPZ_LOC = Path("/home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/progressive_training/rho/SavedNpz/deltaR=0.2_maxLen=650/energy_scale=1")
-model_path = "/home/jhimmens/workspace/jetpointnet/models/keep/PointNet_best_name=earnest-sweep-1.keras"
 
+# dijet best
+NPZ_LOC = Path("/home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/attempt_1_june_18/full_set/SavedNpz/deltaR=0.2_maxLen=650/energy_scale=1")
+model_path = "/home/jhimmens/workspace/jetpointnet/models/full_set/direct_training/PointNet_epoch=10_name=ethereal-leaf-856.keras"
+
+
+#rho best
+#NPZ_LOC = Path("/home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/progressive_training/rho/SavedNpz/deltaR=0.2_maxLen=650/energy_scale=1")
+#model_path = "/home/jhimmens/workspace/jetpointnet/models/rho/progressive_training/PointNet_best_name=fancy-salad-847.keras"
 
 print(f"Using: {model_path}")
 
@@ -113,7 +125,7 @@ for file_idx, data_file in enumerate(glob.glob(os.path.join(NPZ_LOC / 'val', "*.
     if file_idx > MAX_FILES:
         break
     filename_npz = data_file
-    feats, fractional_energy, total_truth_energy = load_data_from_npz(filename_npz)
+    feats, fractional_energy, total_cell_energy = load_data_from_npz(filename_npz)
 
     filtered_features = feats[TRAIN_INPUTS]
 
@@ -152,10 +164,7 @@ for file_idx, data_file in enumerate(glob.glob(os.path.join(NPZ_LOC / 'val', "*.
                 cell_x_list.append(point["normalized_x"])
                 cell_y_list.append(point["normalized_y"])
                 cell_z_list.append(point["normalized_z"])
-                if USE_TRUTH_E:
-                    cell_total_energy.append(total_truth_energy[window_index][point_index])
-                else:
-                    cell_total_energy.append(point["cell_E"])
+                cell_total_energy.append(point["cell_E"])
                 if USE_BINARY_ATTRIBUTION_MODEL:
                     cell_model_attribution.append(int(model_results[window_index][point_index] >= OUTPUT_LAYER_SEGMENTATION_CUTOFF))
                 else:
@@ -199,9 +208,14 @@ for file_idx, data_file in enumerate(glob.glob(os.path.join(NPZ_LOC / 'val', "*.
         predicted_positive = np.sum(cell_model_attribution == 1)
         predicted_negative = np.sum(cell_model_attribution == 0)
 
+        valid_cell_mask = window['category'] == 1
 
+        activated_energy = np.sum(window['cell_E'][valid_cell_mask][(cell_model_attribution == 1)])
+        ideal_activation_energy = np.sum(window['cell_E'][valid_cell_mask][(cell_truth_attribution == 1)])
+        total_truth_track_energy = np.sum(window["truth_cell_total_energy"][valid_cell_mask] * window["truth_cell_fraction_energy"][valid_cell_mask])
+        
         average_energy = np.mean(window["cell_E"])
-        average_truth_energy = np.mean(total_truth_energy[window_index])
+        average_truth_energy = np.mean(window["truth_cell_total_energy"][valid_cell_mask] * window["truth_cell_fraction_energy"][valid_cell_mask])
 
         #tp_rate_partial = tp / n_postive_true_hits
         #fp_rate_partial = fp / nCells
@@ -210,17 +224,21 @@ for file_idx, data_file in enumerate(glob.glob(os.path.join(NPZ_LOC / 'val', "*.
 
         track_information = {
             'track_ID': window['track_ID'][0],
-            'total_truth_E': sum(total_truth_energy[window_index]),
-            'total_real_E': sum(window["cell_E"]),
+            'total_truth_track_E': np.sum(window["truth_cell_total_energy"][valid_cell_mask] * window["truth_cell_fraction_energy"][valid_cell_mask]),
+            'total_real_E': np.sum(window["cell_E"][valid_cell_mask]),
             'track_pt': window['track_pt'][0],
-            'tracks_std_delta_R': 0,
-            'tracks_std_pt': 0,
+            'total_truth_energy': total_truth_track_energy,
+            'activated_energy': activated_energy,
+            'ideal_activation_energy': ideal_activation_energy,
             'truth_attributions': positive,
             'rate_truth_activations': np.sum(cell_truth_attribution == 1)/nCells,
             'model_attributions': predicted_positive,
             'n_non_focal_tracks': len(non_focus_tracks),
             'n_cells': nCells,
             'num_correct_predictions': np.sum(cell_truth_attribution == cell_model_attribution),
+            'dumb_accuracy': max(positive, negative)/nCells,
+            'positive_dumb_accuracy': positive/nCells,
+            'negative_dumb_accuracy': negative/nCells,
             'accuracy': np.sum(cell_truth_attribution == cell_model_attribution)/nCells,
             'average_energy': average_energy,
             'average_truth_energy': average_truth_energy,
@@ -255,7 +273,7 @@ for file_idx, data_file in enumerate(glob.glob(os.path.join(NPZ_LOC / 'val', "*.
             images_rendered += 1
             # convert to plot:
             fig = plt.figure(figsize=(22, 7))
-            fig.suptitle(f'Event: {window[0]["event_number"]} Track: {window[0]["track_ID"]}, $\sum E={sum(cell_total_energy):.2f}$, nCells={len(cell_x_list)}, pt={window["track_pt"][0]:.2f}')
+            fig.suptitle(f'Accuracy factor: {np.sum(cell_truth_attribution == cell_model_attribution)/max(positive, negative):.2f}, Event: {window[0]["event_number"]} Track: {window[0]["track_ID"]}, $\sum E={sum(cell_total_energy):.2f}$, nCells={len(cell_x_list)}, pt={window["track_pt"][0]:.2f}, activated_energy: {float(activated_energy):.4f}, ideal_activation_energy: {ideal_activation_energy:.4f}, truth track E: {total_truth_track_energy:.5f}')
 
             ax1 = fig.add_subplot(131, projection='3d')
             ax2 = fig.add_subplot(132, projection='3d')
@@ -338,6 +356,14 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     plt.savefig(HIST_PATH / 'mask_hist.png', dpi=500)
     plt.clf()
 
+    plt.title(f'nCells')
+    plt.hist(metadata['n_cells'], bins=50, label="n_cells")
+    # plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.yscale('log')
+    print('saving n_cells_hist to', HIST_PATH / 'n_cells_hist.png')
+    plt.savefig(HIST_PATH / 'n_cells_hist.png', dpi=500)
+    plt.clf()
+
     number_of_tracks_after_mask = np.sum(mask)
     
     print("Generating Hists")
@@ -380,6 +406,104 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     print('saving cell_to_activation_hist to', HIST_PATH / 'cell_to_activation_hist.png')
     plt.savefig(HIST_PATH / 'cell_to_activation_hist.png', dpi=500)
     plt.clf()
+
+    plt.title(f'Model activated energy to total truth energy nEvents={number_of_tracks_in_set}')
+    plt.hist2d(np.array(metadata['activated_energy'])+ 1e-6, np.array(metadata['total_truth_energy'])+ 1e-5, bins=50, cmap='viridis', norm=LogNorm()) # range=[x_bounds, y_bounds]
+    plt.colorbar(label='Counts')
+    plt.xlabel('activated_energy')
+    plt.ylabel('Total Truth Energy')
+    plt.xscale('log')
+    plt.yscale('log')
+    print('saving energy_truth_hist to', HIST_PATH / 'energy_truth_hist.png')
+    plt.savefig(HIST_PATH / 'energy_truth_hist.png', dpi=500)
+    plt.clf()
+
+    plt.title(f'Model activated energy to truth track E with nTracks={number_of_tracks_in_set}')
+    plt.hist2d(np.array(metadata['activated_energy']), np.array(metadata['total_truth_track_E']), bins=50, cmap='viridis', norm=LogNorm()) # range=[x_bounds, y_bounds]
+    plt.colorbar(label='Counts')
+    plt.xlabel('activated_energy')
+    plt.ylabel('total_truth_track_E')
+    print('saving act_to_truth_hist to', HIST_PATH / 'act_to_truth_hist.png')
+    plt.savefig(HIST_PATH / 'act_to_truth_hist.png', dpi=500)
+    plt.clf()
+
+    fig, ax = plt.subplots(figsize=(10, 8))
+    # 2D Histogram
+    hb = ax.hist2d(np.array(metadata['dumb_accuracy']), np.array(metadata['accuracy']), bins=50, cmap='viridis', norm=LogNorm())
+    plt.colorbar(hb[3], ax=ax, label='Counts')
+    ax.set_xlabel('dumb_accuracy')
+    ax.set_ylabel('accuracy')
+    ax.set_title(f'Dumb activation to real activation = {number_of_tracks_in_set}', pad=20)
+    # Create new axes on the right and top of the current axes
+    divider = make_axes_locatable(ax)
+    ax_histx = divider.append_axes("top", 1.2, pad=0.1, sharex=ax)
+    ax_histy = divider.append_axes("right", 1.2, pad=0.1, sharey=ax)
+    # Make some labels invisible
+    ax_histx.xaxis.set_tick_params(labelbottom=False)
+    ax_histy.yaxis.set_tick_params(labelleft=False)
+    # Histogram on the attached axes with log scale
+    ax_histx.hist(np.array(metadata['dumb_accuracy']), bins=50, color='gray', alpha=0.7, log=True)
+    ax_histy.hist(np.array(metadata['accuracy']), bins=50, orientation='horizontal', color='gray', alpha=0.7, log=True)
+    # Save the figure
+    print('saving dumb_to_model_hist to', HIST_PATH / 'dumb_to_model_hist.png')
+    plt.savefig(HIST_PATH / 'dumb_to_model_hist.png', dpi=500)
+    plt.clf()
+
+    fig, ax = plt.subplots(figsize=(10, 8))
+    # 2D Histogram
+    hb = ax.hist2d(np.array(metadata['positive_dumb_accuracy']), np.array(metadata['accuracy']), bins=50, cmap='viridis', norm=LogNorm())
+    plt.colorbar(hb[3], ax=ax, label='Counts')
+    ax.set_xlabel('positive_dumb_accuracy')
+    ax.set_ylabel('accuracy')
+    ax.set_title(f'Positive Dumb activation to real activation = {number_of_tracks_in_set}', pad=20)
+    # Create new axes on the right and top of the current axes
+    divider = make_axes_locatable(ax)
+    ax_histx = divider.append_axes("top", 1.2, pad=0.1, sharex=ax)
+    ax_histy = divider.append_axes("right", 1.2, pad=0.1, sharey=ax)
+    # Make some labels invisible
+    ax_histx.xaxis.set_tick_params(labelbottom=False)
+    ax_histy.yaxis.set_tick_params(labelleft=False)
+    # Histogram on the attached axes with log scale
+    ax_histx.hist(np.array(metadata['positive_dumb_accuracy']), bins=50, color='gray', alpha=0.7, log=True)
+    ax_histy.hist(np.array(metadata['accuracy']), bins=50, orientation='horizontal', color='gray', alpha=0.7, log=True)
+    # Save the figure
+    print('saving positive_dumb_to_model_hist to', HIST_PATH / 'positive_dumb_to_model_hist.png')
+    plt.savefig(HIST_PATH / 'positive_dumb_to_model_hist.png', dpi=500)
+    plt.clf()
+
+    fig, ax = plt.subplots(figsize=(10, 8))
+    # 2D Histogram
+    hb = ax.hist2d(np.array(metadata['negative_dumb_accuracy']), np.array(metadata['accuracy']), bins=50, cmap='viridis', norm=LogNorm())
+    plt.colorbar(hb[3], ax=ax, label='Counts')
+    ax.set_xlabel('negative_dumb_accuracy')
+    ax.set_ylabel('accuracy')
+    ax.set_title(f'Negative Dumb activation to real activation = {number_of_tracks_in_set}', pad=20)
+    # Create new axes on the right and top of the current axes
+    divider = make_axes_locatable(ax)
+    ax_histx = divider.append_axes("top", 1.2, pad=0.1, sharex=ax)
+    ax_histy = divider.append_axes("right", 1.2, pad=0.1, sharey=ax)
+    # Make some labels invisible
+    ax_histx.xaxis.set_tick_params(labelbottom=False)
+    ax_histy.yaxis.set_tick_params(labelleft=False)
+    # Histogram on the attached axes with log scale
+    ax_histx.hist(np.array(metadata['negative_dumb_accuracy']), bins=50, color='gray', alpha=0.7, log=True)
+    ax_histy.hist(np.array(metadata['accuracy']), bins=50, orientation='horizontal', color='gray', alpha=0.7, log=True)
+    # Save the figure
+    print('saving negative_dumb_to_model_hist to', HIST_PATH / 'negative_dumb_to_model_hist.png')
+    plt.savefig(HIST_PATH / 'negative_dumb_to_model_hist.png', dpi=500)
+    plt.clf()
+
+
+
+
+    # plt.title(f'Model weighted acc to ncells={number_of_tracks_in_set}')
+    # plt.hist2d(np.array(metadata['activated_energy']/metadata['ideal_activation_energy']), np.array(metadata['n_cells']), bins=50, cmap='viridis', norm=LogNorm()) # range=[x_bounds, y_bounds]
+    # plt.colorbar(label='Counts')
+    # plt.xlabel('activated_energy/ideal_activation_energy')
+    # plt.ylabel('nCells')
+    # print('saving weighted_acc_hist to', HIST_PATH / 'weighted_acc_hist.png')
+    # plt.savefig(HIST_PATH / 'weighted_acc_hist.png', dpi=500)
+    # plt.clf()
 
     # Plot the unmasked confusion matrix using seaborn
     tp_unmasked = sum(metadata['num_true_positives'])
@@ -441,30 +565,6 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     plt.savefig(HIST_PATH / 'cell_f1_hist.png', dpi=500)
     plt.clf()
 
-    plt.title(f'Cell attribution rates per track with nTracks={number_of_tracks_in_set}\n ')
-    rates = [metadata['false_positive_rate'], metadata['false_negative_rate'], metadata['true_positive_rate'], metadata['true_negative_rate']]
-    labels = ['False Positive Rate', 'False Negative Rate', 'True Positive Rate', 'True Negative Rate']
-    plt.hist(rates, label=labels, bins=50, histtype='step', fill=False)
-    plt.grid(axis='y', linestyle='--', alpha=0.7)
-    plt.yscale('log')
-    plt.legend()
-    print('saving cell_confusion_total_hist to', HIST_PATH / 'cell_confusion_total_hist.png')
-    plt.savefig(HIST_PATH / 'cell_confusion_total_hist.png', dpi=500)
-    plt.clf()
-    
-    # Fifth Hist
-    plt.title(f'Cell attribution rates per track with nTracks={number_of_tracks_in_set}\n ')
-    rates = [metadata['positive_predictive_value'], metadata['false_discovery_rate'], metadata['false_omission_rate'], metadata['negative_predictive_value']]
-    labels = ['Positive Predictive Value', 'False Discovery Rate', 'False Omission Rate', 'Negative Predictive Value']
-    plt.hist(rates, label=labels, bins=50, histtype='step', fill=False)
-    plt.grid(axis='y', linestyle='--', alpha=0.7)
-    plt.yscale('log')
-    plt.legend()
-    print('saving cell_predictive_values_hist to', HIST_PATH / 'cell_predictive_values_hist.png')
-    plt.savefig(HIST_PATH / 'cell_predictive_values_hist.png', dpi=500)
-    plt.clf()
-
-
     plt.title(f'Percent Truth Activation with nTracks={number_of_tracks_in_set}\n nTracksUnmasked={number_of_tracks_in_set} where {mask_name} ')
     data = metadata['rate_truth_activations']
     data_arr = [data, data[mask]]
@@ -476,6 +576,7 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     print('saving cell_rate_truth_activation_hist to', HIST_PATH / 'cell_rate_truth_activation_hist.png')
     plt.savefig(HIST_PATH / 'cell_rate_truth_activation_hist.png', dpi=500)
     plt.clf()
+
 
 
     print(f"Processed nTracks={number_of_tracks_in_set}")
