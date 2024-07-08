@@ -10,10 +10,6 @@ sys.path.append(str(SCRIPT_PATH))
 from data_processing.jets.npz_utils import (
     build_input_array
 )
-from data_processing.jets.common_utils import (
-    print_events,
-    calculate_max_sample_length,
-)
 from data_processing.jets.preprocessing_header import *
 import awkward as ak
 import pyarrow.parquet as pq
@@ -39,13 +35,14 @@ def build_arrays(data_folder_path, chunk_file_name, npz_data_folder_path):
 
     print(data_folder_path, chunk_file_name, npz_data_folder_path)
 
-    if not OVERWRITE_NPZ:
-        print(f"Testing for existence of {os.path.join(NPZ_SAVE_LOC(NPZ), data_folder_path.split('/')[-1], chunk_file_name + '.npz')}")
-    if not OVERWRITE_NPZ and os.path.exists(os.path.join(NPZ_SAVE_LOC(NPZ), data_folder_path.split('/')[-1], chunk_file_name + ".npz")):
-        print(f"Already converted, skipping: {chunk_file_name}")
-        return
-    
+    data_set_name = prefix_to_set[data_folder_path.split("/")[-1][:FILE_PREFIX_LEN]]
 
+    if not OVERWRITE_NPZ:
+        print(f"Testing for existence of {os.path.join(NPZ_SAVE_LOC(NPZ), data_set_name, data_folder_path.split('/')[-1], chunk_file_name + '.npz')}")
+        if os.path.exists(os.path.join(NPZ_SAVE_LOC(NPZ), data_set_name, data_folder_path.split('/')[-1], chunk_file_name + ".npz")):
+            print(f"Already converted, skipping: {chunk_file_name}")
+            return
+    
     ak_array = read_parquet(os.path.join(data_folder_path, chunk_file_name))
 
     # NOTE: energy_scale affects only cells energy; set to 1 to maintain same scale for track hits and cells
@@ -55,7 +52,7 @@ def build_arrays(data_folder_path, chunk_file_name, npz_data_folder_path):
 
     # Save the feats and labels arrays to an NPZ file for each chunk
     npz_save_path = os.path.join(
-        npz_data_folder_path, f"{chunk_file_name}.npz"
+        npz_data_folder_path, data_set_name, f"{chunk_file_name}.npz"
     )
     np.savez(
         npz_save_path,
@@ -81,11 +78,11 @@ def main():
         os.makedirs(npz_data_folder_path, exist_ok=True)  # Ensure the directory exists
         print(f"Processing data for: {data_folder}")
 
-        data_folder_path = os.path.join(AWK_SAVE_LOC(NPZ), data_folder)
+        data_folder_path = os.path.join(AWK_SAVE_LOC(NPZ), data_folder, "**/*.parquet")
         chunk_files = [
             f
             for f in os.listdir(data_folder_path)
-            if f.endswith(".parquet") and any(f.startswith(i) for i in NPZ_ALLOWED_PREFIXES)
+            if f.endswith(".parquet") and any(f.startswith(i) for i in NPZ_ALLOWED_PREFIXES) and os.path.isfile(f)
         ]
         num_chunks = len(chunk_files)
 

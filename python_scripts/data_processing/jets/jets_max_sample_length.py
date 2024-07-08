@@ -27,9 +27,9 @@ def read_parquet(filename):
 
 def max_length_calculator_wrapper(full_path):
     ak_array = read_parquet(full_path)
-    max_sample_length_arr, number_of_cells_in_track_arr = calculate_max_sample_length_simplified(ak_array)
+    max_sample_length_arr, number_of_cells_in_track_arr, number_of_adj_track_arr = calculate_max_sample_length_simplified(ak_array)
     # print("Max sample length found: ", max_sample_length)
-    return max_sample_length_arr, full_path.split('/')[-1], number_of_cells_in_track_arr
+    return max_sample_length_arr, full_path.split('/')[-1], number_of_cells_in_track_arr, number_of_adj_track_arr
 
 
 def find_global_max_sample_length():
@@ -37,14 +37,14 @@ def find_global_max_sample_length():
     results = {}
     with Pool(processes=SAMPLE_LENGTH_WORKERS) as pool:
         for folder in tqdm(DATA_FOLDERS, desc="split loop"):
-            folder_path = os.path.join(AWK_SAVE_LOC(LEN), folder)
-            files = [folder_path + '/' + file for file in os.listdir(folder_path) if file.endswith(".parquet")]
+            folder_path = os.path.join(AWK_SAVE_LOC(LEN), folder, '**/**')
+            files = [folder_path + '/' + file for file in os.listdir(folder_path) if file.endswith(".parquet") and os.path.isfile(file)]
             results[folder] = list(tqdm(pool.imap(max_length_calculator_wrapper, files),
                                         total=len(files),
                                         desc=f"Processing {folder}",
                                         leave=False))
     
-    metadata_path = Path(AWK_SAVE_LOC(LEN)).parent / "metadata"
+    metadata_path = Path(AWK_SAVE_LOC(LEN)) / "metadata"
     metadata_path.mkdir(exist_ok=True, parents=True)
     with open(metadata_path / f"sample_length_calcs.json", 'w') as f:
         json.dump(results, f, indent=4)

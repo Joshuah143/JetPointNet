@@ -193,9 +193,7 @@ def NPZ_SAVE_LOC(working_file: str):
             / NPZ_DATASET_NAME
             / NPZ_OUTPUT_DIRECTORY_NAME
             / "SavedNpz"
-            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}"
-            / f"sets={'_'.join(NPZ_ALlOWED_SETS)}"
-            / f"{ENERGY_SCALE=}".lower()
+            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}_EScale={ENERGY_SCALE}"
         )
     elif working_file == TRAIN:
         return (
@@ -204,9 +202,7 @@ def NPZ_SAVE_LOC(working_file: str):
             / TRAIN_DATASET_NAME
             / TRAIN_OUTPUT_DIRECTORY_NAME
             / "SavedNpz"
-            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}"
-            / f"sets={'_'.join(NPZ_ALlOWED_SETS)}"
-            / f"{ENERGY_SCALE=}".lower()
+            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}_EScale={ENERGY_SCALE}"
         )
     else:
         raise Exception("File information not found!")
