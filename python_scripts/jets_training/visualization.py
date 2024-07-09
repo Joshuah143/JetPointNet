@@ -335,8 +335,6 @@ if USE_BINARY_ATTRIBUTION_MODEL and USE_BINARY_ATTRIBUTION_TRUTH:
     metadata = pd.DataFrame(metadata_list)
     metadata.to_csv(HIST_PATH / "metadata.csv")
 
-
-
     total_cells_in_set = sum(metadata['n_cells'])
     number_of_tracks_in_set = len(metadata)
 

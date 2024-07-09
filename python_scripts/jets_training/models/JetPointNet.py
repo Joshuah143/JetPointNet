@@ -169,7 +169,7 @@ def dense_block(input_tensor, units, dropout_rate=None, regularizer=None):
     return x
 
 
-def TNet(input_tensor, size, add_regularization=False):
+def TNet(input_tensor, size, add_regularization=False): # JH: why dont we add redularization? Not an issue I dont think, but super strange
     # size is either 6 for the first TNet or 64 for the second
     x = conv_mlp(input_tensor, 64)
     x = conv_mlp(x, 128)
@@ -187,7 +187,7 @@ def TNet(input_tensor, size, add_regularization=False):
 
 
 def PointNetSegmentation(
-    num_points, num_features, num_classes, output_activation_function
+    num_points, num_features, num_classes, output_activation_function, model_version
 ):
     """
     Input shape per point is:
@@ -246,15 +246,36 @@ def PointNetSegmentation(
     )(global_feature_expanded)
 
     # Concatenate point features with global features
-    c = tf.keras.layers.Concatenate()([point_features, global_feature_expanded])
+    if model_version == 0: # old version ~5M params
+        c = tf.keras.layers.Concatenate()([point_features, global_feature_expanded])
 
-    c = conv_mlp(c, 512, apply_attention=False, name="PointFeats512")
-    c = conv_mlp(c, 256, apply_attention=False, name="PointFeats256")
+        c = conv_mlp(c, 512, apply_attention=False)
+        c = conv_mlp(c, 256, apply_attention=False)
 
-    # JH: there should be another MLP here?
+        c = conv_mlp(c, 128, dropout_rate=0.3)
+    elif model_version == 1: # just add in 2 extra layers ~6M params
+        c = tf.keras.layers.Concatenate()([point_features, global_feature_expanded])
 
+        c = conv_mlp(c, 1024, apply_attention=False)
 
-    c = conv_mlp(c, 128, dropout_rate=0.3, name="PointFeats128")
+        c = conv_mlp(c, 512, apply_attention=False)
+        c = conv_mlp(c, 256, apply_attention=False)
+        c = conv_mlp(c, 128, apply_attention=False)
+
+        c = conv_mlp(c, 128, dropout_rate=0.3)
+    elif model_version == 2: # double everything! ~7M params
+        c = tf.keras.layers.Concatenate()([point_features, global_feature_expanded])
+
+        c = conv_mlp(c, 1024, apply_attention=False)
+       
+        c = conv_mlp(c, 1024, apply_attention=False)
+        c = conv_mlp(c, 512, apply_attention=False)
+        c = conv_mlp(c, 256, apply_attention=False)
+
+        c = conv_mlp(c, 256, dropout_rate=0.3)
+    else:
+        raise Exception("INVALID MODEL VERSION")
+
 
     segmentation_output = tf.keras.layers.Conv1D(
         num_classes, kernel_size=1, activation=output_activation_function, name="SEG"

@@ -52,8 +52,8 @@ from data_processing.jets.preprocessing_header import (
 USER = Path.home().name
 print(f"Logged in as {USER}")
 if USER == "jhimmens":
-    GPU_ID = "5"
-    ASSIGN_GPU = True
+    GPU_ID = "3"
+    ASSIGN_GPU = False
 elif USER == "luclissa":
     GPU_ID = "0"
     ASSIGN_GPU = False
@@ -82,23 +82,24 @@ tune_model_path = Path("/home/jhimmens/workspace/jetpointnet/models/rho/progress
 SIMPLE_SETS = []
 COMPLEX_SETS = []
 
-
 baseline_configuration = dict(
     SPLIT_SEED=62,
+    MODEL_VERSION=1,
+    INPUT_SETS=TRAIN_ALlOWED_SETS,
     EPOCH_COMPLEXITY=(EPOCH_COMPLEXITY := 1024*200),
     TF_SEED=np.random.randint(0, 100),
     MAX_SAMPLE_LENGTH=MAX_SAMPLE_LENGTH,  # 278 for delta R of 0.1, 859 for 0.2
-    BATCH_SIZE=(BATCH_SIZE := 1024),
+    BATCH_SIZE=(BATCH_SIZE := 700),
     EPOCHS=500,
     IS_TUNE=False,
-    REPLAY=(REPLAY := True),
+    REPLAY=(REPLAY := False),
     REPLAY_LINEAR_DECAY_RATE=0.02, # decrease of data from simple set
     REPLAY_MIN_FREQ=0.10, # steady state of simple set
-    TRAIN_LR=0.005,
+    TRAIN_LR=0.04,
     SAVE_INTERMEDIATES=True,
     SAVE_FREQ=10, # Save intermediate models
     TUNE_LR=0.01,
-    TRAIN_LR_DECAY=1,
+    TRAIN_LR_DECAY=0.998,
     TUNE_LR_DECAY=0.99,
     LR_BETA1=0.98,
     LR_BETA2=0.999,
@@ -109,7 +110,7 @@ baseline_configuration = dict(
     OUTPUT_ACTIVATION_FUNCTION="sigmoid",  # softmax, linear (requires changes to the BCE fucntion in the loss function)
     FRACTIONAL_ENERGY_CUTOFF=0.5,
     OUTPUT_LAYER_SEGMENTATION_CUTOFF=0.5,
-    EARLY_STOPPING=False,
+    EARLY_STOPPING=True,
     TRAIN_STEPS=EPOCH_COMPLEXITY//BATCH_SIZE,
     VAL_STEPS=EPOCH_COMPLEXITY//BATCH_SIZE,
     # POTENTIALLY OVERWRITTEN BY THE WANDB SWEEP:
@@ -273,6 +274,7 @@ def _setup_model(
     num_points: int, 
     num_features: int, 
     output_activation: str, 
+    model_version: int,
     num_classes: int = 1, 
     fine_tune: bool = False,
     replay: bool = False
@@ -282,6 +284,7 @@ def _setup_model(
         num_features=num_features,
         num_classes=num_classes,
         output_activation_function=output_activation,
+        model_version=model_version
     )
 
     if fine_tune and replay:
@@ -349,7 +352,12 @@ def train(experimental_configuration: dict = {}):
         project="pointcloud", 
         config=run_config, 
         job_type="training", 
-        tags=[TRAIN_OUTPUT_DIRECTORY_NAME, TRAIN_DATASET_NAME] if not REPLAY else [f"from={REPLAY_SIMPLE_DS_NAME}", f"to={REPLAY_COMPLEX_DS_NAME}"]
+        tags=[TRAIN_OUTPUT_DIRECTORY_NAME, 
+              TRAIN_DATASET_NAME, 
+              str(TRAIN_ALlOWED_SETS)] if not REPLAY else [TRAIN_OUTPUT_DIRECTORY_NAME, 
+                                                      TRAIN_DATASET_NAME, 
+                                                      f"from={SIMPLE_SETS}", f"to={COMPLEX_SETS}"],
+        notes=""
     ) as run:
         config = wandb.config
 
@@ -426,7 +434,8 @@ def train(experimental_configuration: dict = {}):
             num_classes=1,
             output_activation=config.OUTPUT_ACTIVATION_FUNCTION,
             fine_tune=config.IS_TUNE,
-            replay=config.REPLAY
+            replay=config.REPLAY,
+            model_version=config.MODEL_VERSION
         )
 
         train_loss_tracker = tf.metrics.Mean(name="train_loss")
@@ -551,7 +560,7 @@ def train(experimental_configuration: dict = {}):
                                                             config.REPLAY_MIN_FREQ)
             else:
                 _train_generator = data_generator(NPZ_SAVE_LOC(TRAIN) / 'train', 
-                                                TRAIN_ALlOWED_SETS,
+                                                config.INPUT_SETS,
                                                 config.BATCH_SIZE, 
                                                 False)
             train_generator = enumerate(_train_generator)
@@ -598,7 +607,7 @@ def train(experimental_configuration: dict = {}):
                                                             config.REPLAY_MIN_FREQ)
             else:
                 _val_generator = data_generator(NPZ_SAVE_LOC(TRAIN) / 'val', 
-                                                TRAIN_ALlOWED_SETS,
+                                                config.INPUT_SETS,
                                                 config.BATCH_SIZE, 
                                                 False)
             val_generator = enumerate(_val_generator)

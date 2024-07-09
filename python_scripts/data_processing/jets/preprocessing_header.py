@@ -117,8 +117,8 @@ elif USER == "jhimmens":
     NPZ_OUTPUT_DIRECTORY_NAME = "rev_2"
     NPZ_DATASET_NAME = "collected_data"
     OVERWRITE_NPZ = False
-    NPZ_NUM_CHUNK_THREADS = 50  # awk to npz
-    NPZ_ALlOWED_SETS = ['rho', 'delta', 'JZ2', 'JZ3', 'JZ4']
+    NPZ_NUM_CHUNK_THREADS = 70  # awk to npz
+    NPZ_ALlOWED_SETS = ['rho', 'delta', 'JZ0', 'JZ1', 'JZ2', 'JZ3', 'JZ4']
 
     # ===== TRAINING =====
     TRAIN_OUTPUT_DIRECTORY_NAME = "rev_2"
