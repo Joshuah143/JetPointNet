@@ -42,38 +42,37 @@ if USER == "luclissa":
     add_tracks_as_labels = False
     ENERGY_SCALE = 1
     MIN_TRACK_CELL_HITS = 25
-    MAX_SAMPLE_LENGTH = 650
-    DATA_PATH = ""
+    MAX_SAMPLE_LENGTH = 800
+    DATA_PATH = Path("/fast_scratch_1/atlas/pflow/jhimmens_working_files")
 
     # ===== ROOT TO AWK =====
-    AWK_OUTPUT_DIRECTORY_NAME = "500k_events_june19/"
-    AWK_DATASET_NAME = "cern_grid"
+    AWK_OUTPUT_DIRECTORY_NAME = "rev_2"
+    AWK_DATASET_NAME = "collected_data"
     OVERWRITE_AWK = False
-    GEO_FILE_LOC = "/data/atlas/data/rho_delta/rho_small.root"
+    GEO_FILE_LOC = "/fast_scratch_1/atlas/pflow/rho_small.root"
     NUM_MAX_EVENTS_PER_CHUNK = 1000
     # TEST_SPLIT_RATIO is implied to be the remaining percentage
     TRAIN_SPLIT_RATIO = 0.55
     VAL_SPLIT_RATIO = 0.3
-    AWK_THREADS_PER_CHUNK = 25  # root to awk
-    ROOT_FILES_DIR ="/eos/home-m/mswiatlo/forLuca/mltree_large.root" # NOTE: You will need to change this to a directory containing this file to be compatible
+    AWK_THREADS_PER_CHUNK = 30  # root to awk
+    ROOT_FILES_DIR = "/fast_scratch_1/atlas/pflow/20240614/user.mswiatlo.801166.Py8EG_A14NNPDF23LO_jj_JZ1.recon.ESD.e8514_e8528_s4185_s4114_r14977_2024.06.14.1_mltree.root" 
 
     # ===== SAMPLE LENGTH SCRIPT =====
-    LEN_DATASET_NAME = "cern_grid"
-    LEN_OUTPUT_DIRECTORY_NAME = "500k_events_june19/"
-    SAMPLE_LENGTH_WORKERS = 5
-    DATASET_NAME = "cern_grid"
+    LEN_OUTPUT_DIRECTORY_NAME = "rev_2"
+    LEN_DATASET_NAME = "collected_data"
+    SAMPLE_LENGTH_WORKERS = 20
 
     # ===== AWK TO NPZ =====
-    NPZ_DATASET_NAME = "cern_grid"
-    NPZ_OUTPUT_DIRECTORY_NAME = "500k_events_june19/"
+    NPZ_OUTPUT_DIRECTORY_NAME = "rev_2"
+    NPZ_DATASET_NAME = "collected_data"
     OVERWRITE_NPZ = False
-    NPZ_NUM_CHUNK_THREADS = 25  # awk to npz
-    DATASET_NAME = "cern_grid"
-    NPZ_ALlOWED_SETS = ['JZ4', 'JZ5', 'JZ6']
+    NPZ_NUM_CHUNK_THREADS = 70  # awk to npz
+    NPZ_ALlOWED_SETS = ['rho', 'delta', 'JZ0', 'JZ1', 'JZ2', 'JZ3', 'JZ4']
 
     # ===== TRAINING =====
-    TRAIN_DATASET_NAME = "attempt_1_june_18"
-    TRAIN_OUTPUT_DIRECTORY_NAME = "full_set"
+    TRAIN_OUTPUT_DIRECTORY_NAME = "rev_2"
+    TRAIN_DATASET_NAME = "collected_data"
+    TRAIN_ALlOWED_SETS = ['JZ2', 'JZ3', 'JZ4'] #NOTE! This is just for the directories
 elif USER == "jhimmens":
     # ===== FIELDS TO CHANGE =====
     add_tracks_as_labels = False
@@ -98,7 +97,7 @@ elif USER == "jhimmens":
     # dijet: /fast_scratch_1/atlas/pflow/20240614/
     # rho: /fast_scratch_1/atlas/pflow/20240626/user.mswiatlo.mc21_13p6TeV.900148.singlerho.recon.ESD.e8537_e8455_s3986_s3874_r14060_2024.06.26.v1_mltree.root
     # delta: /fast_scratch_1/atlas/pflow/20240626/user.mswiatlo.mc21_13p6TeV.900147.singleDelta.recon.ESD.e8537_e8455_s3986_s3874_r14060_2024.06.26.v1_mltree.root
-    """
+    """ Dijet Subset locations:
     user.mswiatlo.801165.Py8EG_A14NNPDF23LO_jj_JZ0.recon.ESD.e8514_e8528_s4185_s4114_r14977_2024.06.14.1_mltree.root
     user.mswiatlo.801166.Py8EG_A14NNPDF23LO_jj_JZ1.recon.ESD.e8514_e8528_s4185_s4114_r14977_2024.06.14.1_mltree.root
     user.mswiatlo.801167.Py8EG_A14NNPDF23LO_jj_JZ2.recon.ESD.e8514_e8528_s4185_s4114_r14977_2024.06.14.1_mltree.root
@@ -123,7 +122,7 @@ elif USER == "jhimmens":
     # ===== TRAINING =====
     TRAIN_OUTPUT_DIRECTORY_NAME = "rev_2"
     TRAIN_DATASET_NAME = "collected_data"
-    TRAIN_ALlOWED_SETS = ['JZ2', 'JZ3', 'JZ4'] #NOTE! This is just for the directory, we should add a filter to the data function?
+    TRAIN_ALlOWED_SETS = ['JZ2', 'JZ3', 'JZ4'] #NOTE! This is just for the directories
 else:
     raise Exception("User not found!")
 
