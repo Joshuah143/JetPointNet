@@ -110,7 +110,7 @@ baseline_configuration = dict(
     OUTPUT_ACTIVATION_FUNCTION="sigmoid",  # softmax, linear (requires changes to the BCE fucntion in the loss function)
     FRACTIONAL_ENERGY_CUTOFF=0.5,
     OUTPUT_LAYER_SEGMENTATION_CUTOFF=0.5,
-    EARLY_STOPPING=True,
+    EARLY_STOPPING=False,
     TRAIN_STEPS=EPOCH_COMPLEXITY//BATCH_SIZE,
     VAL_STEPS=EPOCH_COMPLEXITY//BATCH_SIZE,
     # POTENTIALLY OVERWRITTEN BY THE WANDB SWEEP:
@@ -311,7 +311,7 @@ def _setup_model(
     print("Total params: {:,}".format(trainable_count + non_trainable_count))
     print("Trainable params: {:,}".format(trainable_count))
     print("Non-trainable params: {:,}".format(non_trainable_count))
-    return model
+    return model, trainable_count
 
 
 # if USE_WANDB:
@@ -428,7 +428,7 @@ def train(experimental_configuration: dict = {}):
             return v_loss, reg_acc, weighted_acc, predictions
 
         # model, trackers and callbacks and setup
-        model = _setup_model(
+        model, trainable_params = _setup_model(
             num_points=config.MAX_SAMPLE_LENGTH,
             num_features=len(TRAIN_INPUTS),
             num_classes=1,
@@ -437,6 +437,8 @@ def train(experimental_configuration: dict = {}):
             replay=config.REPLAY,
             model_version=config.MODEL_VERSION
         )
+
+        wandb.log({"trainable_params": trainable_params})
 
         train_loss_tracker = tf.metrics.Mean(name="train_loss")
         train_reg_acc = tf.metrics.Mean(name="train_regular_accuracy")

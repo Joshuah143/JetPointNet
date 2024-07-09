@@ -273,6 +273,16 @@ def PointNetSegmentation(
         c = conv_mlp(c, 256, apply_attention=False)
 
         c = conv_mlp(c, 256, dropout_rate=0.3)
+    elif model_version == 3: # double everything! (again!)
+        c = tf.keras.layers.Concatenate()([point_features, global_feature_expanded])
+
+        c = conv_mlp(c, 2048, apply_attention=False)
+        c = conv_mlp(c, 1024, apply_attention=False)
+        c = conv_mlp(c, 1024, apply_attention=False)
+        c = conv_mlp(c, 512, apply_attention=False)
+        c = conv_mlp(c, 512, apply_attention=False)
+
+        c = conv_mlp(c, 256, dropout_rate=0.3)
     else:
         raise Exception("INVALID MODEL VERSION")
 

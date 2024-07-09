@@ -29,7 +29,10 @@ sweep_configuration = {
     "method": "grid", #"bayes",
     "metric": {"goal": "maximize", "name": "val/f1_score"},
     "parameters": {
-        "MODEL_VERSION": {"values": [1, 2, 0]}
+        "MODEL_VERSION": {"values": [1, 2, 3, 0]},
+        "INPUT_SETS": {"values": [["JZ2", "JZ3", "JZ4"],
+                                  ['delta', 'rho'],
+                                  ['JZ0', 'JZ1', 'JZ2']]}
         # "TRAIN_LR": {"distribution": "uniform", "min": 0.001, "max": 0.4},
         # "LOSS_FUNCTION": {"values": ["BinaryCrossentropy", "BinaryFocalCrossentropy"]},
         # "LOSS_ENERGY_WEIGHTING": {
