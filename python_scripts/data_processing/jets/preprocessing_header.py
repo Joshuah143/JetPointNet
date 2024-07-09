@@ -109,19 +109,19 @@ elif USER == "jhimmens":
     """
 
     # ===== SAMPLE LENGTH SCRIPT =====
-    LEN_OUTPUT_DIRECTORY_NAME = "rev_1"
+    LEN_OUTPUT_DIRECTORY_NAME = "rev_2"
     LEN_DATASET_NAME = "collected_data"
-    SAMPLE_LENGTH_WORKERS = 80
+    SAMPLE_LENGTH_WORKERS = 20
 
     # ===== AWK TO NPZ =====
-    NPZ_OUTPUT_DIRECTORY_NAME = "rev_1"
+    NPZ_OUTPUT_DIRECTORY_NAME = "rev_2"
     NPZ_DATASET_NAME = "collected_data"
     OVERWRITE_NPZ = False
-    NPZ_NUM_CHUNK_THREADS = 85  # awk to npz
+    NPZ_NUM_CHUNK_THREADS = 50  # awk to npz
     NPZ_ALlOWED_SETS = ['rho', 'delta', 'JZ2', 'JZ3', 'JZ4']
 
     # ===== TRAINING =====
-    TRAIN_OUTPUT_DIRECTORY_NAME = "rev_1"
+    TRAIN_OUTPUT_DIRECTORY_NAME = "rev_2"
     TRAIN_DATASET_NAME = "collected_data"
     TRAIN_ALlOWED_SETS = ['JZ2', 'JZ3', 'JZ4'] #NOTE! This is just for the directory, we should add a filter to the data function?
 else:

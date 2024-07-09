@@ -79,3 +79,6 @@ rsync -avz --delete /home/jhimmens/workspace/jetpointnet/pnet_data/processed_fil
 rsync -avzP /home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/progressive_training/rho_delta m1:/data/atlas/pflow_npz_train/rho_delta/
 
 rsync -avzP /home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/progressive_training/rho_delta jhimmens@lxplus.cern.ch:/eos/user/j/jhimmens/jetpointnet/data/rho_delta
+
+# getting file size
+du -sh /fast_scratch_1/atlas/pflow/jhimmens_working_files/pnet_data/processed_files/collected_data/rev_2

@@ -3,6 +3,7 @@ import os
 import pyarrow.parquet as pq
 from tqdm.auto import tqdm
 import awkward as ak
+import glob
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -37,8 +38,8 @@ def find_global_max_sample_length():
     results = {}
     with Pool(processes=SAMPLE_LENGTH_WORKERS) as pool:
         for folder in tqdm(DATA_FOLDERS, desc="split loop"):
-            folder_path = os.path.join(AWK_SAVE_LOC(LEN), folder, '**/**')
-            files = [folder_path + '/' + file for file in os.listdir(folder_path) if file.endswith(".parquet") and os.path.isfile(file)]
+            folder_path = os.path.join(AWK_SAVE_LOC(LEN), folder, '**/*.parquet')
+            files = [file for file in glob.glob(folder_path, recursive=True) if file.endswith(".parquet") and os.path.isfile(file)]
             results[folder] = list(tqdm(pool.imap(max_length_calculator_wrapper, files),
                                         total=len(files),
                                         desc=f"Processing {folder}",

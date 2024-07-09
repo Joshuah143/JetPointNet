@@ -1,4 +1,13 @@
+import awkward as ak
+import pyarrow.parquet as pq
+import numpy as np
+import pandas as pd
+import os
+import time
+from tqdm.auto import tqdm
+from multiprocessing import Pool
 import sys
+import glob
 from pathlib import Path
 
 REPO_PATH = Path.home() / "workspace/jetpointnet"
@@ -11,14 +20,6 @@ from data_processing.jets.npz_utils import (
     build_input_array
 )
 from data_processing.jets.preprocessing_header import *
-import awkward as ak
-import pyarrow.parquet as pq
-import numpy as np
-import pandas as pd
-import os
-import time
-from tqdm.auto import tqdm
-from multiprocessing import Pool
 
 
 DATA_FOLDERS = ["train", "val", "test"]
@@ -31,28 +32,26 @@ def read_parquet(filename):
     return ak_array
 
 
-def build_arrays(data_folder_path, chunk_file_name, npz_data_folder_path):
-
-    print(data_folder_path, chunk_file_name, npz_data_folder_path)
-
-    data_set_name = prefix_to_set[data_folder_path.split("/")[-1][:FILE_PREFIX_LEN]]
+def build_arrays(data_folder, chunk_file_path, npz_data_folder_path):
+    data_set_name = prefix_to_set[chunk_file_path.split("/")[-1][:FILE_PREFIX_LEN]]
 
     if not OVERWRITE_NPZ:
-        print(f"Testing for existence of {os.path.join(NPZ_SAVE_LOC(NPZ), data_set_name, data_folder_path.split('/')[-1], chunk_file_name + '.npz')}")
-        if os.path.exists(os.path.join(NPZ_SAVE_LOC(NPZ), data_set_name, data_folder_path.split('/')[-1], chunk_file_name + ".npz")):
-            print(f"Already converted, skipping: {chunk_file_name}")
+        print(f"Testing for existence of {os.path.join(NPZ_SAVE_LOC(NPZ), data_folder, data_set_name, chunk_file_path.split('/')[-1] + '.npz')}")
+        if os.path.exists(os.path.join(NPZ_SAVE_LOC(NPZ), data_folder, data_set_name, chunk_file_path.split('/')[-1] + '.npz')):
+            print(f"Already converted, skipping: {chunk_file_path}")
             return
     
-    ak_array = read_parquet(os.path.join(data_folder_path, chunk_file_name))
+    ak_array = read_parquet(chunk_file_path)
 
     # NOTE: energy_scale affects only cells energy; set to 1 to maintain same scale for track hits and cells
     feats = build_input_array(
         ak_array, global_max_sample_length, energy_scale=ENERGY_SCALE
     )
 
+    os.makedirs(os.path.join(npz_data_folder_path, data_set_name), exist_ok=True)
     # Save the feats and labels arrays to an NPZ file for each chunk
     npz_save_path = os.path.join(
-        npz_data_folder_path, data_set_name, f"{chunk_file_name}.npz"
+        npz_data_folder_path, data_set_name, f"{chunk_file_path.split('/')[-1]}.npz"
     )
     np.savez(
         npz_save_path,
@@ -81,9 +80,10 @@ def main():
         data_folder_path = os.path.join(AWK_SAVE_LOC(NPZ), data_folder, "**/*.parquet")
         chunk_files = [
             f
-            for f in os.listdir(data_folder_path)
-            if f.endswith(".parquet") and any(f.startswith(i) for i in NPZ_ALLOWED_PREFIXES) and os.path.isfile(f)
+            for f in glob.glob(data_folder_path, recursive=True)
+            if f.endswith(".parquet") and any(f.split("/")[-1].startswith(i) for i in NPZ_ALLOWED_PREFIXES) and os.path.isfile(f)
         ]
+    
         num_chunks = len(chunk_files)
 
         with Pool(processes=NPZ_NUM_CHUNK_THREADS) as pool:
@@ -91,7 +91,7 @@ def main():
                 tqdm(
                     pool.imap_unordered(
                         build_arrays_wrapper,
-                        zip([data_folder_path] * num_chunks, sorted(chunk_files), [npz_data_folder_path] * num_chunks),
+                        zip([data_folder] * num_chunks, sorted(chunk_files), [npz_data_folder_path] * num_chunks),
                     ),
                     total=num_chunks,
                 )

@@ -41,6 +41,7 @@ from data_processing.jets.preprocessing_header import (
     TRAIN,
     TRAIN_OUTPUT_DIRECTORY_NAME,
     TRAIN_DATASET_NAME,
+    TRAIN_ALlOWED_SETS,
     TRAIN
 )
 
@@ -69,19 +70,17 @@ RESULTS_PATH.mkdir(exist_ok=True, parents=True)
 MODELS_PATH = REPO_PATH / "models" / EXPERIMENT_NAME
 MODELS_PATH.mkdir(exist_ok=True, parents=True)
 
-TRAIN_DIR = NPZ_SAVE_LOC(TRAIN) / "train"
-VAL_DIR = NPZ_SAVE_LOC(TRAIN) / "val"
+#REPLAY_SIMPLE_DS = Path("/home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/progressive_training/delta/SavedNpz/deltaR=0.2_maxLen=650/energy_scale=1")
+#REPLAY_SIMPLE_DS_NAME = 'delta'
 
-
-
-REPLAY_SIMPLE_DS = Path("/home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/progressive_training/delta/SavedNpz/deltaR=0.2_maxLen=650/energy_scale=1")
-REPLAY_SIMPLE_DS_NAME = 'delta'
-
-REPLAY_COMPLEX_DS = Path("/home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/attempt_1_june_18/full_set/SavedNpz/deltaR=0.2_maxLen=650/energy_scale=1")
-REPLAY_COMPLEX_DS_NAME = 'dijet'
+#REPLAY_COMPLEX_DS = Path("/home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/attempt_1_june_18/full_set/SavedNpz/deltaR=0.2_maxLen=650/energy_scale=1")
+#REPLAY_COMPLEX_DS_NAME = 'dijet'
 
 replay_model_path = Path("/home/jhimmens/workspace/jetpointnet/models/delta/progressive_training/PointNet_best_name=autumn-pyramid-836.keras")
 tune_model_path = Path("/home/jhimmens/workspace/jetpointnet/models/rho/progressive_training/PointNet_best_name=dark-music-823.keras")
+
+SIMPLE_SETS = []
+COMPLEX_SETS = []
 
 
 baseline_configuration = dict(
@@ -176,13 +175,15 @@ def _format_batch(feats_buffer, targets_buffer, e_weights_buffer):
     return batch_feats, batch_targets, batch_e_weights
 
 
-def data_generator(data_dir, batch_size: int, drop_last=True, **kwargs):
+def data_generator(data_dir, allowed_sets, batch_size: int, drop_last=True, **kwargs):
 
     if kwargs.get("seed", 0):
         np.random.seed(kwargs["seed"])
 
     # get filenames and initialize buffers
-    npz_files = glob.glob(os.path.join(data_dir, "*.npz"))
+    npz_files = []
+    for sub_dir in allowed_sets:
+        npz_files.extend(glob.glob(os.path.join(data_dir, sub_dir, "*.npz")))
     feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
 
     while True:
@@ -231,17 +232,19 @@ def data_generator(data_dir, batch_size: int, drop_last=True, **kwargs):
             yield batch_feats, batch_targets, batch_e_weights
 
 
-def progressive_data_generator(simple_data_dir, complex_data_dir, batch_size: int, epoch: int, linear_decay: int, memory:int, drop_last=True,  **kwargs):
+def progressive_data_generator(data_dir, simple_sets: list, complex_sets: list, batch_size: int, epoch: int, linear_decay: int, memory:int, drop_last=True,  **kwargs):
     percent_simple_data = max(1-epoch*linear_decay, memory)
     
 
     while True:
         for (simple_feats, simple_targets, simple_e_weights), (complex_feats, complex_targets, complex_e_weights) in zip(
-                                            data_generator(simple_data_dir, 
-                                                            int(batch_size*percent_simple_data), 
-                                                            drop_last, 
-                                                            **kwargs), 
-                                            data_generator(complex_data_dir, 
+                                            data_generator(data_dir,
+                                                           simple_sets, 
+                                                           int(batch_size*percent_simple_data),
+                                                           drop_last, 
+                                                           **kwargs), 
+                                            data_generator(data_dir, 
+                                                           complex_sets, 
                                                            int(batch_size*(1-percent_simple_data)), 
                                                            drop_last, 
                                                            **kwargs)):
@@ -538,16 +541,24 @@ def train(experimental_configuration: dict = {}):
                 [],
                 [],
             )
-            for step, (x_batch_train, y_batch_train, e_weight_train) in enumerate(
-               data_generator(TRAIN_DIR, config.BATCH_SIZE, False) if not config.REPLAY else progressive_data_generator(REPLAY_SIMPLE_DS / 'train',
-                                                                                                                       REPLAY_COMPLEX_DS / 'train',
-                                                                                                                       config.BATCH_SIZE,
-                                                                                                                       epoch,
-                                                                                                                       config.REPLAY_LINEAR_DECAY_RATE,
-                                                                                                                       config.REPLAY_MIN_FREQ,)
-            ):
+            if config.REPLAY:
+                _train_generator = progressive_data_generator(NPZ_SAVE_LOC(TRAIN) / 'train',
+                                                            SIMPLE_SETS,
+                                                            COMPLEX_SETS,
+                                                            config.BATCH_SIZE,
+                                                            epoch,
+                                                            config.REPLAY_LINEAR_DECAY_RATE,
+                                                            config.REPLAY_MIN_FREQ)
+            else:
+                _train_generator = data_generator(NPZ_SAVE_LOC(TRAIN) / 'train', 
+                                                TRAIN_ALlOWED_SETS,
+                                                config.BATCH_SIZE, 
+                                                False)
+            train_generator = enumerate(_train_generator)
 
-                x_batch_train = rfn.structured_to_unstructured(x_batch_train)
+            for step, (x_batch_train_named, y_batch_train, e_weight_train) in train_generator:
+
+                x_batch_train = rfn.structured_to_unstructured(x_batch_train_named)
                 if step >= train_steps:
                     break
                 loss_value, reg_acc_value, weighted_acc_value, grads = train_step(
@@ -576,14 +587,23 @@ def train(experimental_configuration: dict = {}):
             
 
             batch_loss_val, batch_accuracy_val, batch_weighted_accuracy_val = [], [], []
-            for step, (x_batch_val_named, y_batch_val, e_weight_val) in enumerate(
-                data_generator(VAL_DIR, config.BATCH_SIZE, False) if not config.REPLAY else progressive_data_generator(REPLAY_SIMPLE_DS / 'val',
-                                                                                                                       REPLAY_COMPLEX_DS / 'val',
-                                                                                                                       config.BATCH_SIZE,
-                                                                                                                       epoch,
-                                                                                                                       config.REPLAY_LINEAR_DECAY_RATE,
-                                                                                                                       config.REPLAY_MIN_FREQ,)
-            ):
+
+            if config.REPLAY:
+                _val_generator = progressive_data_generator(NPZ_SAVE_LOC(TRAIN) / 'val',
+                                                            SIMPLE_SETS,
+                                                            COMPLEX_SETS,
+                                                            config.BATCH_SIZE,
+                                                            epoch,
+                                                            config.REPLAY_LINEAR_DECAY_RATE,
+                                                            config.REPLAY_MIN_FREQ)
+            else:
+                _val_generator = data_generator(NPZ_SAVE_LOC(TRAIN) / 'val', 
+                                                TRAIN_ALlOWED_SETS,
+                                                config.BATCH_SIZE, 
+                                                False)
+            val_generator = enumerate(_val_generator)
+            
+            for step, (x_batch_val_named, y_batch_val, e_weight_val) in val_generator:
                 x_batch_val = rfn.structured_to_unstructured(x_batch_val_named)
                 if step >= val_steps:
                     break
