@@ -30,9 +30,14 @@ sweep_configuration = {
     "metric": {"goal": "maximize", "name": "val/f1_score"},
     "parameters": {
         "MODEL_VERSION": {"values": [1, 2, 3, 0]},
-        "INPUT_SETS": {"values": [["JZ2", "JZ3", "JZ4"],
-                                  ['delta', 'rho'],
-                                  ['JZ0', 'JZ1', 'JZ2']]}
+        "INPUT_SETS": {"values": [{'JZ2': 1/3, 
+                                   'JZ3': 1/3, 
+                                   'JZ4': 1/3},
+                                  {'JZ0': 1/3, 
+                                   'JZ1': 1/3, 
+                                   'JZ2': 1/3},
+                                  {'delta': 1/2, 
+                                   'rho': 1/2}]}
         # "TRAIN_LR": {"distribution": "uniform", "min": 0.001, "max": 0.4},
         # "LOSS_FUNCTION": {"values": ["BinaryCrossentropy", "BinaryFocalCrossentropy"]},
         # "LOSS_ENERGY_WEIGHTING": {

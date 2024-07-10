@@ -176,16 +176,15 @@ def _format_batch(feats_buffer, targets_buffer, e_weights_buffer):
     return batch_feats, batch_targets, batch_e_weights
 
 
-def data_generator(data_dir, allowed_sets, batch_size: int, drop_last=True, **kwargs):
-
+def single_set_data_generator(data_dir, set_name, batch_size: int, **kwargs):
     if kwargs.get("seed", 0):
         np.random.seed(kwargs["seed"])
 
     # get filenames and initialize buffers
-    npz_files = []
-    for sub_dir in allowed_sets:
-        npz_files.extend(glob.glob(os.path.join(data_dir, sub_dir, "*.npz")))
+    npz_files = glob.glob(os.path.join(data_dir, set_name, "*.npz"))
     feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
+    if len(npz_files) == 0:
+        raise Exception(f"No npz files found for {set_name} in {data_dir}")
 
     while True:
         np.random.shuffle(npz_files)
@@ -197,19 +196,21 @@ def data_generator(data_dir, allowed_sets, batch_size: int, drop_last=True, **kw
             # initially all data are still not used: can fill full file in batch starting at index 0
             unprocessed_size = file_size
             last_batch_idx = 0
+            fill_size = batch_size - len(feats_buffer)
 
             # loop through chunk until all points are processed
-            while unprocessed_size > 0:
+            while last_batch_idx < file_size: 
 
                 # get N of elements remaining to reach to batch_size
                 fill_size = batch_size - len(feats_buffer)
                 # get fill_size elements starting from last_batch_idx
-                feats_buffer.extend(feats[last_batch_idx : last_batch_idx + fill_size])
+                last_index = min(last_batch_idx + fill_size, file_size)
+                feats_buffer.extend(feats[last_batch_idx : last_index])
                 targets_buffer.extend(
-                    frac_labels[last_batch_idx : last_batch_idx + fill_size]
+                    frac_labels[last_batch_idx : last_index]
                 )
                 e_weights_buffer.extend(
-                    e_weights[last_batch_idx : last_batch_idx + fill_size]
+                    e_weights[last_batch_idx : last_index]
                 )
 
                 # update unprocessed points and last index
@@ -218,22 +219,29 @@ def data_generator(data_dir, allowed_sets, batch_size: int, drop_last=True, **kw
 
                 # check if batch is full, in case yield + reset buffers
                 if len(feats_buffer) == batch_size:
-                    batch_feats, batch_targets, batch_e_weights = _format_batch(
+                    batch_feats, batch_targets, batch_e_weights = (
                         feats_buffer, targets_buffer, e_weights_buffer
                     )
                     feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
                     yield batch_feats, batch_targets, batch_e_weights
 
-        # handle last batch of last chunk
-        if drop_last == False:
-            batch_feats, batch_targets, batch_e_weights = _format_batch(
-                feats_buffer, targets_buffer, e_weights_buffer
-            )
-            feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
-            yield batch_feats, batch_targets, batch_e_weights
+def consistant_data_generator(data_dir, data_sets: dict, batch_size: int, **kwargs):
+
+    # Setup the genorators
+    genorator_dict = {set_name: single_set_data_generator(data_dir, set_name, int(batch_size*inclusion_ratio)) for set_name, inclusion_ratio in data_sets.items()}
+    while True:
+        feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
+        for generator in genorator_dict.values():
+            feats_inner_buffer, targets_inner_buffer, e_weights_inner_buffer = next(generator)
+            feats_buffer.extend(feats_inner_buffer)
+            targets_buffer.extend(targets_inner_buffer)
+            e_weights_buffer.extend(e_weights_inner_buffer)
+        
+        yield _format_batch(feats_buffer, targets_buffer, e_weights_buffer)
 
 
-def progressive_data_generator(data_dir, simple_sets: list, complex_sets: list, batch_size: int, epoch: int, linear_decay: int, memory:int, drop_last=True,  **kwargs):
+def progressive_data_generator(data_dir, simple_sets: list, complex_sets: list, batch_size: int, epoch: int, linear_decay: int, memory:int,  **kwargs):
+    raise NotImplementedError("THIS FUNCTION MUST BE UPDATED TO USE THE CONISTANT GENERATOR BEFORE USE")
     percent_simple_data = max(1-epoch*linear_decay, memory)
     
 
@@ -242,12 +250,10 @@ def progressive_data_generator(data_dir, simple_sets: list, complex_sets: list, 
                                             data_generator(data_dir,
                                                            simple_sets, 
                                                            int(batch_size*percent_simple_data),
-                                                           drop_last, 
                                                            **kwargs), 
                                             data_generator(data_dir, 
                                                            complex_sets, 
                                                            int(batch_size*(1-percent_simple_data)), 
-                                                           drop_last, 
                                                            **kwargs)):
             if simple_feats.size == 0:
                 total_feats, total_targets, total_e_weights = complex_feats, complex_targets, complex_e_weights
@@ -354,7 +360,7 @@ def train(experimental_configuration: dict = {}):
         job_type="training", 
         tags=[TRAIN_OUTPUT_DIRECTORY_NAME, 
               TRAIN_DATASET_NAME, 
-              str(TRAIN_ALlOWED_SETS)] if not REPLAY else [TRAIN_OUTPUT_DIRECTORY_NAME, 
+              str(TRAIN_ALlOWED_SETS.keys())] if not REPLAY else [TRAIN_OUTPUT_DIRECTORY_NAME, 
                                                       TRAIN_DATASET_NAME, 
                                                       f"from={SIMPLE_SETS}", f"to={COMPLEX_SETS}"],
         notes=""
@@ -561,10 +567,9 @@ def train(experimental_configuration: dict = {}):
                                                             config.REPLAY_LINEAR_DECAY_RATE,
                                                             config.REPLAY_MIN_FREQ)
             else:
-                _train_generator = data_generator(NPZ_SAVE_LOC(TRAIN) / 'train', 
+                _train_generator = consistant_data_generator(NPZ_SAVE_LOC(TRAIN) / 'train', 
                                                 config.INPUT_SETS,
-                                                config.BATCH_SIZE, 
-                                                False)
+                                                config.BATCH_SIZE)
             train_generator = enumerate(_train_generator)
 
             for step, (x_batch_train_named, y_batch_train, e_weight_train) in train_generator:
@@ -608,10 +613,9 @@ def train(experimental_configuration: dict = {}):
                                                             config.REPLAY_LINEAR_DECAY_RATE,
                                                             config.REPLAY_MIN_FREQ)
             else:
-                _val_generator = data_generator(NPZ_SAVE_LOC(TRAIN) / 'val', 
+                _val_generator = consistant_data_generator(NPZ_SAVE_LOC(TRAIN) / 'val', 
                                                 config.INPUT_SETS,
-                                                config.BATCH_SIZE, 
-                                                False)
+                                                config.BATCH_SIZE)
             val_generator = enumerate(_val_generator)
             
             for step, (x_batch_val_named, y_batch_val, e_weight_val) in val_generator:
