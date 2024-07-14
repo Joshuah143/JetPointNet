@@ -189,7 +189,6 @@ def process_events(
             )
 
             tracks_sample.end_record()  # End the record for the current track
-            break # TEMP MUST REMOVE
 
         tracks_sample.end_list()  # End the list for the current event
         # progress_dict[str(thread_id)] = event_idx / len(data)

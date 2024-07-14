@@ -82,7 +82,7 @@ Last run for rev 2 to lxp:
 rsync -avzP /fast_scratch_1/atlas/pflow/jhimmens_working_files/pnet_data/processed_files/collected_data/rev_2/SavedNpz jhimmens@lxplus.cern.ch:/eos/user/j/jhimmens/jetpointnet/data/rev_2
 
 val: 
-rsync -avzP /fast_scratch_1/atlas/pflow/jhimmens_working_files/pnet_data/processed_files/collected_data/rev_2/SavedNpz/deltaR=0.2_maxLen=800_EScale=1/val jhimmens@lxplus.cern.ch:/eos/user/j/jhimmens/jetpointnet/data/rev_2/SavedNpz/deltaR=0.2_maxLen=800_EScale=1
+rsync -avzP /fast_scratch_1/atlas/pflow/jhimmens_working_files/pnet_data/processed_files/collected_data/rev_3/ jhimmens@lxplus.cern.ch:/eos/user/j/jhimmens/jetpointnet/data/rev_3
 
 # getting file size
 du -sh /fast_scratch_1/atlas/pflow/jhimmens_working_files/pnet_data/processed_files/collected_data/rev_2

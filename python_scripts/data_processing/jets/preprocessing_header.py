@@ -82,7 +82,7 @@ elif USER == "jhimmens":
     DATA_PATH = Path("/fast_scratch_1/atlas/pflow/jhimmens_working_files")
 
     # ===== ROOT TO AWK =====
-    AWK_OUTPUT_DIRECTORY_NAME = "rev_3"
+    AWK_OUTPUT_DIRECTORY_NAME = "rev_4"
     AWK_DATASET_NAME = "collected_data"
     OVERWRITE_AWK = False
     GEO_FILE_LOC = "/fast_scratch_1/atlas/pflow/rho_small.root"
@@ -91,7 +91,7 @@ elif USER == "jhimmens":
     TRAIN_SPLIT_RATIO = 0.55
     VAL_SPLIT_RATIO = 0.3
     AWK_THREADS_PER_CHUNK = 80  # root to awk
-    ROOT_FILES_DIR = "/fast_scratch_1/atlas/pflow/20240614/" 
+    ROOT_FILES_DIR = "/fast_scratch_1/atlas/pflow/20240626/" 
 
     # rho+delta: /fast_scratch_1/atlas/pflow/20240626/
     # dijet: /fast_scratch_1/atlas/pflow/20240614/
