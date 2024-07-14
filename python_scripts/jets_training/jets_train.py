@@ -52,8 +52,8 @@ from data_processing.jets.preprocessing_header import (
 USER = Path.home().name
 print(f"Logged in as {USER}")
 if USER == "jhimmens":
-    GPU_ID = "3"
-    ASSIGN_GPU = False
+    GPU_ID = "0"
+    ASSIGN_GPU = True
 elif USER == "luclissa":
     GPU_ID = "0"
     ASSIGN_GPU = False

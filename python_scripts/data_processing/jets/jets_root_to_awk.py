@@ -38,11 +38,12 @@ jets_other_included_fields = [
 
 fields_list = track_layer_branches + jets_other_included_fields
 
-cellgeo = uproot.open(str(GEO_FILE_LOC) + ":CellGeo")
-cell_ID_geo = cellgeo["cell_geo_ID"].array(library="np")[0]
-eta_geo = cellgeo["cell_geo_eta"].array(library="np")[0]
-phi_geo = cellgeo["cell_geo_phi"].array(library="np")[0]
-rPerp_geo = cellgeo["cell_geo_rPerp"].array(library="np")[0]
+
+with uproot.open(str(GEO_FILE_LOC) + ":CellGeo") as cellgeo:
+    cell_ID_geo = cellgeo["cell_geo_ID"].array(library="np")[0]
+    eta_geo = cellgeo["cell_geo_eta"].array(library="np")[0]
+    phi_geo = cellgeo["cell_geo_phi"].array(library="np")[0]
+    rPerp_geo = cellgeo["cell_geo_rPerp"].array(library="np")[0]
 
 
 def split_and_save_to_disk(processed_data, base_filename, id_splits: dict, save_locations: dict):
@@ -112,9 +113,7 @@ def process_events(
     - data: The events data to process.
     - cellgeo: The cell geometry data.
     """
-    tracks_sample = (
-        ak.ArrayBuilder()
-    )  # Initialize the awkward array structure for track samples
+    tracks_sample = ak.ArrayBuilder()  # Initialize the awkward array structure for track samples
     for event_idx, event in enumerate(data):
         if DEBUG_NUM_EVENTS_TO_USE is not None:
             if (
@@ -190,6 +189,7 @@ def process_events(
             )
 
             tracks_sample.end_record()  # End the record for the current track
+            break # TEMP MUST REMOVE
 
         tracks_sample.end_list()  # End the list for the current event
         # progress_dict[str(thread_id)] = event_idx / len(data)

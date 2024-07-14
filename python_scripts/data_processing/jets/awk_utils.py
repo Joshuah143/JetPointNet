@@ -64,10 +64,8 @@ def process_and_filter_cells(
     # print(len(cell_part_truth_Idxs_with_multiples))
 
     # Finding unique cell IDs and their first occurrence indices
-    _, unique_indices = np.unique(
-        ak.to_numpy(cell_IDs_with_multiples), return_index=True
-    )
-
+    _, unique_indices = np.unique(ak.to_numpy(cell_IDs_with_multiples), return_index=True)
+    
     # Selecting corresponding unique cell data
     cell_IDs = cell_IDs_with_multiples[unique_indices]
     cell_Es = cell_Es_with_multiples[unique_indices]
@@ -84,15 +82,9 @@ def process_and_filter_cells(
     indices = np.where(mask)[0]
 
     # Extracting and mapping geometric data to the filtered cells
-    cell_Etas = cell_eta_geo[
-        indices
-    ]  # cellgeo["cell_geo_eta"].array(library="ak")[0][indices]
-    cell_Phis = cell_phi_geo[
-        indices
-    ]  # cellgeo["cell_geo_phi"].array(library="ak")[0][indices]
-    cell_rPerps = cell_rPerp_geo[
-        indices
-    ]  # cellgeo["cell_geo_rPerp"].array(library="ak")[0][indices]
+    cell_Etas = cell_eta_geo[indices]  # cellgeo["cell_geo_eta"].array(library="ak")[0][indices]
+    cell_Phis = cell_phi_geo[indices]  # cellgeo["cell_geo_phi"].array(library="ak")[0][indices]
+    cell_rPerps = cell_rPerp_geo[indices]  # cellgeo["cell_geo_rPerp"].array(library="ak")[0][indices]
 
     # Calculating Cartesian coordinates for the cells
     cell_Xs, cell_Ys, cell_Zs = calculate_cartesian_coordinates(

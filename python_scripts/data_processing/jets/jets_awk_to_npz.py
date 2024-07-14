@@ -23,7 +23,7 @@ from data_processing.jets.preprocessing_header import *
 
 
 DATA_FOLDERS = ["train", "val", "test"]
-global_max_sample_length = MAX_SAMPLE_LENGTH #find_global_max_sample_length()
+global_max_sample_length = MAX_SAMPLE_LENGTH
 
 
 def read_parquet(filename):

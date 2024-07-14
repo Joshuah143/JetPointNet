@@ -43,10 +43,10 @@ def intersection_fixed_r(eta, phi, fixed_r):
 # Define the function to calculate the intersection with a fixed Z layer
 def intersection_fixed_z(eta, phi, fixed_z):
     x, y, z_unit = eta_phi_to_cartesian(eta, phi)
-    scale_factor = fixed_z / z_unit
+    scale_factor = np.sign(eta) * fixed_z / z_unit
     x *= scale_factor
     y *= scale_factor
-    z = fixed_z
+    z = fixed_z * np.sign(eta)
     return x, y, z
 
 

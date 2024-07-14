@@ -46,7 +46,7 @@ if USER == "luclissa":
     DATA_PATH = Path("/fast_scratch_1/atlas/pflow/jhimmens_working_files")
 
     # ===== ROOT TO AWK =====
-    AWK_OUTPUT_DIRECTORY_NAME = "rev_2"
+    AWK_OUTPUT_DIRECTORY_NAME = "rev_3"
     AWK_DATASET_NAME = "collected_data"
     OVERWRITE_AWK = False
     GEO_FILE_LOC = "/fast_scratch_1/atlas/pflow/rho_small.root"
@@ -82,7 +82,7 @@ elif USER == "jhimmens":
     DATA_PATH = Path("/fast_scratch_1/atlas/pflow/jhimmens_working_files")
 
     # ===== ROOT TO AWK =====
-    AWK_OUTPUT_DIRECTORY_NAME = "rev_2"
+    AWK_OUTPUT_DIRECTORY_NAME = "rev_3"
     AWK_DATASET_NAME = "collected_data"
     OVERWRITE_AWK = False
     GEO_FILE_LOC = "/fast_scratch_1/atlas/pflow/rho_small.root"
@@ -90,8 +90,8 @@ elif USER == "jhimmens":
     # TEST_SPLIT_RATIO is implied to be the remaining percentage
     TRAIN_SPLIT_RATIO = 0.55
     VAL_SPLIT_RATIO = 0.3
-    AWK_THREADS_PER_CHUNK = 30  # root to awk
-    ROOT_FILES_DIR = "/fast_scratch_1/atlas/pflow/20240614/user.mswiatlo.801166.Py8EG_A14NNPDF23LO_jj_JZ1.recon.ESD.e8514_e8528_s4185_s4114_r14977_2024.06.14.1_mltree.root" 
+    AWK_THREADS_PER_CHUNK = 80  # root to awk
+    ROOT_FILES_DIR = "/fast_scratch_1/atlas/pflow/20240614/" 
 
     # rho+delta: /fast_scratch_1/atlas/pflow/20240626/
     # dijet: /fast_scratch_1/atlas/pflow/20240614/
@@ -108,23 +108,21 @@ elif USER == "jhimmens":
     """
 
     # ===== SAMPLE LENGTH SCRIPT =====
-    LEN_OUTPUT_DIRECTORY_NAME = "rev_2"
+    LEN_OUTPUT_DIRECTORY_NAME = "rev_3"
     LEN_DATASET_NAME = "collected_data"
     SAMPLE_LENGTH_WORKERS = 20
 
     # ===== AWK TO NPZ =====
-    NPZ_OUTPUT_DIRECTORY_NAME = "rev_2"
+    NPZ_OUTPUT_DIRECTORY_NAME = "rev_3"
     NPZ_DATASET_NAME = "collected_data"
     OVERWRITE_NPZ = False
     NPZ_NUM_CHUNK_THREADS = 70  # awk to npz
-    NPZ_ALlOWED_SETS = ['JZ2', 'JZ3', 'JZ4']
+    NPZ_ALlOWED_SETS = ['rho', 'delta', 'JZ1', 'JZ2', 'JZ3', 'JZ4']
 
     # ===== TRAINING =====
     TRAIN_OUTPUT_DIRECTORY_NAME = "rev_2"
     TRAIN_DATASET_NAME = "collected_data"
-    TRAIN_ALlOWED_SETS = {'JZ2': 1/3, 
-                          'JZ3': 1/3, 
-                          'JZ4': 1/3} #NOTE! This is just for the directories, the values is the percent of each batch that should contain data from that set
+    TRAIN_ALlOWED_SETS = {'delta': 1/2, 'rho': 1/2} #NOTE! This is just for the directories, the values is the percent of each batch that should contain data from that set
 else:
     raise Exception("User not found!")
 
