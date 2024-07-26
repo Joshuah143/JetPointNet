@@ -72,17 +72,18 @@ if USER == "luclissa":
     # ===== TRAINING =====
     TRAIN_OUTPUT_DIRECTORY_NAME = "rev_2"
     TRAIN_DATASET_NAME = "collected_data"
-    TRAIN_ALlOWED_SETS = ['JZ2', 'JZ3', 'JZ4'] #NOTE! This is just for the directories
+    TRAIN_ALlOWED_SETS = {'JZ2': 1/3, 'JZ3': 1/3, 'JZ4': 1/3} #NOTE! This is just for the directories, the values is the percent of each batch that should contain data from that set
 elif USER == "jhimmens":
     # ===== FIELDS TO CHANGE =====
     add_tracks_as_labels = False
     ENERGY_SCALE = 1
     MIN_TRACK_CELL_HITS = 25
     MAX_SAMPLE_LENGTH = 800
+    MAX_TRACK_ASSOCIATIONS = 26
     DATA_PATH = Path("/fast_scratch_1/atlas/pflow/jhimmens_working_files")
 
     # ===== ROOT TO AWK =====
-    AWK_OUTPUT_DIRECTORY_NAME = "rev_4"
+    AWK_OUTPUT_DIRECTORY_NAME = "rev_6"
     AWK_DATASET_NAME = "collected_data"
     OVERWRITE_AWK = False
     GEO_FILE_LOC = "/fast_scratch_1/atlas/pflow/rho_small.root"
@@ -90,7 +91,7 @@ elif USER == "jhimmens":
     # TEST_SPLIT_RATIO is implied to be the remaining percentage
     TRAIN_SPLIT_RATIO = 0.55
     VAL_SPLIT_RATIO = 0.3
-    AWK_THREADS_PER_CHUNK = 80  # root to awk
+    AWK_THREADS_PER_CHUNK = 100  # root to awk
     ROOT_FILES_DIR = "/fast_scratch_1/atlas/pflow/20240626/" 
 
     # rho+delta: /fast_scratch_1/atlas/pflow/20240626/
@@ -108,21 +109,22 @@ elif USER == "jhimmens":
     """
 
     # ===== SAMPLE LENGTH SCRIPT =====
-    LEN_OUTPUT_DIRECTORY_NAME = "rev_3"
+    LEN_OUTPUT_DIRECTORY_NAME = "rev_6"
     LEN_DATASET_NAME = "collected_data"
-    SAMPLE_LENGTH_WORKERS = 20
+    SAMPLE_LENGTH_WORKERS = 96
 
     # ===== AWK TO NPZ =====
-    NPZ_OUTPUT_DIRECTORY_NAME = "rev_3"
+    NPZ_OUTPUT_DIRECTORY_NAME = "rev_6"
     NPZ_DATASET_NAME = "collected_data"
     OVERWRITE_NPZ = False
-    NPZ_NUM_CHUNK_THREADS = 70  # awk to npz
-    NPZ_ALlOWED_SETS = ['rho', 'delta', 'JZ1', 'JZ2', 'JZ3', 'JZ4']
+    NPZ_NUM_CHUNK_THREADS = 60  # awk to npz
+    NPZ_ALlOWED_SETS = ['rho', 'delta'] #, "JZ1", "JZ2", "JZ3", "JZ4"]
 
     # ===== TRAINING =====
-    TRAIN_OUTPUT_DIRECTORY_NAME = "rev_2"
+    TRAIN_OUTPUT_DIRECTORY_NAME = "rev_5"
+    USE_MULTITRACK_LABELS = False
     TRAIN_DATASET_NAME = "collected_data"
-    TRAIN_ALlOWED_SETS = {'delta': 1/2, 'rho': 1/2} #NOTE! This is just for the directories, the values is the percent of each batch that should contain data from that set
+    TRAIN_ALlOWED_SETS = {'rho': 1} #NOTE! This is just for the directories, the values is the percent of each batch that should contain data from that set
 else:
     raise Exception("User not found!")
 
@@ -133,6 +135,7 @@ POINT_TYPE_ENCODING = {v: k for k, v in POINT_TYPE_LABELS.items()}
 DEBUG_NUM_EVENTS_TO_USE = None
 UPROOT_MASK_VALUE_THRESHOLD = -100_000
 MAX_DISTANCE = 0.2  # could potentially go up to about 0.5 as a hard max
+NPZ_PAD_VAL = -1
 
 # Path to the ROOT file containing jet events
 
@@ -192,7 +195,7 @@ def NPZ_SAVE_LOC(working_file: str):
             / NPZ_DATASET_NAME
             / NPZ_OUTPUT_DIRECTORY_NAME
             / "SavedNpz"
-            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}_EScale={ENERGY_SCALE}"
+            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}_MaxTrackAtributions={MAX_TRACK_ASSOCIATIONS}_EScale={ENERGY_SCALE}"
         )
     elif working_file == TRAIN:
         return (
@@ -201,7 +204,8 @@ def NPZ_SAVE_LOC(working_file: str):
             / TRAIN_DATASET_NAME
             / TRAIN_OUTPUT_DIRECTORY_NAME
             / "SavedNpz"
-            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}_EScale={ENERGY_SCALE}"
+            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}_MaxTrackAtributions={MAX_TRACK_ASSOCIATIONS}_EScale={ENERGY_SCALE}"
+            #/ f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}_EScale={ENERGY_SCALE}"
         )
     else:
         raise Exception("File information not found!")

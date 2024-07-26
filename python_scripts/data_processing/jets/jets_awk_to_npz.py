@@ -44,7 +44,7 @@ def build_arrays(data_folder, chunk_file_path, npz_data_folder_path):
     ak_array = read_parquet(chunk_file_path)
 
     # NOTE: energy_scale affects only cells energy; set to 1 to maintain same scale for track hits and cells
-    feats = build_input_array(
+    feats, cell_truths = build_input_array(
         ak_array, global_max_sample_length, energy_scale=ENERGY_SCALE
     )
 
@@ -55,7 +55,8 @@ def build_arrays(data_folder, chunk_file_path, npz_data_folder_path):
     )
     np.savez(
         npz_save_path,
-        feats=feats
+        feats=feats,
+        cell_truths=cell_truths
     )
 
 

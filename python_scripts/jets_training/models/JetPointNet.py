@@ -322,7 +322,6 @@ def masked_weighted_loss(
     y_true: tf.Tensor,
     y_pred: tf.Tensor,
     energies: tf.Tensor,
-    fractional_energy_cutoff: float,
     loss_function: tf.keras.losses.Loss,
     transform: None | str = None,
     energy_threshold: float = 0,
@@ -341,10 +340,10 @@ def masked_weighted_loss(
         - "normalize": batch-normalize to zero mean and unit variance.
         - "standardize": batch-standardize to zero mean and unit variance.
         - "threshold": threshold at 0 --> discard contributions by negative energies.
-    energy_threshold (float, optional): the threshold to cutoff energy weighting is "threshold" is the transform
+    energy_threshold (float, optional): the threshold to cutoff energy weighting if "threshold" is the transform
 
     Returns:
-    tf.Tensor: standardized accuracy.
+    tf.Tensor: standardized loss.
     """
 
     # Transform energy weights
@@ -369,30 +368,19 @@ def masked_weighted_loss(
             raise ValueError(f"Unknown transform value: {transform}")
 
     # Ensure valid_mask and y_true are compatible for operations
-    valid_mask = tf.cast(
-        tf.not_equal(y_true, -1.0), tf.float32
-    )  # This should be [batch, points, 1]
+    valid_mask = tf.cast(tf.not_equal(y_true, -1.0), tf.float32)  # This should be [batch, points, num_classes]
 
-    # Adjust y_true based on the threshold, maintain dimensions as [batch, points, 1]
-    y_true_adjusted = (
-        tf.cast(tf.greater_equal(y_true, fractional_energy_cutoff), tf.float32)
-        * valid_mask
-    )
-
-    # Calculate binary cross-entropy loss, ensuring to keep the dimensions consistent
-
+    # Apply the mask to y_true and y_pred
+    y_true_masked = y_true * valid_mask
     y_pred_masked = y_pred * valid_mask
 
-    loss = loss_function(
-        y_true_adjusted,
-        y_pred_masked,
-    )
+    # Calculate categorical cross-entropy loss
+    loss = loss_function(y_true_masked, y_pred_masked)
 
-    loss = tf.expand_dims(
-        loss, axis=-1
-    )  # Ensure BCE loss has the same [batch, points, 1] shape as others
+    # Expand dimensions to ensure consistency in shapes
+    loss = tf.expand_dims(loss, axis=-1)  # Ensure loss has shape [batch, points, 1]
 
-    # Weighted binary cross-entropy loss, ensuring all dimensions match
+    # Weighted categorical cross-entropy loss, ensuring all dimensions match
     energies_times_mask = energies * valid_mask
     weighted_loss = loss * energies_times_mask
 
@@ -447,20 +435,17 @@ def masked_weighted_bce_loss(y_true, y_pred, energies):
 def masked_regular_accuracy(
     y_true: tf.Tensor,
     y_pred: tf.Tensor,
-    output_layer_segmentation_cutoff: str,
     fractional_energy_cutoff: float,
 ):
 
     mask = tf.not_equal(y_true, -1.0)
     mask = tf.cast(mask, tf.float32)
 
-    adjusted_y_true = tf.cast(tf.greater(y_true, fractional_energy_cutoff), tf.float32)
-    adjusted_y_predicted = tf.cast(
-        tf.greater(y_pred, output_layer_segmentation_cutoff), tf.float32
-    )  # should this cutoff be 0.5?
+    # Convert one-hot encoded vectors to class indices
+    y_true_class = tf.argmax(y_true, axis=-1)
+    y_pred_class = tf.argmax(y_pred, axis=-1)
 
-    correct_predictions = tf.equal(adjusted_y_predicted, adjusted_y_true)
-
+    correct_predictions = tf.equal(y_pred_class, y_true_class)
     masked_correct_predictions = tf.cast(correct_predictions, tf.float32) * mask
 
     accuracy = tf.reduce_sum(masked_correct_predictions) / (tf.reduce_sum(mask) + 1e-5)
@@ -473,7 +458,6 @@ def masked_weighted_accuracy(
     y_pred: tf.Tensor,
     energies: tf.Tensor,
     fractional_energy_cutoff: float,
-    output_layer_segmentation_cutoff: str,
     transform: None | str = None,
     energy_threshold: float = 0,
 ):
@@ -491,7 +475,7 @@ def masked_weighted_accuracy(
         - "normalize": batch-normalize to zero mean and unit variance.
         - "standardize": batch-standardize to zero mean and unit variance.
         - "threshold": threshold at 0 --> discard contributions by negative energies.
-    energy_threshold (float, optional): the threshold to cutoff energy weighting is "threshold" is the transform
+    energy_threshold (float, optional): the threshold to cutoff energy weighting if "threshold" is the transform
 
 
     Returns:
@@ -521,13 +505,11 @@ def masked_weighted_accuracy(
     mask = tf.not_equal(y_true, -1.0)
     mask = tf.cast(mask, tf.float32)
 
-    adjusted_y_true = tf.cast(tf.greater(y_true, fractional_energy_cutoff), tf.float32)
-    adjusted_y_predicted = tf.cast(
-        tf.greater(y_pred, output_layer_segmentation_cutoff), tf.float32
-    )
+    # Convert one-hot encoded vectors to class indices
+    y_true_class = tf.argmax(y_true, axis=-1)
+    y_pred_class = tf.argmax(y_pred, axis=-1)
 
-    correct_predictions = tf.equal(adjusted_y_predicted, adjusted_y_true)
-
+    correct_predictions = tf.equal(y_pred_class, y_true_class)
     masked_correct_predictions = tf.cast(correct_predictions, tf.float32) * mask
 
     weighted_correct_predictions = masked_correct_predictions * energies
@@ -545,7 +527,7 @@ def masked_weighted_accuracy(
 
 # ============ CALLBACKS ================================================================================
 
-
+# This Scheduler is currently not used, it could be an avenue for sweeping is the LR decay function
 class CustomLRScheduler(tf.keras.callbacks.Callback):
 
     def __init__(

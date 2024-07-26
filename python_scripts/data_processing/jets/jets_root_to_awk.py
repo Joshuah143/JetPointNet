@@ -33,6 +33,7 @@ jets_other_included_fields = [
     "cluster_cell_hitsTruthIndex",
     "cluster_cell_hitsTruthE",
     "trackTruthParticleIndex",
+    'truthPartPdgId',
     "eventNumber",
 ]
 
@@ -44,6 +45,7 @@ with uproot.open(str(GEO_FILE_LOC) + ":CellGeo") as cellgeo:
     eta_geo = cellgeo["cell_geo_eta"].array(library="np")[0]
     phi_geo = cellgeo["cell_geo_phi"].array(library="np")[0]
     rPerp_geo = cellgeo["cell_geo_rPerp"].array(library="np")[0]
+    Sigma_geo = cellgeo["cell_geo_sigma"].array(library="np")[0]
 
 
 def split_and_save_to_disk(processed_data, base_filename, id_splits: dict, save_locations: dict):
@@ -103,7 +105,7 @@ def process_events(
     cell_eta_geo,
     cell_phi_geo,
     cell_rPerp_geo,
-    thread_id,
+    cell_Sigma_geo
     # progress_dict,
 ):
     """
@@ -123,7 +125,7 @@ def process_events(
 
         event_cells, event_cell_truths, track_etas, track_phis = (
             process_and_filter_cells(
-                event, cell_ID_geo, cell_eta_geo, cell_phi_geo, cell_rPerp_geo
+                event, cell_ID_geo, cell_eta_geo, cell_phi_geo, cell_rPerp_geo, cell_Sigma_geo
             )
         )  # Flatten and process cells in this event
 
@@ -141,6 +143,11 @@ def process_events(
             if len(focal_points) == 0:
                 print(f"Track {track_idx} of event {event['eventNumber']} skipped due to no track hits")
                 continue
+
+            # TODO: LOOK AT THIS IN DETAIL -- DO NOT MERGE
+            # if event['trackTruthParticleIndex'][track_idx] == -1:
+            #     print(f"Track {track_idx} of event {event['eventNumber']} skipped due to no truth particle")
+            #     continue
 
             tracks_sample.begin_record()  # Each track is a record within the event list
 
@@ -201,7 +208,7 @@ def process_events_wrapper(args):
     return process_events(*args)
 
 
-def process_chunk(chunk, cell_ID_geo, cell_eta_geo, cell_phi_geo, cell_rPerp_geo):
+def process_chunk(chunk, cell_ID_geo, cell_eta_geo, cell_phi_geo, cell_rPerp_geo, cell_Sigma_geo):
     """
     Modified `process_chunk` to handle progress reporting using multiprocessing.Pool and tqdm.
     """
@@ -216,8 +223,7 @@ def process_chunk(chunk, cell_ID_geo, cell_eta_geo, cell_phi_geo, cell_rPerp_geo
             cell_eta_geo,
             cell_phi_geo,
             cell_rPerp_geo,
-            i,
-            # progress_dict,
+            cell_Sigma_geo, 
         )
         for i in range(AWK_THREADS_PER_CHUNK)
         for start_idx, end_idx in [
@@ -270,7 +276,7 @@ def event_handler_wrapper(filepath):
             ):
                 print(f"\nProcessing chunk {chunk_counter + 1} of size {len(chunk)}")
 
-                processed_data = process_chunk(chunk, cell_ID_geo, eta_geo, phi_geo, rPerp_geo)
+                processed_data = process_chunk(chunk, cell_ID_geo, eta_geo, phi_geo, rPerp_geo, Sigma_geo)
                 base_filename = f"{filepath}_chunk_{chunk_counter}"
                 split_and_save_to_disk(processed_data, base_filename, id_split, save_locations)
 

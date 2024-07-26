@@ -52,7 +52,7 @@ from data_processing.jets.preprocessing_header import (
 USER = Path.home().name
 print(f"Logged in as {USER}")
 if USER == "jhimmens":
-    GPU_ID = "0"
+    GPU_ID = "5"
     ASSIGN_GPU = True
 elif USER == "luclissa":
     GPU_ID = "0"
@@ -90,7 +90,7 @@ baseline_configuration = dict(
     TF_SEED=np.random.randint(0, 100),
     MAX_SAMPLE_LENGTH=MAX_SAMPLE_LENGTH,  # 278 for delta R of 0.1, 859 for 0.2
     BATCH_SIZE=(BATCH_SIZE := 700),
-    EPOCHS=500,
+    EPOCHS=150,
     IS_TUNE=False,
     REPLAY=(REPLAY := False),
     REPLAY_LINEAR_DECAY_RATE=0.02, # decrease of data from simple set
@@ -106,7 +106,7 @@ baseline_configuration = dict(
     ES_PATIENCE=15,
     ACC_ENERGY_WEIGHTING="square",
     LOSS_ENERGY_WEIGHTING="square",
-    LOSS_FUNCTION="BinaryCrossentropy",
+    LOSS_FUNCTION="CategoricalCrossentropy",
     OUTPUT_ACTIVATION_FUNCTION="sigmoid",  # softmax, linear (requires changes to the BCE fucntion in the loss function)
     FRACTIONAL_ENERGY_CUTOFF=0.5,
     OUTPUT_LAYER_SEGMENTATION_CUTOFF=0.5,
@@ -153,13 +153,17 @@ TRAIN_INPUTS = [
     "track_pt",
 ]
 
+TRAIN_TARGETS = [
+    'truth_cell_focal_fraction_energy',
+    'truth_cell_non_focal_fraction_energy',
+    'truth_cell_neutral_fraction_energy',
+]
+
 
 def load_data_from_npz(npz_file):
     all_feats = np.load(npz_file)["feats"]
-    feats = all_feats[:, :MAX_SAMPLE_LENGTH][
-        TRAIN_INPUTS
-    ]  # discard tracking information
-    frac_labels = all_feats[:, :MAX_SAMPLE_LENGTH]["truth_cell_fraction_energy"]
+    feats = all_feats[:, :MAX_SAMPLE_LENGTH][TRAIN_INPUTS]  # discard tracking information
+    frac_labels = all_feats[:, :MAX_SAMPLE_LENGTH][TRAIN_TARGETS]
     energy_weights = all_feats[:, :MAX_SAMPLE_LENGTH]["cell_E"]
     return feats, frac_labels, energy_weights
 
@@ -191,7 +195,7 @@ def single_set_data_generator(data_dir, set_name, batch_size: int, **kwargs):
         for npz_file in npz_files:
 
             # Read data chunk and initialize counters
-            feats, frac_labels, e_weights = load_data_from_npz(npz_file)
+            feats, targets, e_weights = load_data_from_npz(npz_file)
             file_size = feats.shape[0]
             # initially all data are still not used: can fill full file in batch starting at index 0
             unprocessed_size = file_size
@@ -207,7 +211,7 @@ def single_set_data_generator(data_dir, set_name, batch_size: int, **kwargs):
                 last_index = min(last_batch_idx + fill_size, file_size)
                 feats_buffer.extend(feats[last_batch_idx : last_index])
                 targets_buffer.extend(
-                    frac_labels[last_batch_idx : last_index]
+                    targets[last_batch_idx : last_index]
                 )
                 e_weights_buffer.extend(
                     e_weights[last_batch_idx : last_index]
@@ -437,7 +441,7 @@ def train(experimental_configuration: dict = {}):
         model, trainable_params = _setup_model(
             num_points=config.MAX_SAMPLE_LENGTH,
             num_features=len(TRAIN_INPUTS),
-            num_classes=1,
+            num_classes=len(TRAIN_TARGETS),
             output_activation=config.OUTPUT_ACTIVATION_FUNCTION,
             fine_tune=config.IS_TUNE,
             replay=config.REPLAY,
@@ -575,6 +579,7 @@ def train(experimental_configuration: dict = {}):
             for step, (x_batch_train_named, y_batch_train, e_weight_train) in train_generator:
 
                 x_batch_train = rfn.structured_to_unstructured(x_batch_train_named)
+                y_batch_train = rfn.structured_to_unstructured(y_batch_train)
                 if step >= train_steps:
                     break
                 loss_value, reg_acc_value, weighted_acc_value, grads = train_step(
@@ -620,6 +625,7 @@ def train(experimental_configuration: dict = {}):
             
             for step, (x_batch_val_named, y_batch_val, e_weight_val) in val_generator:
                 x_batch_val = rfn.structured_to_unstructured(x_batch_val_named)
+                y_batch_val = rfn.structured_to_unstructured(y_batch_val_named)
                 if step >= val_steps:
                     break
                 (

@@ -1,6 +1,7 @@
 import numpy as np
 import awkward as ak
 import sys
+from particle.pdgid import charge
 from data_processing.jets.track_metadata import (
     calo_layers,
     has_fixed_r,
@@ -21,7 +22,7 @@ from data_processing.jets.common_utils import (calculate_cartesian_coordinates,
 
 
 def process_and_filter_cells(
-    event, cell_ID_geo, cell_eta_geo, cell_phi_geo, cell_rPerp_geo
+    event, cell_ID_geo, cell_eta_geo, cell_phi_geo, cell_rPerp_geo, cell_Sigma_geo
 ):
     """
     Parameters:
@@ -39,45 +40,53 @@ def process_and_filter_cells(
     # Extracting cell IDs and energies, assuming they are part of clusters
 
     # TODO use hitsE_EM for trucating so that it matches Jessica's code
-    truncated_hitsTruthIndex = [
-        cluster_hitsTruthIndex[: len(cluster_ID)]
-        for cluster_ID, cluster_hitsTruthIndex in zip(
-            event["cluster_cell_ID"], event["cluster_cell_hitsTruthIndex"]
-        )
-    ]
-    truncated_hitsTruthE = [
-        cluster_hitsTruthE[: len(cluster_ID)]
-        for cluster_ID, cluster_hitsTruthE in zip(
-            event["cluster_cell_ID"], event["cluster_cell_hitsTruthE"]
-        )
-    ]
+    # truncated_hitsTruthIndex = [
+    #     cluster_hitsTruthIndex[: len(cluster_ID)]
+    #     for cluster_ID, cluster_hitsTruthIndex in zip(
+    #         event["cluster_cell_ID"], event["cluster_cell_hitsTruthIndex"]
+    #     )
+    # ]
+    # truncated_hitsTruthE = [
+    #     cluster_hitsTruthE[: len(cluster_ID)]
+    #     for cluster_ID, cluster_hitsTruthE in zip(
+    #         event["cluster_cell_ID"], event["cluster_cell_hitsTruthE"]
+    #     )
+    # ]
 
     # Step 2: Flatten the arrays now that they've been truncated
-    cell_IDs_with_multiples = ak.flatten(event["cluster_cell_ID"])
-    cell_Es_with_multiples = ak.flatten(event["cluster_cell_E"])
-    cell_part_truth_Idxs_with_multiples = ak.flatten(truncated_hitsTruthIndex)
-    cell_part_truth_Es_with_multiples = ak.flatten(truncated_hitsTruthE)
+    cell_IDs_with_multiples_np = ak.to_numpy(ak.flatten(event["cluster_cell_ID"]))
+    cell_Es_with_multiples_np = ak.to_numpy(ak.flatten(event["cluster_cell_E"]))
+    cell_part_truth_Idxs_with_multiples = ak.flatten(event["cluster_cell_hitsTruthIndex"])
+    cell_part_truth_Es_with_multiples = ak.flatten(event["cluster_cell_hitsTruthE"])
 
     # print(len(cell_Es_with_multiples))
     # print(len(cell_IDs_with_multiples))
     # print(len(cell_part_truth_Es_with_multiples))
     # print(len(cell_part_truth_Idxs_with_multiples))
 
-    # Finding unique cell IDs and their first occurrence indices
-    _, unique_indices = np.unique(ak.to_numpy(cell_IDs_with_multiples), return_index=True)
+    # SUM THE CELL_E ACROSS TOPO CLUSTERS
+
+
+    # Rather than only take the unique cell_IDs, I want to summ the Cell_E for douplicate elements so that their energy is included. I also want to check for all doupliacte IDs that the truth indexes and Energies also match.
+
+    unique_cell_IDs, unique_indices, cell_ID_counts = np.unique(cell_IDs_with_multiples_np, return_index=True, return_counts=True) 
     
     # Selecting corresponding unique cell data
-    cell_IDs = cell_IDs_with_multiples[unique_indices]
-    cell_Es = cell_Es_with_multiples[unique_indices]
-    cell_hitsTruthIndices = cell_part_truth_Idxs_with_multiples[unique_indices]
-    cell_hitsTruthEs = cell_part_truth_Es_with_multiples[unique_indices]
+    unique_cell_Es = cell_Es_with_multiples_np[unique_indices]
+    unique_cell_hitsTruthIndices = cell_part_truth_Idxs_with_multiples[unique_indices]
+    unique_cell_hitsTruthEs = cell_part_truth_Es_with_multiples[unique_indices]
+
+    # Sum the cell_E values for each unique cell_ID
+    for cell_id in enumerate(unique_cell_IDs[cell_ID_counts > 1]):
+        unique_cell_Es[unique_cell_IDs == cell_id] += np.sum(cell_Es_with_multiples_np[cell_IDs_with_multiples_np == cell_id])
+
 
     # Matching cells with their geometric data
     cell_ID_geo_array = (
         cell_ID_geo  # np.array(cellgeo["cell_geo_ID"].array(library="ak")[0])
     )
 
-    mask = np.isin(cell_ID_geo_array, np.array(cell_IDs))
+    mask = np.isin(cell_ID_geo_array, np.array(unique_cell_IDs))
 
     indices = np.where(mask)[0]
 
@@ -85,6 +94,7 @@ def process_and_filter_cells(
     cell_Etas = cell_eta_geo[indices]  # cellgeo["cell_geo_eta"].array(library="ak")[0][indices]
     cell_Phis = cell_phi_geo[indices]  # cellgeo["cell_geo_phi"].array(library="ak")[0][indices]
     cell_rPerps = cell_rPerp_geo[indices]  # cellgeo["cell_geo_rPerp"].array(library="ak")[0][indices]
+    cell_Sigmas = cell_Sigma_geo[indices]
 
     # Calculating Cartesian coordinates for the cells
     cell_Xs, cell_Ys, cell_Zs = calculate_cartesian_coordinates(
@@ -94,20 +104,28 @@ def process_and_filter_cells(
 
     event_cells = ak.zip(
         {
-            "ID": cell_IDs,
-            "E": cell_Es,
+            "ID": unique_cell_IDs,
+            "E": unique_cell_Es,
             "eta": cell_Etas,
             "phi": cell_Phis,
             "X": cell_Xs,
             "Y": cell_Ys,
             "Z": cell_Zs,
+            "Sigma": cell_Sigmas
         }
     )
 
+    truthPDGID_arr = event["truthPartPdgId"]
+
+    cell_hitsTruthPDGIDs = [[truthPDGID_arr[index] for index in cell] for cell in unique_cell_hitsTruthIndices]
+    cell_hitsTruthCharge = [[charge(pdgId) for pdgId in cell] for cell in cell_hitsTruthPDGIDs]
+
     event_cell_truths = ak.zip(
         {
-            "cell_hitsTruthIndices": cell_hitsTruthIndices,
-            "cell_hitsTruthEs": cell_hitsTruthEs,
+            "cell_hitsTruthIndices": unique_cell_hitsTruthIndices,
+            "cell_hitsTruthPDGIDs": cell_hitsTruthPDGIDs,
+            "cell_hitsTruthCharges": cell_hitsTruthCharge,
+            "cell_hitsTruthEs": unique_cell_hitsTruthEs,
         }
     )
 
@@ -277,6 +295,7 @@ def process_associated_cell_info(
         tracks_sample.field("X").real(filtered_cells[cell_idx]["X"])
         tracks_sample.field("Y").real(filtered_cells[cell_idx]["Y"])
         tracks_sample.field("Z").real(filtered_cells[cell_idx]["Z"])
+        tracks_sample.field("Cell_Sigma").real(filtered_cells[cell_idx]["Sigma"])
 
         # Calculate distances to each track intersection point and find the minimum
         cell_x, cell_y, cell_z = (
@@ -304,24 +323,28 @@ def process_associated_cell_info(
 
         cell_part_IDs = filtered_cell_truths[cell_idx]["cell_hitsTruthIndices"]
         cell_part_Es = filtered_cell_truths[cell_idx]["cell_hitsTruthEs"]
+        cell_part_charges = filtered_cell_truths[cell_idx]["cell_hitsTruthCharges"]
+        cell_part_pdgIDs = filtered_cell_truths[cell_idx]["cell_hitsTruthPDGIDs"]
 
-        total_energy = np.sum(
-            filtered_cell_truths[cell_idx]["cell_hitsTruthEs"]
-        )  # Sum of all particle energy deposits in the cell
+        # NOTE: This should be updated to the actual truth energy so th
+        total_energy = np.sum(cell_part_Es)  # Sum of all particle energy deposits in the cell
         tracks_sample.field("Total_Truth_Energy").real(total_energy)
 
-        if track_part_Idx in cell_part_IDs:
-            found_index = np.where(cell_part_IDs == track_part_Idx)[0][
-                0
-            ]  # Locate index of track_part_Idx in cell_part_IDs
-            part_energy = filtered_cell_truths[cell_idx]["cell_hitsTruthEs"][
-                found_index
-            ]  # Retrieve corresponding energy deposit
-            energy_fraction = part_energy / total_energy  # Calculate energy fraction
-            tracks_sample.field("Fraction_Label").real(energy_fraction)
-        else:
-            tracks_sample.field("Fraction_Label").real(0)
+        focal_E = 0
+        non_focal_E = 0
+        nuetral_energy = 0
+        for cell_part_ID, cell_truth_part_E, cell_truth_part_charge in zip(cell_part_IDs, cell_part_Es, cell_part_charges):
+            if cell_part_ID == track_part_Idx:
+                focal_E += cell_truth_part_E
+            elif cell_truth_part_charge == 0:
+                nuetral_energy += cell_truth_part_E
+            else:
+                non_focal_E += cell_truth_part_E
 
+        tracks_sample.field("Focal_Fraction_Label").real(focal_E)
+        tracks_sample.field("Non_Focal_Fraction_Label").real(non_focal_E)
+        tracks_sample.field("Nuetral_Fraction_Label").real(nuetral_energy)
+                
         tracks_sample.field("cell_Hits_TruthIndices")
         tracks_sample.begin_list()
         for part in cell_part_IDs:
@@ -333,6 +356,14 @@ def process_associated_cell_info(
         for part in cell_part_Es:
             tracks_sample.real(part)
         tracks_sample.end_list()
+
+        tracks_sample.field("cell_Hits_TruthPDGIDs")
+        tracks_sample.begin_list()
+        for part in cell_part_pdgIDs:
+            tracks_sample.real(part)
+        tracks_sample.end_list()
+
+
         # print(filtered_cell_truths[cell_idx]["cell_hitsTruthIndices"])
         # print(filtered_cell_truths[cell_idx]["cell_hitsTruthEs"])
 
