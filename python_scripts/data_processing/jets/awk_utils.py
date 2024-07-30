@@ -341,9 +341,15 @@ def process_associated_cell_info(
             else:
                 non_focal_E += cell_truth_part_E
 
-        tracks_sample.field("Focal_Fraction_Label").real(focal_E)
-        tracks_sample.field("Non_Focal_Fraction_Label").real(non_focal_E)
-        tracks_sample.field("Nuetral_Fraction_Label").real(nuetral_energy)
+
+        # the cases involving truth energy of 0 deserve investigaton
+        frac_focal_E = focal_E/total_energy if total_energy != 0 else 0
+        frac_non_focal_E = non_focal_E/total_energy if total_energy != 0 else 0
+        frac_nuetral_energy = nuetral_energy/total_energy if total_energy != 0 else 0
+
+        tracks_sample.field("Focal_Fraction_Label").real(frac_focal_E)
+        tracks_sample.field("Non_Focal_Fraction_Label").real(frac_non_focal_E)
+        tracks_sample.field("Nuetral_Fraction_Label").real(frac_nuetral_energy)
                 
         tracks_sample.field("cell_Hits_TruthIndices")
         tracks_sample.begin_list()

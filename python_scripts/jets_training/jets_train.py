@@ -108,7 +108,6 @@ baseline_configuration = dict(
     LOSS_ENERGY_WEIGHTING="square",
     LOSS_FUNCTION="CategoricalCrossentropy",
     OUTPUT_ACTIVATION_FUNCTION="sigmoid",  # softmax, linear (requires changes to the BCE fucntion in the loss function)
-    FRACTIONAL_ENERGY_CUTOFF=0.5,
     OUTPUT_LAYER_SEGMENTATION_CUTOFF=0.5,
     EARLY_STOPPING=False,
     TRAIN_STEPS=EPOCH_COMPLEXITY//BATCH_SIZE,
@@ -119,7 +118,7 @@ baseline_configuration = dict(
     # LR_RAMP_EP=2,
     # LR_SUS_EP=10,
     # LR_DECAY=0.7,
-    METRIC="val/f1_score",
+    METRIC="val/f1_score_focal",
     MODE="max",
 )
 
@@ -137,17 +136,44 @@ elif (
 
 # last_checkpoint_path = f"{MODELS_PATH}/PointNet_last_{epoch=}.keras"
 
+
+"""
+('event_number', np.int32),
+('cell_ID', np.int32),
+('track_ID', np.int32),
+('delta_R', np.float32),
+
+('truth_cell_focal_fraction_energy', np.float32),
+('truth_cell_non_focal_fraction_energy', np.float32),
+('truth_cell_neutral_fraction_energy', np.float32),
+('truth_cell_total_energy', np.float32),
+
+('category', np.int8),
+('track_num', np.int32),
+('normalized_x', np.float32),
+('normalized_y', np.float32),
+('normalized_z', np.float32),
+('normalized_distance', np.float32),
+('cell_sigma', np.float32),
+('track_chi2_dof', np.float32),
+("track_chi2_dof_cell_sigma", np.float32),
+('cell_E', np.float32),
+('track_pt', np.float32),
+('track_pt_cell_E', np.float32),
+"""
+
 TRAIN_INPUTS = [
     #'event_number',
     #'cell_ID',
     #'track_ID',
-    'delta_R',
     "category",
-    "chi2_dof",
+    'delta_R',
     "track_num",
     "normalized_x",
     "normalized_y",
     "normalized_z",
+    'track_chi2_dof',
+    'cell_sigma',
     "normalized_distance",
     "cell_E",
     "track_pt",
@@ -382,7 +408,7 @@ def train(experimental_configuration: dict = {}):
 
         # training and validation steps
         @tf.function
-        def train_step(x, y, energy_weights, model, loss_function):
+        def train_step(x, y, energy_weights, model, loss_function, x_class):
             with tf.GradientTape() as tape:
                 predictions = model(x, training=True)
                 loss = masked_weighted_loss(
@@ -390,50 +416,46 @@ def train(experimental_configuration: dict = {}):
                     y_pred=predictions,
                     energies=energy_weights,
                     loss_function=loss_function,
+                    x_class=x_class,
                     transform=config.LOSS_ENERGY_WEIGHTING,
-                    fractional_energy_cutoff=config.FRACTIONAL_ENERGY_CUTOFF,
                 )
                 reg_acc = masked_regular_accuracy(
                     y_true=y,
                     y_pred=predictions,
-                    output_layer_segmentation_cutoff=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF,
-                    fractional_energy_cutoff=config.FRACTIONAL_ENERGY_CUTOFF,
+                    x_class=x_class,
                 )
                 weighted_acc = masked_weighted_accuracy(
                     y_true=y,
                     y_pred=predictions,
                     energies=energy_weights,
+                    x_class=x_class,
                     transform=config.ACC_ENERGY_WEIGHTING,
-                    output_layer_segmentation_cutoff=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF,
-                    fractional_energy_cutoff=config.FRACTIONAL_ENERGY_CUTOFF,
                 )
             grads = tape.gradient(loss, model.trainable_variables)
             return loss, reg_acc, weighted_acc, grads
 
         @tf.function
-        def val_step(x, y, energy_weights, model, loss_function):
+        def val_step(x, y, energy_weights, model, loss_function, x_class):
             predictions = model(x, training=False)
             v_loss = masked_weighted_loss(
                 y_true=y,
                 y_pred=predictions,
                 energies=energy_weights,
                 transform=config.LOSS_ENERGY_WEIGHTING,
+                x_class=x_class,
                 loss_function=loss_function,
-                fractional_energy_cutoff=config.FRACTIONAL_ENERGY_CUTOFF,
             )
             reg_acc = masked_regular_accuracy(
                 y_true=y,
                 y_pred=predictions,
-                output_layer_segmentation_cutoff=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF,
-                fractional_energy_cutoff=config.FRACTIONAL_ENERGY_CUTOFF,
+                x_class=x_class,
             )
             weighted_acc = masked_weighted_accuracy(
                 y_true=y,
                 y_pred=predictions,
                 energies=energy_weights,
+                x_class=x_class,
                 transform=config.ACC_ENERGY_WEIGHTING,
-                output_layer_segmentation_cutoff=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF,
-                fractional_energy_cutoff=config.FRACTIONAL_ENERGY_CUTOFF,
             )
             return v_loss, reg_acc, weighted_acc, predictions
 
@@ -457,12 +479,7 @@ def train(experimental_configuration: dict = {}):
         val_loss_tracker = tf.metrics.Mean(name="val_loss")
         val_reg_acc = tf.metrics.Mean(name="val_regular_accuracy")
         val_weighted_acc = tf.metrics.Mean(name="val_weighted_accuracy")
-        recall_metric = tf.keras.metrics.Recall(
-            thresholds=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF
-        )
-        precision_metric = tf.keras.metrics.Precision(
-            thresholds=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF
-        )
+        mean_iou_metric = tf.keras.metrics.OneHotMeanIoU(len(TRAIN_TARGETS))
         val_f1_score = tf.keras.metrics.F1Score(
             threshold=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF
         )
@@ -518,7 +535,8 @@ def train(experimental_configuration: dict = {}):
         # Will raise AttributeError if the loss function is not found
         logits = config.OUTPUT_ACTIVATION_FUNCTION == "linear"
         loss_function = getattr(tf.keras.losses, config.LOSS_FUNCTION)(
-            from_logits=logits # NOTE: False for "sigmoid", True for "linear"
+            from_logits=logits, # NOTE: False for "sigmoid", True for "linear"
+            reduction='none',
         )
             
         # NOTE: the match/case below may still be useful in case of differential processing depending on the chosen loss function
@@ -550,8 +568,7 @@ def train(experimental_configuration: dict = {}):
             val_weighted_acc.reset_state()
 
             val_f1_score.reset_state()
-            recall_metric.reset_state()
-            precision_metric.reset_state()
+            mean_iou_metric.reset_state()
 
             val_true_labels = []
             val_predictions = []
@@ -577,9 +594,13 @@ def train(experimental_configuration: dict = {}):
             train_generator = enumerate(_train_generator)
 
             for step, (x_batch_train_named, y_batch_train, e_weight_train) in train_generator:
-
+                x_catagories = x_batch_train_named['category']
                 x_batch_train = rfn.structured_to_unstructured(x_batch_train_named)
                 y_batch_train = rfn.structured_to_unstructured(y_batch_train)
+                # For some reason the second last dim is always 1, not sure why but this fixes it
+                y_batch_train = np.squeeze(y_batch_train)
+                e_weight_train = np.squeeze(e_weight_train)
+
                 if step >= train_steps:
                     break
                 loss_value, reg_acc_value, weighted_acc_value, grads = train_step(
@@ -588,6 +609,7 @@ def train(experimental_configuration: dict = {}):
                     e_weight_train,
                     model,
                     loss_function,
+                    x_catagories
                 )
                 optimizer.apply_gradients(zip(grads, model.trainable_variables))
                 train_loss_tracker.update_state(loss_value)
@@ -623,9 +645,13 @@ def train(experimental_configuration: dict = {}):
                                                 config.BATCH_SIZE)
             val_generator = enumerate(_val_generator)
             
-            for step, (x_batch_val_named, y_batch_val, e_weight_val) in val_generator:
+            for step, (x_batch_val_named, y_batch_val_named, e_weight_val) in val_generator:
+                x_catagories_val = x_batch_val_named['category']
                 x_batch_val = rfn.structured_to_unstructured(x_batch_val_named)
                 y_batch_val = rfn.structured_to_unstructured(y_batch_val_named)
+                # For some reason the second last dim is always 1, not sure why but this fixes it
+                y_batch_val = np.squeeze(y_batch_val)
+                e_weight_val = np.squeeze(e_weight_val)
                 if step >= val_steps:
                     break
                 (
@@ -634,18 +660,14 @@ def train(experimental_configuration: dict = {}):
                     val_weighted_acc_value,
                     predicted_y,
                 ) = val_step(
-                    x_batch_val, y_batch_val, e_weight_val, model, loss_function
+                    x_batch_val, y_batch_val, e_weight_val, model, loss_function, x_catagories_val
                 )
                 val_loss_tracker.update_state(val_loss_value)
                 val_reg_acc.update_state(val_reg_acc_value)
                 val_weighted_acc.update_state(val_weighted_acc_value)
 
                 mask = x_batch_val_named['category'] == 1   # remove non-energy points
-                val_true_labels.extend(
-                    (y_batch_val[mask] > config.FRACTIONAL_ENERGY_CUTOFF).astype(
-                        np.float32
-                    )
-                )
+                val_true_labels.extend(y_batch_val[mask])
                 val_predictions.extend(predicted_y.numpy()[mask])
 
                 print(
@@ -660,12 +682,14 @@ def train(experimental_configuration: dict = {}):
             val_true_labels = tf.convert_to_tensor(val_true_labels)
             val_predictions = tf.convert_to_tensor(val_predictions)
 
+            val_true_labels = tf.cast(val_true_labels, dtype=tf.float32)
+            val_predictions = tf.cast(val_predictions, dtype=tf.float32)
+
             val_f1_score.update_state(
                 val_true_labels, # tf.expand_dims(val_true_labels, axis=-1),
                 val_predictions # tf.expand_dims(val_predictions, axis=-1),
             )
-            recall_metric.update_state(val_true_labels, val_predictions)
-            precision_metric.update_state(val_true_labels, val_predictions)
+            mean_iou_metric.update_state(val_true_labels, val_predictions)
 
             val_f1 = val_f1_score.result().numpy()
 
@@ -683,9 +707,10 @@ def train(experimental_configuration: dict = {}):
                     "val/accuracy": val_reg_acc.result().numpy(),
                     "val/weighted_accuracy": val_weighted_acc.result().numpy(),
                     "learning_rate": optimizer.learning_rate.numpy(),
-                    "val/f1_score": val_f1_score.result().numpy()[0],
-                    "val/recall": recall_metric.result().numpy(),
-                    "val/precision": precision_metric.result().numpy(),
+                    "val/f1_score_focal": val_f1_score.result().numpy()[0],
+                    "val/f1_score_non_focal": val_f1_score.result().numpy()[1],
+                    "val/f1_score_neutral": val_f1_score.result().numpy()[2],
+                    "val/mean_iou": mean_iou_metric.result().numpy(),
                     "percent_simple_data": max(1-epoch*config.REPLAY_LINEAR_DECAY_RATE, config.REPLAY_MIN_FREQ) if config.REPLAY else 1,
                     # "gradients": [tf.reduce_mean(tf.abs(grad)).numpy() for grad in grads],
                     # "weights": [
@@ -711,9 +736,10 @@ def train(experimental_configuration: dict = {}):
                         "val_loss": val_loss_tracker.result(),
                         "val/accuracy": val_reg_acc.result(),
                         "val_weighted_accuracy": val_weighted_acc.result(),
-                        "val/f1_score": val_f1_score.result().numpy()[0],
-                        "val/recall": recall_metric.result().numpy(),
-                        "val/precision": precision_metric.result().numpy(),
+                        "val/f1_score_focal": val_f1_score.result().numpy()[0],
+                        "val/f1_score_non_focal": val_f1_score.result().numpy()[1],
+                        "val/f1_score_neutral": val_f1_score.result().numpy()[2],
+                        "val/mean_iou": mean_iou_metric.result().numpy(),
                     },
                 )
                 if config.EARLY_STOPPING:
@@ -723,9 +749,11 @@ def train(experimental_configuration: dict = {}):
                             "val_loss": val_loss_tracker.result(),
                             "val/accuracy": val_reg_acc.result(),
                             "val_weighted_accuracy": val_weighted_acc.result(),
-                            "val/f1_score": val_f1_score.result().numpy()[0],
-                            "val/recall": recall_metric.result().numpy(),
-                            "val/precision": precision_metric.result().numpy(),
+                            "val/f1_score_focal": val_f1_score.result().numpy()[0],
+                            "val/f1_score_non_focal": val_f1_score.result().numpy()[1],
+                            "val/f1_score_neutral": val_f1_score.result().numpy()[2],
+                            "val/mean_iou": mean_iou_metric.result().numpy(),
+                           
                         },
                     )
                     if early_stopping_callback.model.stop_training:

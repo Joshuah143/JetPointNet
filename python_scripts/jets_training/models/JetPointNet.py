@@ -11,6 +11,16 @@ import numpy as np
 import keras
 import os
 import random
+import sys
+from pathlib import Path
+import os
+
+REPO_PATH = Path.home() / "workspace/jetpointnet"
+SCRIPT_PATH = REPO_PATH / "python_scripts"
+sys.path.append(str(SCRIPT_PATH))
+
+from data_processing.jets.preprocessing_header import POINT_TYPE_ENCODING
+
 
 # =======================================================================================================================
 # ============ Weird Stuff ==============================================================================================
@@ -323,6 +333,7 @@ def masked_weighted_loss(
     y_pred: tf.Tensor,
     energies: tf.Tensor,
     loss_function: tf.keras.losses.Loss,
+    x_class: tf.Tensor,
     transform: None | str = None,
     energy_threshold: float = 0,
 ):
@@ -366,34 +377,23 @@ def masked_weighted_loss(
             pass
         case _:
             raise ValueError(f"Unknown transform value: {transform}")
+        
 
-    # Ensure valid_mask and y_true are compatible for operations
-    valid_mask = tf.cast(tf.not_equal(y_true, -1.0), tf.float32)  # This should be [batch, points, num_classes]
-
-    # Apply the mask to y_true and y_pred
-    y_true_masked = y_true * valid_mask
-    y_pred_masked = y_pred * valid_mask
+    valid_mask = tf.equal(x_class, POINT_TYPE_ENCODING['cell']) 
+    valid_mask = tf.cast(valid_mask, tf.float32)
 
     # Calculate categorical cross-entropy loss
-    loss = loss_function(y_true_masked, y_pred_masked)
-
-    # Expand dimensions to ensure consistency in shapes
-    loss = tf.expand_dims(loss, axis=-1)  # Ensure loss has shape [batch, points, 1]
+    loss = loss_function(y_true, y_pred)
 
     # Weighted categorical cross-entropy loss, ensuring all dimensions match
     energies_times_mask = energies * valid_mask
     weighted_loss = loss * energies_times_mask
 
-    # Normalize the weighted BCE loss
+    # Normalize the weighted loss
     total_energy_weight = tf.reduce_sum(
-        energies * valid_mask, axis=1, keepdims=True
+        weighted_loss, axis=1, keepdims=True
     )  # Keep dimensions with 'keepdims'
-    total_num_points = tf.reduce_sum(
-        valid_mask, axis=1, keepdims=True
-    )  # Keep dimensions with 'keepdims'
-    normalized_loss = (weighted_loss / (total_num_points + 1)) / (
-        total_energy_weight + 1
-    )
+    normalized_loss = (weighted_loss) / (total_energy_weight + 1)
 
     # Combine the mean losses from both labels
     return normalized_loss
@@ -435,10 +435,10 @@ def masked_weighted_bce_loss(y_true, y_pred, energies):
 def masked_regular_accuracy(
     y_true: tf.Tensor,
     y_pred: tf.Tensor,
-    fractional_energy_cutoff: float,
+    x_class: tf.Tensor,
 ):
 
-    mask = tf.not_equal(y_true, -1.0)
+    mask = tf.equal(x_class, POINT_TYPE_ENCODING['cell']) 
     mask = tf.cast(mask, tf.float32)
 
     # Convert one-hot encoded vectors to class indices
@@ -457,7 +457,7 @@ def masked_weighted_accuracy(
     y_true: tf.Tensor,
     y_pred: tf.Tensor,
     energies: tf.Tensor,
-    fractional_energy_cutoff: float,
+    x_class: tf.Tensor,
     transform: None | str = None,
     energy_threshold: float = 0,
 ):
@@ -502,7 +502,7 @@ def masked_weighted_accuracy(
         case _:
             raise ValueError(f"Unknown transform value: {transform}")
 
-    mask = tf.not_equal(y_true, -1.0)
+    mask = tf.equal(x_class, POINT_TYPE_ENCODING['cell']) 
     mask = tf.cast(mask, tf.float32)
 
     # Convert one-hot encoded vectors to class indices

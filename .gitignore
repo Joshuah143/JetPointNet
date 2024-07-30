@@ -4,6 +4,7 @@ pnet_data
 
 # debug/experimental code
 scratch
+notebooks/root_images
 
 # results/logs
 wandb
