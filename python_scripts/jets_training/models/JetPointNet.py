@@ -382,21 +382,23 @@ def masked_weighted_loss(
     valid_mask = tf.equal(x_class, POINT_TYPE_ENCODING['cell']) 
     valid_mask = tf.cast(valid_mask, tf.float32)
 
+    energies_times_mask = energies * valid_mask
+
     # Calculate categorical cross-entropy loss
-    loss = loss_function(y_true, y_pred)
+    weighted_loss = loss_function(y_true, y_pred, sample_weight=energies_times_mask)
 
     # Weighted categorical cross-entropy loss, ensuring all dimensions match
-    energies_times_mask = energies * valid_mask
-    weighted_loss = loss * energies_times_mask
+    
+    # weighted_loss = loss * energies_times_mask
 
     # Normalize the weighted loss
-    total_energy_weight = tf.reduce_sum(
-        weighted_loss, axis=1, keepdims=True
-    )  # Keep dimensions with 'keepdims'
-    normalized_loss = (weighted_loss) / (total_energy_weight + 1)
+    # total_energy_weight = tf.reduce_sum(
+    #     weighted_loss, axis=1, keepdims=True
+    # )  # Keep dimensions with 'keepdims'
+    # normalized_loss = (weighted_loss) / (total_energy_weight + 1)
 
     # Combine the mean losses from both labels
-    return normalized_loss
+    return weighted_loss
 
 
 """

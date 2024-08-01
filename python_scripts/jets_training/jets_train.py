@@ -163,9 +163,6 @@ elif (
 """
 
 TRAIN_INPUTS = [
-    #'event_number',
-    #'cell_ID',
-    #'track_ID',
     "category",
     'delta_R',
     "track_num",
@@ -536,7 +533,7 @@ def train(experimental_configuration: dict = {}):
         logits = config.OUTPUT_ACTIVATION_FUNCTION == "linear"
         loss_function = getattr(tf.keras.losses, config.LOSS_FUNCTION)(
             from_logits=logits, # NOTE: False for "sigmoid", True for "linear"
-            reduction='none',
+            # reduction='none',
         )
             
         # NOTE: the match/case below may still be useful in case of differential processing depending on the chosen loss function

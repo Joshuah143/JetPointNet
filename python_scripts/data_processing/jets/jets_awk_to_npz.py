@@ -56,7 +56,7 @@ def build_arrays(data_folder, chunk_file_path, npz_data_folder_path):
     np.savez(
         npz_save_path,
         feats=feats,
-        cell_truths=cell_truths
+        #cell_truths=cell_truths
     )
 
 

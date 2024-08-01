@@ -59,11 +59,11 @@ def load_data_from_npz(npz_file):
 
 def generate_images_and_metadata(sets_to_visualize, model, max_events_per_set, max_images_per_set, save_path):
     metadata_list = []
-    SET_UNDER_INVESTIGATION = 'val'
+    SET_UNDER_INVESTIGATION = 'train'
 
     save_path = Path(save_path)
     save_path.mkdir(exist_ok=True, parents=True)
-    TRACK_IMAGE_PATH = save_path / "track_images"
+    TRACK_IMAGE_PATH = save_path / f"track_images_{SET_UNDER_INVESTIGATION}"
     TRACK_IMAGE_PATH.mkdir(exist_ok=True)
     HIST_PATH = save_path / "meta_results"
     HIST_PATH.mkdir(exist_ok=True)
@@ -171,10 +171,10 @@ def generate_images_and_metadata(sets_to_visualize, model, max_events_per_set, m
                 
                 valid_cell_mask = window['category'] == 1
 
-                accuracy = np.count_nonzero(cell_model_attribution_cat[valid_cell_mask] == cell_truth_attribution_cat[valid_cell_mask])
+                accuracy = np.count_nonzero(cell_model_attribution_cat == cell_truth_attribution_cat)
 
-                activated_energy = np.sum(window['cell_E'][valid_cell_mask & model_focal_mask])
-                ideal_activation_energy = np.sum(window['cell_E'][valid_cell_mask & truth_focal_mask])
+                activated_energy = np.sum(window['cell_E'][valid_cell_mask][truth_focal_mask])
+                ideal_activation_energy = np.sum(window['cell_E'][valid_cell_mask][truth_focal_mask])
                 total_truth_track_energy = np.sum(window["truth_cell_total_energy"][valid_cell_mask] * window["truth_cell_focal_fraction_energy"][valid_cell_mask])
                 
                 # average_energy = np.mean(window["cell_E"])
@@ -187,9 +187,9 @@ def generate_images_and_metadata(sets_to_visualize, model, max_events_per_set, m
 
                 track_information = {
                     'set_name': set_name,
-                    'accuracy': accuracy,
+                    'accuracy': accuracy/nCells,
                     'track_ID': window['track_ID'][0],
-                    'total_truth_track_E': np.sum(window["truth_cell_total_energy"][valid_cell_mask] * window["truth_cell_fraction_energy"][valid_cell_mask]),
+                    'total_truth_track_E': np.sum(window["truth_cell_total_energy"][valid_cell_mask] * window["truth_cell_focal_fraction_energy"][valid_cell_mask]),
                     'total_real_E': np.sum(window["cell_E"][valid_cell_mask]),
                     'track_pt': window['track_pt'][0],
                     'total_truth_energy': total_truth_track_energy,
@@ -201,21 +201,18 @@ def generate_images_and_metadata(sets_to_visualize, model, max_events_per_set, m
                     'nmodel_focal': nmodel_focal,
                     'nmodel_non_focal': nmodel_non_focal,
                     'nmodel_neutral': nmodel_neutral,
-                    'rate_truth_activations': np.sum(cell_truth_attribution == 1)/nCells,
                     'n_non_focal_tracks': len(non_focus_tracks),
                     'n_cells': nCells,
-                    'num_correct_predictions': np.sum(cell_truth_attribution == cell_model_attribution),
+                    'num_correct_predictions': accuracy,
                     'dumb_accuracy': max(ntruth_focal, nCells-ntruth_focal)/nCells,
                     'positive_dumb_accuracy': ntruth_focal/nCells,
                     'negative_dumb_accuracy': (nCells-ntruth_focal)/nCells,
-                    'accuracy': np.sum(cell_truth_attribution == cell_model_attribution)/nCells,
                     # see https://en.wikipedia.org/wiki/Confusion_matrix
                     # for the 4 below, manual implementation has a much faster run time
-                    'precision_score': metrics.precision_score(cell_truth_attribution, cell_model_attribution),
-                    'recall_score': metrics.recall_score(cell_truth_attribution, cell_model_attribution),
-                    'f1_score': metrics.f1_score(cell_truth_attribution, cell_model_attribution),
-                    'hamming_loss': metrics.hamming_loss(cell_truth_attribution, cell_model_attribution),
-                    # assorted, less useful stats, could delete?
+                    # 'precision_score': metrics.precision_score(np.argmax(cell_truth_attribution, axis=-1), np.argmax(cell_model_attribution, axis=-1)),
+                    # 'recall_score': metrics.recall_score(np.argmax(cell_truth_attribution, axis=-1), np.argmax(cell_model_attribution, axis=-1)),
+                    # 'f1_score': metrics.f1_score(np.argmax(cell_truth_attribution, axis=-1), np.argmax(cell_model_attribution, axis=-1)),
+                    # 'hamming_loss': metrics.hamming_loss(np.argmax(cell_truth_attribution, axis=-1), np.argmax(cell_model_attribution, axis=-1)),
                 }
 
                 # model performace
@@ -226,8 +223,8 @@ def generate_images_and_metadata(sets_to_visualize, model, max_events_per_set, m
                     images_rendered += 1
                     # convert to plot:
                     fig = plt.figure(figsize=(22, 7))
-                    fig.suptitle(f'{set_name}')
-                    #fig.suptitle(f'Set: {set_name}, Accuracy factor: {np.sum(cell_truth_attribution == cell_model_attribution)/max(positive, negative):.2f}, Event: {window[0]["event_number"]} Track: {window[0]["track_ID"]}, $\sum E={sum(cell_total_energy):.2f}$, nCells={len(cell_x_list)}, pt={window["track_pt"][0]:.2f}, activated_energy: {float(activated_energy):.4f}, ideal_activation_energy: {ideal_activation_energy:.4f}, truth track E: {total_truth_track_energy:.5f}')
+                    #fig.suptitle(f'{set_name}')
+                    fig.suptitle(f'Set: {set_name}, Event: {window[0]["event_number"]} Track: {window[0]["track_ID"]}, $\sum E={sum(cell_total_energy):.2f}$, nCells={len(cell_x_list)}, pt={window["track_pt"][0]:.2f}, Activated Energy: {float(activated_energy):.4f}, Ideal Activation Energy: {ideal_activation_energy:.4f} GeV, Truth Track E: {total_truth_track_energy:.5f} GeV')
 
                     ax1 = fig.add_subplot(131, projection='3d')
                     ax2 = fig.add_subplot(132, projection='3d')
@@ -252,12 +249,13 @@ def generate_images_and_metadata(sets_to_visualize, model, max_events_per_set, m
                     cell_y_array_np = np.array(cell_y_list)
                     cell_z_array_np = np.array(cell_z_list)
                     
-                    ax1.set_title(f'Model Prediction - {nmodel_focal} | {nmodel_non_focal} | {nmodel_neutral}')
+                    ax1.set_title(f'Model Prediction - {nmodel_focal} focal | {nmodel_non_focal} non-focal | {nmodel_neutral} neutral')
                     ax1.scatter(cell_x_array_np[model_focal_mask], cell_y_array_np[model_focal_mask], cell_z_array_np[model_focal_mask], label="Focal Hits", c='green')
                     ax1.scatter(cell_x_array_np[model_non_focal_mask], cell_y_array_np[model_non_focal_mask], cell_z_array_np[model_non_focal_mask], label="Non Focal Hits", c='yellow')
                     ax1.scatter(cell_x_array_np[model_neutral_mask], cell_y_array_np[model_neutral_mask], cell_z_array_np[model_neutral_mask], label="Neutral Hits", c='red')
-                    
-                    ax2.set_title(f'Truth Values - {ntruth_focal} | {ntruth_non_focal} | {ntruth_neutral}')
+
+
+                    ax2.set_title(f'Truth Values - {ntruth_focal} focal | {ntruth_non_focal} non-focal | {ntruth_neutral} neutral')
                     ax2.scatter(cell_x_array_np[truth_focal_mask], cell_y_array_np[truth_focal_mask], cell_z_array_np[truth_focal_mask], label="Focal Hits", c='green')
                     ax2.scatter(cell_x_array_np[truth_non_focal_mask], cell_y_array_np[truth_non_focal_mask], cell_z_array_np[truth_non_focal_mask], label="Non Focal Hits", c='yellow')
                     ax2.scatter(cell_x_array_np[truth_neutral_mask], cell_y_array_np[truth_neutral_mask], cell_z_array_np[truth_neutral_mask], label="Neutral Hits", c='red')
@@ -282,7 +280,11 @@ def generate_images_and_metadata(sets_to_visualize, model, max_events_per_set, m
                     cbar3 = plt.colorbar(sc3, ax=ax3)
                     cbar3.set_label('Total_Label (MeV)')
 
+                    for ax_i in ax_list:
+                        ax_i.legend()
+
                     plt.tight_layout()
+                    plt.legend()
                     print(f"saving: event={window[0]['event_number']:09}_track={window[0]['track_ID']:03}")
                     SET_IMAGE_PATH = TRACK_IMAGE_PATH / set_name
                     SET_IMAGE_PATH.mkdir(exist_ok=True)
