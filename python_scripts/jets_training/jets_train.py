@@ -90,7 +90,7 @@ baseline_configuration = dict(
     TF_SEED=np.random.randint(0, 100),
     MAX_SAMPLE_LENGTH=MAX_SAMPLE_LENGTH,  # 278 for delta R of 0.1, 859 for 0.2
     BATCH_SIZE=(BATCH_SIZE := 700),
-    EPOCHS=150,
+    EPOCHS=250,
     IS_TUNE=False,
     REPLAY=(REPLAY := False),
     REPLAY_LINEAR_DECAY_RATE=0.02, # decrease of data from simple set
@@ -98,15 +98,15 @@ baseline_configuration = dict(
     TRAIN_LR=0.04,
     SAVE_INTERMEDIATES=True,
     SAVE_FREQ=10, # Save intermediate models
-    TUNE_LR=0.01,
-    TRAIN_LR_DECAY=0.998,
+    TUNE_LR=0.001,
+    TRAIN_LR_DECAY=0.99,
     TUNE_LR_DECAY=0.99,
     LR_BETA1=0.98,
     LR_BETA2=0.999,
     ES_PATIENCE=15,
     ACC_ENERGY_WEIGHTING="square",
     LOSS_ENERGY_WEIGHTING="square",
-    LOSS_FUNCTION="CategoricalCrossentropy",
+    LOSS_FUNCTION="CategoricalFocalCrossentropy",
     OUTPUT_ACTIVATION_FUNCTION="sigmoid",  # softmax, linear (requires changes to the BCE fucntion in the loss function)
     OUTPUT_LAYER_SEGMENTATION_CUTOFF=0.5,
     EARLY_STOPPING=False,

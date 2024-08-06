@@ -326,8 +326,8 @@ def process_associated_cell_info(
         cell_part_charges = filtered_cell_truths[cell_idx]["cell_hitsTruthCharges"]
         cell_part_pdgIDs = filtered_cell_truths[cell_idx]["cell_hitsTruthPDGIDs"]
 
-        # NOTE: This should be updated to the actual truth energy so th
-        total_energy = np.sum(cell_part_Es)  # Sum of all particle energy deposits in the cell
+        # NOTE: This should be updated to the actual truth energy
+        total_energy = np.sum(cell_part_Es) 
         tracks_sample.field("Total_Truth_Energy").real(total_energy)
 
         focal_E = 0
@@ -342,10 +342,15 @@ def process_associated_cell_info(
                 non_focal_E += cell_truth_part_E
 
 
-        # the cases involving truth energy of 0 deserve investigaton
-        frac_focal_E = focal_E/total_energy if total_energy != 0 else 0
-        frac_non_focal_E = non_focal_E/total_energy if total_energy != 0 else 0
-        frac_nuetral_energy = nuetral_energy/total_energy if total_energy != 0 else 0
+        # NOTE: the cases involving truth energy less than or equal to 0 merit investigaton
+        if total_energy > 0:
+            frac_focal_E = min(max(focal_E/total_energy, 0), 1)
+            frac_non_focal_E = min(max(non_focal_E/total_energy, 0), 1)
+            frac_nuetral_energy = min(max(nuetral_energy/total_energy, 0), 1)
+        else: 
+            frac_focal_E = 0
+            frac_non_focal_E = 0
+            frac_nuetral_energy = 1 #tracks with no truth cell E are assumed to be nuetral 
 
         tracks_sample.field("Focal_Fraction_Label").real(frac_focal_E)
         tracks_sample.field("Non_Focal_Fraction_Label").real(frac_non_focal_E)
@@ -413,6 +418,7 @@ def process_associated_tracks(
     tracks_sample.begin_list()
 
     # Iterate over all tracks in the event to find adjacent tracks
+    total_pt=0
     for adj_track_idx in range(nTrack):
         if adj_track_idx == track_idx:  # Skip the focal track itself
             continue
@@ -442,6 +448,7 @@ def process_associated_tracks(
                 event["trackTruthParticleIndex"][adj_track_idx]
             )
             tracks_sample.field("trackPt").real(event["trackPt"][adj_track_idx])
+            total_pt+=event["trackPt"][adj_track_idx]
             chi2_dof = event["trackChiSquared"][adj_track_idx] / event["trackNumberDOF"][adj_track_idx]
             tracks_sample.field("trackChiSquared/trackNumberDOF").real(chi2_dof)
             tracks_sample.field("track_layer_intersections")
@@ -469,6 +476,7 @@ def process_associated_tracks(
             tracks_sample.end_record()
 
     tracks_sample.end_list()
+    tracks_sample.field("total_sample_track_pt").real(total_pt)
 
 
 # ============ train/val/test split: this works on eventNumber as index to subset data ================================================================================

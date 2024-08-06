@@ -22,6 +22,10 @@ def add_train_label_record(
         truth_cell_non_focal_fraction_energy: float,
         truth_cell_neutral_fraction_energy: float,
         truth_cell_total_energy: float,
+        x: float,
+        y: float,
+        z: float,
+        distance: float,
         normalized_x: float,
         normalized_y: float,
         normalized_z: float,
@@ -29,14 +33,16 @@ def add_train_label_record(
         track_chi2_dof: float,
         cell_sigma: float,
         cell_E: float = NPZ_PAD_VAL,
+        normalized_cell_E = NPZ_PAD_VAL,
         track_pt: float = NPZ_PAD_VAL,
+        normalized_track_pt: float = NPZ_PAD_VAL,
         cell_ID: int = NPZ_PAD_VAL,
         track_ID: int = NPZ_PAD_VAL,
         track_num: int = NPZ_PAD_VAL,
 ):
     
     category = category if type(category) is int else POINT_TYPE_ENCODING[category]
-    track_points.append(
+    track_points.append( # NOTE: Must match the dtype for the npz array
                     (
                         event_number,
                         cell_ID,
@@ -50,6 +56,10 @@ def add_train_label_record(
                         ## above is for the y values of the 
                         category,
                         track_num, # used to associate non focal track interactions without track ID leakage
+                        x,
+                        y,
+                        z,
+                        distance,
                         normalized_x,
                         normalized_y,
                         normalized_z,
@@ -58,8 +68,11 @@ def add_train_label_record(
                         track_chi2_dof,
                         cell_sigma if category == POINT_TYPE_ENCODING['cell'] else track_chi2_dof, 
                         cell_E,
+                        normalized_cell_E,
                         track_pt,
+                        normalized_track_pt,
                         cell_E if category == POINT_TYPE_ENCODING['cell'] else track_pt, 
+                        normalized_cell_E if category == POINT_TYPE_ENCODING['cell'] else normalized_track_pt, 
                     )
                 )
     
@@ -80,16 +93,16 @@ def add_multitrack_truths(
     cells_list.append(track_effects)
 
 
-def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
+def build_input_array(tracks_sample_array, max_sample_length):
     samples = []
     cell_hits_truths = []
 
     for event in tracks_sample_array:
-        for track in event:
-            if len(track["associated_cells"]) < MIN_TRACK_CELL_HITS:
+        for sample in event:
+            if len(sample["associated_cells"]) < MIN_TRACK_CELL_HITS:
                 continue
 
-            if track['track_part_Idx'] == NPZ_PAD_VAL or NPZ_PAD_VAL in track['associated_tracks']['track_part_Idx']:
+            if sample['track_part_Idx'] == NPZ_PAD_VAL or NPZ_PAD_VAL in sample['associated_tracks']['track_part_Idx']:
                 continue # Skip clusters with 'fake' tracks
 
             track_array = []
@@ -99,14 +112,14 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
             # Gather all track, cell, and associated track points to find min and max values for normalization
             all_points = []
             distances = []
-            for intersection in track["track_layer_intersections"]:
+            for intersection in sample["track_layer_intersections"]:
                 all_points.append(
                     (intersection["X"], intersection["Y"], intersection["Z"])
                 )
-            for cell in track["associated_cells"]:
+            for cell in sample["associated_cells"]:
                 all_points.append((cell["X"], cell["Y"], cell["Z"]))
                 distances.append(cell["distance_to_track"])
-            for associated_track in track["associated_tracks"]:
+            for associated_track in sample["associated_tracks"]:
                 for intersection in associated_track["track_layer_intersections"]:
                     all_points.append(
                         (intersection["X"], intersection["Y"], intersection["Z"])
@@ -121,36 +134,42 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
             range_x, range_y, range_z = abs(max_x - min_x), abs(max_y - min_y), abs(max_z - min_z)
 
             # Normalize and add points
-            for intersection in track["track_layer_intersections"]:
+            for intersection in sample["track_layer_intersections"]:
                 normalized_x = (intersection["X"] - min_x) / range_x
                 normalized_y = (intersection["Y"] - min_y) / range_y
                 normalized_z = (intersection["Z"] - min_z) / range_z
                 add_train_label_record(
                     track_points=track_array,
-                    event_number=track["eventNumber"],
-                    track_ID=track["trackID"],
+                    event_number=sample["eventNumber"],
+                    track_ID=sample["trackID"],
                     category=POINT_TYPE_ENCODING["focus hit"],
-                    delta_R=calculate_delta_r(track["trackEta"], track["trackPhi"], intersection["eta"], intersection["phi"]),
+                    delta_R=calculate_delta_r(sample["trackEta"], sample["trackPhi"], intersection["eta"], intersection["phi"]),
                     truth_cell_focal_fraction_energy=NPZ_PAD_VAL,
                     truth_cell_non_focal_fraction_energy=NPZ_PAD_VAL,
                     truth_cell_neutral_fraction_energy=NPZ_PAD_VAL,
                     truth_cell_total_energy=NPZ_PAD_VAL,
+                    x=intersection["X"],
+                    y=intersection["Y"],
+                    z=intersection["Z"],
+                    distance=0,
                     normalized_x=normalized_x,
                     normalized_y=normalized_y,
                     normalized_z=normalized_z,
                     normalized_distance=0,
-                    track_pt=track["trackPt"],
-                    track_chi2_dof=track["trackChiSquared/trackNumberDOF"],
+                    track_pt=sample["trackPt"],
+                    normalized_track_pt=sample["trackPt"]/sample['total_sample_track_pt'],
+                    track_chi2_dof=sample["trackChiSquared/trackNumberDOF"],
                     cell_sigma=NPZ_PAD_VAL,
                     cell_E=NPZ_PAD_VAL,
+                    normalized_cell_E=NPZ_PAD_VAL,
                     cell_ID=NPZ_PAD_VAL,
                     track_num=0
                 )
                 add_multitrack_truths(cells_list, {}, [], [])
 
 
-            track_partID_to_idx = {track["track_part_Idx"]: 0}
-            for track_idx, associated_track in enumerate(sorted(track["associated_tracks"], key=lambda adj_track: adj_track['trackPt'])):
+            track_partID_to_idx = {sample["track_part_Idx"]: 0}
+            for track_idx, associated_track in enumerate(sorted(sample["associated_tracks"], key=lambda adj_track: adj_track['trackPt'])):
                 track_partID_to_idx[associated_track['track_part_Idx']] = track_idx + 1
                 for intersection in associated_track["track_layer_intersections"]:
                     normalized_x = (intersection["X"] - min_x) / range_x
@@ -161,7 +180,7 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                     )
                     add_train_label_record(
                         track_points=track_array,
-                        event_number=track["eventNumber"],
+                        event_number=sample["eventNumber"],
                         track_ID=associated_track["trackId"],
                         category=POINT_TYPE_ENCODING["unfocus hit"],
                         delta_R=intersection["delta_R_adj"],
@@ -169,6 +188,10 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                         truth_cell_non_focal_fraction_energy=NPZ_PAD_VAL,
                         truth_cell_neutral_fraction_energy=NPZ_PAD_VAL,
                         truth_cell_total_energy=NPZ_PAD_VAL,
+                        x=intersection["X"],
+                        y=intersection["Y"],
+                        z=intersection["Z"],
+                        distance=intersection["distance_to_track"],
                         normalized_x=normalized_x,
                         normalized_y=normalized_y,
                         normalized_z=normalized_z,
@@ -176,7 +199,9 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                         track_chi2_dof=associated_track["trackChiSquared/trackNumberDOF"],
                         cell_sigma=NPZ_PAD_VAL,
                         track_pt=associated_track["trackPt"],
+                        normalized_track_pt=associated_track["trackPt"]/sample['total_sample_track_pt'],
                         cell_E=NPZ_PAD_VAL,
+                        normalized_cell_E=NPZ_PAD_VAL,
                         cell_ID=NPZ_PAD_VAL,
                         track_num=track_idx + 1
                     )
@@ -184,21 +209,25 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
 
 
             # sort by delta R so that if the event gets cut far cells will get cut first
-            for cell in sorted(track["associated_cells"], key=lambda cell: calculate_delta_r(track["trackEta"], track["trackPhi"], cell["eta"], cell["phi"])):
+            for cell in sorted(sample["associated_cells"], key=lambda cell: calculate_delta_r(sample["trackEta"], sample["trackPhi"], cell["eta"], cell["phi"])):
                 normalized_x = (cell["X"] - min_x) / range_x
                 normalized_y = (cell["Y"] - min_y) / range_y
                 normalized_z = (cell["Z"] - min_z) / range_z
                 normalized_distance = cell["distance_to_track"] / max_distance
                 add_train_label_record(
                     track_points=track_array,
-                    event_number=track["eventNumber"],
+                    event_number=sample["eventNumber"],
                     track_ID=NPZ_PAD_VAL,
                     category=POINT_TYPE_ENCODING["cell"],
-                    delta_R=calculate_delta_r(track["trackEta"], track["trackPhi"], cell["eta"], cell["phi"]),
+                    delta_R=calculate_delta_r(sample["trackEta"], sample["trackPhi"], cell["eta"], cell["phi"]),
                     truth_cell_focal_fraction_energy=cell["Focal_Fraction_Label"],
                     truth_cell_non_focal_fraction_energy=cell["Non_Focal_Fraction_Label"],
                     truth_cell_neutral_fraction_energy=cell["Nuetral_Fraction_Label"],
                     truth_cell_total_energy=cell["Total_Truth_Energy"],
+                    x=cell["X"],
+                    y=cell["Y"],
+                    z=cell["Z"],
+                    distance=cell["distance_to_track"],
                     normalized_x=normalized_x,
                     normalized_y=normalized_y,
                     normalized_z=normalized_z,
@@ -206,7 +235,9 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                     track_chi2_dof=NPZ_PAD_VAL,
                     cell_sigma=cell['Cell_Sigma'],
                     track_pt=NPZ_PAD_VAL,
-                    cell_E=cell["E"] * energy_scale,
+                    normalized_track_pt=NPZ_PAD_VAL,
+                    cell_E=cell["E"],
+                    normalized_cell_E=cell["E"]/sample['total_associated_cell_energy'],
                     cell_ID=cell["ID"],
                     track_num=NPZ_PAD_VAL
                 )
@@ -230,6 +261,10 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                         truth_cell_non_focal_fraction_energy=NPZ_PAD_VAL,
                         truth_cell_neutral_fraction_energy=NPZ_PAD_VAL,
                         truth_cell_total_energy=NPZ_PAD_VAL,
+                        x=NPZ_PAD_VAL,
+                        y=NPZ_PAD_VAL,
+                        z=NPZ_PAD_VAL,
+                        distance=NPZ_PAD_VAL,
                         normalized_x=NPZ_PAD_VAL,
                         normalized_y=NPZ_PAD_VAL,
                         normalized_z=NPZ_PAD_VAL,
@@ -237,7 +272,9 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                         track_chi2_dof=NPZ_PAD_VAL,
                         cell_sigma=NPZ_PAD_VAL,
                         track_pt=NPZ_PAD_VAL,
+                        normalized_track_pt=NPZ_PAD_VAL,
                         cell_E=NPZ_PAD_VAL,
+                        normalized_cell_E=NPZ_PAD_VAL,
                         cell_ID=NPZ_PAD_VAL,
                         track_num=NPZ_PAD_VAL
                     )
@@ -257,6 +294,10 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
 
                 ('category', np.int8),
                 ('track_num', np.int32),
+                ('x', np.float32),
+                ('y', np.float32),
+                ('z', np.float32),
+                ('distance', np.float32),
                 ('normalized_x', np.float32),
                 ('normalized_y', np.float32),
                 ('normalized_z', np.float32),
@@ -265,8 +306,11 @@ def build_input_array(tracks_sample_array, max_sample_length, energy_scale=1):
                 ('track_chi2_dof', np.float32),
                 ("track_chi2_dof_cell_sigma", np.float32),
                 ('cell_E', np.float32),
+                ('normalized_cell_E', np.float32),
                 ('track_pt', np.float32),
+                ('normalized_track_pt', np.float32),
                 ('track_pt_cell_E', np.float32),
+                ('normalized_track_pt_cell_E', np.float32),
             ])
             track_array_np = np.array(track_array, dtype=event_array_dtype)
             # Replace NaN values with NPZ_PAD_VAL

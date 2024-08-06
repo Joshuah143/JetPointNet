@@ -40,7 +40,6 @@ USER = Path.home().name
 if USER == "luclissa":
     # ===== FIELDS TO CHANGE =====
     add_tracks_as_labels = False
-    ENERGY_SCALE = 1
     MIN_TRACK_CELL_HITS = 25
     MAX_SAMPLE_LENGTH = 800
     DATA_PATH = Path("/fast_scratch_1/atlas/pflow/jhimmens_working_files")
@@ -75,14 +74,13 @@ if USER == "luclissa":
     TRAIN_ALlOWED_SETS = {'JZ2': 1/3, 'JZ3': 1/3, 'JZ4': 1/3} #NOTE! This is just for the directories, the values is the percent of each batch that should contain data from that set
 elif USER == "jhimmens":
     # ===== FIELDS TO CHANGE =====
-    ENERGY_SCALE = 1
     MIN_TRACK_CELL_HITS = 25
     MAX_SAMPLE_LENGTH = 800
     MAX_TRACK_ASSOCIATIONS = 26
     DATA_PATH = Path("/fast_scratch_1/atlas/pflow/jhimmens_working_files")
 
     # ===== ROOT TO AWK =====
-    AWK_OUTPUT_DIRECTORY_NAME = "rev_7"
+    AWK_OUTPUT_DIRECTORY_NAME = "rev_8_norm_update"
     AWK_DATASET_NAME = "collected_data"
     OVERWRITE_AWK = False
     GEO_FILE_LOC = "/fast_scratch_1/atlas/pflow/rho_small.root"
@@ -90,8 +88,8 @@ elif USER == "jhimmens":
     # TEST_SPLIT_RATIO is implied to be the remaining percentage
     TRAIN_SPLIT_RATIO = 0.55
     VAL_SPLIT_RATIO = 0.3
-    AWK_THREADS_PER_CHUNK = 200  # root to awk
-    ROOT_FILES_DIR = "/fast_scratch_1/atlas/pflow/20240614/" 
+    AWK_THREADS_PER_CHUNK = 96  # root to awk
+    ROOT_FILES_DIR = "/fast_scratch_1/atlas/pflow/20240626/user.mswiatlo.mc21_13p6TeV.900148.singlerho.recon.ESD.e8537_e8455_s3986_s3874_r14060_2024.06.26.v1_mltree.root" 
 
     # rho+delta: /fast_scratch_1/atlas/pflow/20240626/
     # dijet: /fast_scratch_1/atlas/pflow/20240614/
@@ -113,11 +111,11 @@ elif USER == "jhimmens":
     SAMPLE_LENGTH_WORKERS = 96
 
     # ===== AWK TO NPZ =====
-    NPZ_OUTPUT_DIRECTORY_NAME = "rev_7"
+    NPZ_OUTPUT_DIRECTORY_NAME = "rev_8_norm_update"
     NPZ_DATASET_NAME = "collected_data"
     OVERWRITE_NPZ = False
     NPZ_NUM_CHUNK_THREADS = 70  # awk to npz
-    NPZ_ALlOWED_SETS = ['rho', 'delta', "JZ0", "JZ1", "JZ2", "JZ3", "JZ4", "JZ5"]
+    NPZ_ALlOWED_SETS = ['rho']
 
     # ===== TRAINING =====
     TRAIN_OUTPUT_DIRECTORY_NAME = "rev_7"
@@ -193,7 +191,7 @@ def NPZ_SAVE_LOC(working_file: str):
             / NPZ_DATASET_NAME
             / NPZ_OUTPUT_DIRECTORY_NAME
             / "SavedNpz"
-            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}_MaxTrackAtributions={MAX_TRACK_ASSOCIATIONS}_EScale={ENERGY_SCALE}"
+            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}_MaxTrackAtributions={MAX_TRACK_ASSOCIATIONS}"
         )
     elif working_file == TRAIN:
         return (
@@ -202,7 +200,7 @@ def NPZ_SAVE_LOC(working_file: str):
             / TRAIN_DATASET_NAME
             / TRAIN_OUTPUT_DIRECTORY_NAME
             / "SavedNpz"
-            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}_MaxTrackAtributions={MAX_TRACK_ASSOCIATIONS}_EScale={ENERGY_SCALE}"
+            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}_MaxTrackAtributions={MAX_TRACK_ASSOCIATIONS}"
             #/ f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}_EScale={ENERGY_SCALE}"
         )
     else:

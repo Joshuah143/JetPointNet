@@ -45,7 +45,7 @@ def build_arrays(data_folder, chunk_file_path, npz_data_folder_path):
 
     # NOTE: energy_scale affects only cells energy; set to 1 to maintain same scale for track hits and cells
     feats, cell_truths = build_input_array(
-        ak_array, global_max_sample_length, energy_scale=ENERGY_SCALE
+        ak_array, global_max_sample_length
     )
 
     os.makedirs(os.path.join(npz_data_folder_path, data_set_name), exist_ok=True)
