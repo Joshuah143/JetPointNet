@@ -223,8 +223,8 @@ def single_set_data_generator(data_dir, set_name, batch_size: int, **kwargs):
                     feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
                     yield batch_feats, batch_targets, batch_e_weights
 
-def consistant_data_generator(data_dir, data_sets: dict, batch_size: int, **kwargs):
 
+def consistant_data_generator(data_dir, data_sets: dict, batch_size: int, **kwargs):
     # Setup the genorators
     genorator_dict = {set_name: single_set_data_generator(data_dir, set_name, int(batch_size*inclusion_ratio)) for set_name, inclusion_ratio in data_sets.items()}
     while True:
@@ -238,31 +238,30 @@ def consistant_data_generator(data_dir, data_sets: dict, batch_size: int, **kwar
         yield _format_batch(feats_buffer, targets_buffer, e_weights_buffer)
 
 
-def progressive_data_generator(data_dir, simple_sets: list, complex_sets: list, batch_size: int, epoch: int, linear_decay: int, memory:int,  **kwargs):
-    raise NotImplementedError("THIS FUNCTION MUST BE UPDATED TO USE THE CONISTANT GENERATOR BEFORE USE")
-    percent_simple_data = max(1-epoch*linear_decay, memory)
+def progressive_data_generator(data_dir, simple_sets: list, complex_sets: list, batch_size: int, epoch: int, linear_decay: int, memory: int, **kwargs):
+    # Calculate the percentage of simple data to use
+    percent_simple_data = max(1 - epoch * linear_decay, memory)
     
+    # Setup the data generators for simple and complex datasets
+    simple_genorator = consistant_data_generator(data_dir, {set_name: percent_simple_data / len(simple_sets) for set_name in simple_sets}, int(batch_size * percent_simple_data), **kwargs)
+    complex_genorator = consistant_data_generator(data_dir, {set_name: (1 - percent_simple_data) / len(complex_sets) for set_name in complex_sets}, int(batch_size * (1 - percent_simple_data)), **kwargs)
 
     while True:
-        for (simple_feats, simple_targets, simple_e_weights), (complex_feats, complex_targets, complex_e_weights) in zip(
-                                            data_generator(data_dir,
-                                                           simple_sets, 
-                                                           int(batch_size*percent_simple_data),
-                                                           **kwargs), 
-                                            data_generator(data_dir, 
-                                                           complex_sets, 
-                                                           int(batch_size*(1-percent_simple_data)), 
-                                                           **kwargs)):
-            if simple_feats.size == 0:
-                total_feats, total_targets, total_e_weights = complex_feats, complex_targets, complex_e_weights
-            elif complex_feats.size == 0:
-                total_feats, total_targets, total_e_weights = simple_feats, simple_targets, simple_e_weights
-            else:
-                total_feats = np.concatenate([simple_feats, complex_feats], axis=0)
-                total_targets = np.concatenate([simple_targets, complex_targets], axis=0)
-                total_e_weights = np.concatenate([simple_e_weights, complex_e_weights], axis=0)
-            
-            yield total_feats, total_targets, total_e_weights
+        # Fetch the next batch from both generators
+        simple_feats, simple_targets, simple_e_weights = next(simple_genorator)
+        complex_feats, complex_targets, complex_e_weights = next(complex_genorator)
+
+        if simple_feats.size == 0:
+            total_feats, total_targets, total_e_weights = complex_feats, complex_targets, complex_e_weights
+        elif complex_feats.size == 0:
+            total_feats, total_targets, total_e_weights = simple_feats, simple_targets, simple_e_weights
+        else:
+            # Combine the features, targets, and weights from both generators
+            total_feats = np.concatenate([simple_feats, complex_feats], axis=0)
+            total_targets = np.concatenate([simple_targets, complex_targets], axis=0)
+            total_e_weights = np.concatenate([simple_e_weights, complex_e_weights], axis=0)
+
+        yield total_feats, total_targets, total_e_weights
 
 
 def calculate_steps(data_dir, batch_size):
@@ -317,29 +316,6 @@ def _setup_model(
     print("Non-trainable params: {:,}".format(non_trainable_count))
     return model, trainable_count
 
-
-# if USE_WANDB:
-#     wandb.init(
-#         project="pointcloud",
-#         config={
-#             "dataset": EXPERIMENT_NAME,
-#             "split_seed": SPLIT_SEED,
-#             "tf_seed": seed,
-#             "delta_R": MAX_DISTANCE,
-#             "energy_scale": ENERGY_SCALE,
-#             "n_points_per_batch": MAX_SAMPLE_LENGTH,
-#             "batch_size": BATCH_SIZE,
-#             "n_epochs": EPOCHS,
-#             "learning_rate": LR,
-#             "early_stopping_patience": ES_PATIENCE,
-#             "output_activation": "softmax",
-#             "detlaR": MAX_DISTANCE,
-#             "min_hits_per_track": 25,
-#         },
-#         job_type="training",
-#         tags=["baseline"],
-#         notes="This run reproduces Marko's setting. Consider this as the starting jet ML baseline.",
-#     )
 
 def merge_configurations(priority_config, baseline_config):
     for hyperparam, value in priority_config.items():
