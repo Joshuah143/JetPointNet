@@ -10,7 +10,6 @@ TODO: Negative cell energy and its effects on `frac_label` deserve further explo
 
 # Todo: (Joshua)
 
-
 - Switch to the right Wandb project
 - Use Wandb like you are meant to 
 - Investigate Negative Energies
@@ -75,3 +74,20 @@ scp -r /home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/attempt_1_
  
 ### using rsync
 rsync -avz --delete /home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/attempt_1_june_18/full_set/SavedNpz jhimmens@lxplus.cern.ch:/eos/user/j/jhimmens/jetpointnet/data/attempt_1_june_18/full_set/
+
+rsync -avzP /home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/progressive_training/rho_delta m1:/data/atlas/pflow_npz_train/rho_delta/
+
+Last run for rev 2 to lxp:
+rsync -avzP /fast_scratch_1/atlas/pflow/jhimmens_working_files/pnet_data/processed_files/collected_data/rev_2/SavedNpz jhimmens@lxplus.cern.ch:/eos/user/j/jhimmens/jetpointnet/data/rev_2
+
+val: 
+rsync -avzP /fast_scratch_1/atlas/pflow/jhimmens_working_files/pnet_data/processed_files/collected_data/rev_4/ jhimmens@lxplus.cern.ch:/eos/user/j/jhimmens/jetpointnet/data/rev_4
+
+# getting file size
+du -sh /fast_scratch_1/atlas/pflow/jhimmens_working_files/pnet_data/processed_files/collected_data/rev_2
+
+
+
+rsync -avzP /fast_scratch_1/atlas/pflow/jhimmens_working_files/pnet_data/processed_files/collected_data/rev_4/SavedNpz/ jhimmens@lxplus.cern.ch:/eos/user/j/jhimmens/jetpointnet/data/rev_4/SavedNpz
+
+rsync -avzP /fast_scratch_1/atlas/pflow/jhimmens_working_files/pnet_data/processed_files/collected_data/rev_4/SavedNpz/ m1:/data/jhimmens/pnet_data/processed_files/collected_data/rev_4/SavedNpz

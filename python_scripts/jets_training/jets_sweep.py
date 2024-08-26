@@ -26,16 +26,19 @@ WANDB_PROJECT = "pointcloud"
 # 2: Define the search space
 sweep_configuration = {
     "program": "python_scripts/jets_training/jets_train.py",
-    "method": "bayes",
+    "method": "grid", #"bayes",
     "metric": {"goal": "maximize", "name": "val/f1_score"},
     "parameters": {
-        "LR": {"distribution": "uniform", "min": 0.001, "max": 0.2},
-        "BATCH_SIZE": {
-            # "distribution": "q_log_uniform_values",
-            # "min": 32,
-            # "max": 512,
-            "values": [256, 512, 1024]
-        },
+        "MODEL_VERSION": {"values": [1, 2, 3, 0]},
+        "INPUT_SETS": {"values": [{'JZ2': 1/3, 
+                                   'JZ3': 1/3, 
+                                   'JZ4': 1/3},
+                                  {'JZ0': 1/3, 
+                                   'JZ1': 1/3, 
+                                   'JZ2': 1/3},
+                                  {'delta': 1/2, 
+                                   'rho': 1/2}]}
+        # "TRAIN_LR": {"distribution": "uniform", "min": 0.001, "max": 0.4},
         # "LOSS_FUNCTION": {"values": ["BinaryCrossentropy", "BinaryFocalCrossentropy"]},
         # "LOSS_ENERGY_WEIGHTING": {
         #     "values": [
@@ -47,11 +50,7 @@ sweep_configuration = {
         #         "none",
         #     ]
         # },
-        # "LR_MAX": {"max": 0.2, "min": 0.001},
-        # "LR_MIN": {"max": 0.01, "min": 0.00001},
-        # "LR_RAMP_EP": {"max": 10, "min": 1},
-        # "LR_SUS_EP": {"max": 10, "min": 0},
-        # "LR_DECAY": {"max": 1.0, "min": 0.01},
+        # "TRAIN_LR_DECAY": {"max": 1.0, "min": 0.01},
     },
 }
 

@@ -27,19 +27,21 @@ import tensorflow.keras.backend as K
 from jets_training.models.JetPointNet import (
     PointNetSegmentation,
     masked_weighted_loss,
-    masked_regular_accuracy,
     masked_weighted_accuracy,
     set_global_determinism,
     TF_SEED,
-    CustomLRScheduler,
 )
 from data_processing.jets.preprocessing_header import (
     MAX_DISTANCE,
     NPZ_SAVE_LOC,
-    ENERGY_SCALE,
     MAX_SAMPLE_LENGTH,
     TRAIN,
+    TRAIN_OUTPUT_DIRECTORY_NAME,
+    TRAIN_DATASET_NAME,
+    TRAIN_ALlOWED_SETS,
+    TRAIN
 )
+
 
 # tf.config.run_functions_eagerly(True) - Useful when using the debugger - dont delete, but should not be used in production
 
@@ -47,58 +49,73 @@ from data_processing.jets.preprocessing_header import (
 USER = Path.home().name
 print(f"Logged in as {USER}")
 if USER == "jhimmens":
-    OUTPUT_DIRECTORY_NAME = "2000_events_w_fixed_hits"
-    DATASET_NAME = "large_R"
-    GPU_ID = "1"
+    GPU_ID = "5"
     ASSIGN_GPU = True
 elif USER == "luclissa":
-    OUTPUT_DIRECTORY_NAME = "ttbar"
-    DATASET_NAME = "benchmark"
     GPU_ID = "0"
     ASSIGN_GPU = False
     os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 else:
     raise Exception("UNKOWN USER")
 
-if ASSIGN_GPU:
-    os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+if ASSIGN_GPU and __name__ == "__main__":
+    os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID
 
-EXPERIMENT_NAME = f"{OUTPUT_DIRECTORY_NAME}/{DATASET_NAME}"
+EXPERIMENT_NAME = f"{TRAIN_OUTPUT_DIRECTORY_NAME}/{TRAIN_DATASET_NAME}"
 RESULTS_PATH = REPO_PATH / "result" / EXPERIMENT_NAME
 RESULTS_PATH.mkdir(exist_ok=True, parents=True)
 MODELS_PATH = REPO_PATH / "models" / EXPERIMENT_NAME
 MODELS_PATH.mkdir(exist_ok=True, parents=True)
 
-TRAIN_DIR = NPZ_SAVE_LOC(TRAIN) / "train"
-VAL_DIR = NPZ_SAVE_LOC(TRAIN) / "val"
+#REPLAY_SIMPLE_DS = Path("/home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/progressive_training/delta/SavedNpz/deltaR=0.2_maxLen=650/energy_scale=1")
+#REPLAY_SIMPLE_DS_NAME = 'delta'
+
+#REPLAY_COMPLEX_DS = Path("/home/jhimmens/workspace/jetpointnet/pnet_data/processed_files/attempt_1_june_18/full_set/SavedNpz/deltaR=0.2_maxLen=650/energy_scale=1")
+#REPLAY_COMPLEX_DS_NAME = 'dijet'
+
+replay_model_path = Path("/home/jhimmens/workspace/jetpointnet/models/delta/progressive_training/PointNet_best_name=autumn-pyramid-836.keras")
+tune_model_path = Path("/home/jhimmens/workspace/jetpointnet/models/rho/progressive_training/PointNet_best_name=dark-music-823.keras")
+
+SIMPLE_SETS = []
+COMPLEX_SETS = []
 
 baseline_configuration = dict(
     SPLIT_SEED=62,
+    MODEL_VERSION=1,
+    INPUT_SETS=TRAIN_ALlOWED_SETS,
+    EPOCH_COMPLEXITY=(EPOCH_COMPLEXITY := 1024*200),
     TF_SEED=np.random.randint(0, 100),
     MAX_SAMPLE_LENGTH=MAX_SAMPLE_LENGTH,  # 278 for delta R of 0.1, 859 for 0.2
-    BATCH_SIZE=1000,
-    EPOCHS=150,
-    LR=0.1,
-    LR_DECAY=0.95,
+    BATCH_SIZE=(BATCH_SIZE := 700),
+    EPOCHS=1000,
+    IS_TUNE=False,
+    REPLAY=(REPLAY := False),
+    REPLAY_LINEAR_DECAY_RATE=0.02, # decrease of data from simple set
+    REPLAY_MIN_FREQ=0.10, # steady state of simple set
+    TRAIN_LR=0.04,
+    SAVE_INTERMEDIATES=True,
+    SAVE_FREQ=10, # Save intermediate models
+    TUNE_LR=0.001,
+    TRAIN_LR_DECAY=0.99,
+    TUNE_LR_DECAY=0.99,
     LR_BETA1=0.98,
     LR_BETA2=0.999,
     ES_PATIENCE=15,
     ACC_ENERGY_WEIGHTING="square",
     LOSS_ENERGY_WEIGHTING="square",
-    LOSS_FUNCTION="BinaryCrossentropy",
-    OUTPUT_ACTIVATION_FUNCTION="sigmoid",  # softmax, linear (requires changes to the BCE fucntion in the loss function)
-    FRACTIONAL_ENERGY_CUTOFF=0.5,
+    LOSS_FUNCTION="CategoricalFocalCrossentropy",
+    OUTPUT_ACTIVATION_FUNCTION="softmax",  # softmax, linear (requires changes to the BCE fucntion in the loss function)
     OUTPUT_LAYER_SEGMENTATION_CUTOFF=0.5,
     EARLY_STOPPING=False,
-    TRAIN_STEPS=500,
-    VAL_STEPS=500,
+    TRAIN_STEPS=EPOCH_COMPLEXITY//BATCH_SIZE,
+    VAL_STEPS=EPOCH_COMPLEXITY//BATCH_SIZE,
     # POTENTIALLY OVERWRITTEN BY THE WANDB SWEEP:
     # LR_MAX=0.000015,
     # LR_MIN=1e-5,
     # LR_RAMP_EP=2,
     # LR_SUS_EP=10,
     # LR_DECAY=0.7,
-    METRIC="val/f1_score",
+    METRIC="val/f1_score_focal",
     MODE="max",
 )
 
@@ -117,28 +134,30 @@ elif (
 # last_checkpoint_path = f"{MODELS_PATH}/PointNet_last_{epoch=}.keras"
 
 TRAIN_INPUTS = [
-    #'event_number',
-    #'cell_ID',
-    #'track_ID',
-    'delta_R',
     "category",
-    "chi2_dof",
+    'delta_R',
     "track_num",
     "normalized_x",
     "normalized_y",
     "normalized_z",
+    'track_chi2_dof',
+    'cell_sigma',
     "normalized_distance",
     "cell_E",
     "track_pt",
 ]
 
+TRAIN_TARGETS = [
+    'truth_cell_focal_fraction_energy',
+    'truth_cell_non_focal_fraction_energy',
+    'truth_cell_neutral_fraction_energy',
+]
+
 
 def load_data_from_npz(npz_file):
     all_feats = np.load(npz_file)["feats"]
-    feats = all_feats[:, :MAX_SAMPLE_LENGTH][
-        TRAIN_INPUTS
-    ]  # discard tracking information
-    frac_labels = all_feats[:, :MAX_SAMPLE_LENGTH]["truth_cell_fraction_energy"]
+    feats = all_feats[:, :MAX_SAMPLE_LENGTH][TRAIN_INPUTS]  # discard tracking information
+    frac_labels = all_feats[:, :MAX_SAMPLE_LENGTH][TRAIN_TARGETS]
     energy_weights = all_feats[:, :MAX_SAMPLE_LENGTH]["cell_E"]
     return feats, frac_labels, energy_weights
 
@@ -155,38 +174,41 @@ def _format_batch(feats_buffer, targets_buffer, e_weights_buffer):
     return batch_feats, batch_targets, batch_e_weights
 
 
-def data_generator(data_dir, batch_size, drop_last=True, **kwargs):
-
+def single_set_data_generator(data_dir, set_name, batch_size: int, **kwargs):
     if kwargs.get("seed", 0):
         np.random.seed(kwargs["seed"])
 
     # get filenames and initialize buffers
-    npz_files = glob.glob(os.path.join(data_dir, "*.npz"))
+    npz_files = glob.glob(os.path.join(data_dir, set_name, "*.npz"))
     feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
+    if len(npz_files) == 0:
+        raise Exception(f"No npz files found for {set_name} in {data_dir}")
 
     while True:
         np.random.shuffle(npz_files)
         for npz_file in npz_files:
 
             # Read data chunk and initialize counters
-            feats, frac_labels, e_weights = load_data_from_npz(npz_file)
+            feats, targets, e_weights = load_data_from_npz(npz_file)
             file_size = feats.shape[0]
             # initially all data are still not used: can fill full file in batch starting at index 0
             unprocessed_size = file_size
             last_batch_idx = 0
+            fill_size = batch_size - len(feats_buffer)
 
             # loop through chunk until all points are processed
-            while unprocessed_size > 0:
+            while last_batch_idx < file_size: 
 
                 # get N of elements remaining to reach to batch_size
                 fill_size = batch_size - len(feats_buffer)
                 # get fill_size elements starting from last_batch_idx
-                feats_buffer.extend(feats[last_batch_idx : last_batch_idx + fill_size])
+                last_index = min(last_batch_idx + fill_size, file_size)
+                feats_buffer.extend(feats[last_batch_idx : last_index])
                 targets_buffer.extend(
-                    frac_labels[last_batch_idx : last_batch_idx + fill_size]
+                    targets[last_batch_idx : last_index]
                 )
                 e_weights_buffer.extend(
-                    e_weights[last_batch_idx : last_batch_idx + fill_size]
+                    e_weights[last_batch_idx : last_index]
                 )
 
                 # update unprocessed points and last index
@@ -195,19 +217,51 @@ def data_generator(data_dir, batch_size, drop_last=True, **kwargs):
 
                 # check if batch is full, in case yield + reset buffers
                 if len(feats_buffer) == batch_size:
-                    batch_feats, batch_targets, batch_e_weights = _format_batch(
+                    batch_feats, batch_targets, batch_e_weights = (
                         feats_buffer, targets_buffer, e_weights_buffer
                     )
                     feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
                     yield batch_feats, batch_targets, batch_e_weights
 
-        # handle last batch of last chunk
-        if drop_last == False:
-            batch_feats, batch_targets, batch_e_weights = _format_batch(
-                feats_buffer, targets_buffer, e_weights_buffer
-            )
-            feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
-            yield batch_feats, batch_targets, batch_e_weights
+
+def consistant_data_generator(data_dir, data_sets: dict, batch_size: int, **kwargs):
+    # Setup the genorators
+    genorator_dict = {set_name: single_set_data_generator(data_dir, set_name, int(batch_size*inclusion_ratio)) for set_name, inclusion_ratio in data_sets.items()}
+    while True:
+        feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
+        for generator in genorator_dict.values():
+            feats_inner_buffer, targets_inner_buffer, e_weights_inner_buffer = next(generator)
+            feats_buffer.extend(feats_inner_buffer)
+            targets_buffer.extend(targets_inner_buffer)
+            e_weights_buffer.extend(e_weights_inner_buffer)
+        
+        yield _format_batch(feats_buffer, targets_buffer, e_weights_buffer)
+
+
+def progressive_data_generator(data_dir, simple_sets: list, complex_sets: list, batch_size: int, epoch: int, linear_decay: int, memory: int, **kwargs):
+    # Calculate the percentage of simple data to use
+    percent_simple_data = max(1 - epoch * linear_decay, memory)
+    
+    # Setup the data generators for simple and complex datasets
+    simple_genorator = consistant_data_generator(data_dir, {set_name: percent_simple_data / len(simple_sets) for set_name in simple_sets}, int(batch_size * percent_simple_data), **kwargs)
+    complex_genorator = consistant_data_generator(data_dir, {set_name: (1 - percent_simple_data) / len(complex_sets) for set_name in complex_sets}, int(batch_size * (1 - percent_simple_data)), **kwargs)
+
+    while True:
+        # Fetch the next batch from both generators
+        simple_feats, simple_targets, simple_e_weights = next(simple_genorator)
+        complex_feats, complex_targets, complex_e_weights = next(complex_genorator)
+
+        if simple_feats.size == 0:
+            total_feats, total_targets, total_e_weights = complex_feats, complex_targets, complex_e_weights
+        elif complex_feats.size == 0:
+            total_feats, total_targets, total_e_weights = simple_feats, simple_targets, simple_e_weights
+        else:
+            # Combine the features, targets, and weights from both generators
+            total_feats = np.concatenate([simple_feats, complex_feats], axis=0)
+            total_targets = np.concatenate([simple_targets, complex_targets], axis=0)
+            total_e_weights = np.concatenate([simple_e_weights, complex_e_weights], axis=0)
+
+        yield total_feats, total_targets, total_e_weights
 
 
 def calculate_steps(data_dir, batch_size):
@@ -220,14 +274,37 @@ def calculate_steps(data_dir, batch_size):
 
 
 def _setup_model(
-    num_points: int, num_features: int, output_activation: str, num_classes: int = 1
+    num_points: int, 
+    num_features: int, 
+    output_activation: str, 
+    model_version: int,
+    num_classes: int = 1, 
+    fine_tune: bool = False,
+    replay: bool = False
 ):
     model = PointNetSegmentation(
         num_points=num_points,
         num_features=num_features,
         num_classes=num_classes,
         output_activation_function=output_activation,
+        model_version=model_version
     )
+
+    if fine_tune and replay:
+        raise Exception('CANNOT FINE TUNE AND REPLAY SIMULTANEOUSLY')
+
+    if fine_tune:
+        model.load_weights(tune_model_path)
+
+        model.trainable = True
+
+       # print(model.summary()) - we are ok to set roughly last 12 as trainable in a tune situation
+
+        for layer in model.layers[:-4]:
+            layer.trainable = False
+
+    if replay:
+         model.load_weights(replay_model_path)
 
     trainable_count = np.sum([K.count_params(w) for w in model.trainable_weights])
     non_trainable_count = np.sum(
@@ -237,31 +314,8 @@ def _setup_model(
     print("Total params: {:,}".format(trainable_count + non_trainable_count))
     print("Trainable params: {:,}".format(trainable_count))
     print("Non-trainable params: {:,}".format(non_trainable_count))
-    return model
+    return model, trainable_count
 
-
-# if USE_WANDB:
-#     wandb.init(
-#         project="pointcloud",
-#         config={
-#             "dataset": EXPERIMENT_NAME,
-#             "split_seed": SPLIT_SEED,
-#             "tf_seed": seed,
-#             "delta_R": MAX_DISTANCE,
-#             "energy_scale": ENERGY_SCALE,
-#             "n_points_per_batch": MAX_SAMPLE_LENGTH,
-#             "batch_size": BATCH_SIZE,
-#             "n_epochs": EPOCHS,
-#             "learning_rate": LR,
-#             "early_stopping_patience": ES_PATIENCE,
-#             "output_activation": "softmax",
-#             "detlaR": MAX_DISTANCE,
-#             "min_hits_per_track": 25,
-#         },
-#         job_type="training",
-#         tags=["baseline"],
-#         notes="This run reproduces Marko's setting. Consider this as the starting jet ML baseline.",
-#     )
 
 def merge_configurations(priority_config, baseline_config):
     for hyperparam, value in priority_config.items():
@@ -275,7 +329,15 @@ def merge_configurations(priority_config, baseline_config):
 def train(experimental_configuration: dict = {}):
     run_config = merge_configurations(experimental_configuration, baseline_configuration)
     with wandb.init(
-        project="pointcloud", config=run_config, job_type="training"
+        project="pointcloud", 
+        config=run_config, 
+        job_type="training", 
+        tags=[TRAIN_OUTPUT_DIRECTORY_NAME, 
+              TRAIN_DATASET_NAME, 
+              str(TRAIN_ALlOWED_SETS.keys())] if not REPLAY else [TRAIN_OUTPUT_DIRECTORY_NAME, 
+                                                      TRAIN_DATASET_NAME, 
+                                                      f"from={SIMPLE_SETS}", f"to={COMPLEX_SETS}"],
+        notes=""
     ) as run:
         config = wandb.config
 
@@ -290,7 +352,7 @@ def train(experimental_configuration: dict = {}):
 
         # training and validation steps
         @tf.function
-        def train_step(x, y, energy_weights, model, optimizer, loss_function):
+        def train_step(x, y, energy_weights, model, loss_function, x_class):
             with tf.GradientTape() as tape:
                 predictions = model(x, training=True)
                 loss = masked_weighted_loss(
@@ -298,60 +360,55 @@ def train(experimental_configuration: dict = {}):
                     y_pred=predictions,
                     energies=energy_weights,
                     loss_function=loss_function,
+                    x_class=x_class,
                     transform=config.LOSS_ENERGY_WEIGHTING,
-                    fractional_energy_cutoff=config.FRACTIONAL_ENERGY_CUTOFF,
                 )
-                reg_acc = masked_regular_accuracy(
-                    y_true=y,
-                    y_pred=predictions,
-                    output_layer_segmentation_cutoff=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF,
-                    fractional_energy_cutoff=config.FRACTIONAL_ENERGY_CUTOFF,
-                )
-                weighted_acc = masked_weighted_accuracy(
+                reg_acc, weighted_acc = masked_weighted_accuracy(
                     y_true=y,
                     y_pred=predictions,
                     energies=energy_weights,
+                    x_class=x_class,
+                    weighted_accuracy_metric=weighted_accuracy_metric,
+                    unweighted_accuracy_metric=unweighted_accuracy_metric,
                     transform=config.ACC_ENERGY_WEIGHTING,
-                    output_layer_segmentation_cutoff=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF,
-                    fractional_energy_cutoff=config.FRACTIONAL_ENERGY_CUTOFF,
                 )
             grads = tape.gradient(loss, model.trainable_variables)
             return loss, reg_acc, weighted_acc, grads
 
         @tf.function
-        def val_step(x, y, energy_weights, model, loss_function):
+        def val_step(x, y, energy_weights, model, loss_function, x_class):
             predictions = model(x, training=False)
             v_loss = masked_weighted_loss(
                 y_true=y,
                 y_pred=predictions,
                 energies=energy_weights,
                 transform=config.LOSS_ENERGY_WEIGHTING,
+                x_class=x_class,
                 loss_function=loss_function,
-                fractional_energy_cutoff=config.FRACTIONAL_ENERGY_CUTOFF,
             )
-            reg_acc = masked_regular_accuracy(
-                y_true=y,
-                y_pred=predictions,
-                output_layer_segmentation_cutoff=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF,
-                fractional_energy_cutoff=config.FRACTIONAL_ENERGY_CUTOFF,
-            )
-            weighted_acc = masked_weighted_accuracy(
+            reg_acc, weighted_acc = masked_weighted_accuracy(
                 y_true=y,
                 y_pred=predictions,
                 energies=energy_weights,
+                x_class=x_class,
+                weighted_accuracy_metric=weighted_accuracy_metric,
+                unweighted_accuracy_metric=unweighted_accuracy_metric,
                 transform=config.ACC_ENERGY_WEIGHTING,
-                output_layer_segmentation_cutoff=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF,
-                fractional_energy_cutoff=config.FRACTIONAL_ENERGY_CUTOFF,
             )
             return v_loss, reg_acc, weighted_acc, predictions
 
         # model, trackers and callbacks and setup
-        model = _setup_model(
+        model, trainable_params = _setup_model(
             num_points=config.MAX_SAMPLE_LENGTH,
             num_features=len(TRAIN_INPUTS),
-            num_classes=1,
+            num_classes=len(TRAIN_TARGETS),
             output_activation=config.OUTPUT_ACTIVATION_FUNCTION,
+            fine_tune=config.IS_TUNE,
+            replay=config.REPLAY,
+            model_version=config.MODEL_VERSION
         )
+
+        wandb.log({"trainable_params": trainable_params})
 
         train_loss_tracker = tf.metrics.Mean(name="train_loss")
         train_reg_acc = tf.metrics.Mean(name="train_regular_accuracy")
@@ -360,13 +417,11 @@ def train(experimental_configuration: dict = {}):
         val_loss_tracker = tf.metrics.Mean(name="val_loss")
         val_reg_acc = tf.metrics.Mean(name="val_regular_accuracy")
         val_weighted_acc = tf.metrics.Mean(name="val_weighted_accuracy")
-        recall_metric = tf.keras.metrics.Recall(
-            thresholds=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF
+        mean_iou_metric = tf.keras.metrics.OneHotMeanIoU(len(TRAIN_TARGETS))
+        val_weighted_f1_score = tf.keras.metrics.F1Score(
+            threshold=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF
         )
-        precision_metric = tf.keras.metrics.Precision(
-            thresholds=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF
-        )
-        val_f1_score = tf.keras.metrics.F1Score(
+        val_unweighted_f1_score = tf.keras.metrics.F1Score(
             threshold=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF
         )
 
@@ -404,9 +459,9 @@ def train(experimental_configuration: dict = {}):
         #     verbose=1,
         # )
         lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-            initial_learning_rate=config.LR,
+            initial_learning_rate=config.TRAIN_LR if not config.IS_TUNE else config.TUNE_LR,
             decay_steps=train_steps,
-            decay_rate=config.LR_DECAY,
+            decay_rate=config.TRAIN_LR_DECAY if not config.IS_TUNE else config.TUNE_LR_DECAY,
         )
 
         # Optimizer & Loss
@@ -421,8 +476,12 @@ def train(experimental_configuration: dict = {}):
         # Will raise AttributeError if the loss function is not found
         logits = config.OUTPUT_ACTIVATION_FUNCTION == "linear"
         loss_function = getattr(tf.keras.losses, config.LOSS_FUNCTION)(
-            from_logits=logits # NOTE: False for "sigmoid", True for "linear"
+            from_logits=logits, # NOTE: False for "sigmoid", True for "linear"
+            # reduction='none',
         )
+
+        weighted_accuracy_metric = tf.keras.metrics.CategoricalAccuracy()
+        unweighted_accuracy_metric = tf.keras.metrics.CategoricalAccuracy()
             
         # NOTE: the match/case below may still be useful in case of differential processing depending on the chosen loss function
         # match config.LOSS_FUNCTION:
@@ -452,12 +511,13 @@ def train(experimental_configuration: dict = {}):
             val_reg_acc.reset_state()
             val_weighted_acc.reset_state()
 
-            val_f1_score.reset_state()
-            recall_metric.reset_state()
-            precision_metric.reset_state()
+            val_weighted_f1_score.reset_state()
+            val_unweighted_f1_score.reset_state()
+            mean_iou_metric.reset_state()
 
             val_true_labels = []
             val_predictions = []
+            val_energy_weights = []
 
             # train step
             batch_loss_train, batch_accuracy_train, batch_weighted_accuracy_train = (
@@ -465,11 +525,28 @@ def train(experimental_configuration: dict = {}):
                 [],
                 [],
             )
-            for step, (x_batch_train, y_batch_train, e_weight_train) in enumerate(
-                data_generator(TRAIN_DIR, config.BATCH_SIZE)
-            ):
+            if config.REPLAY:
+                _train_generator = progressive_data_generator(NPZ_SAVE_LOC(TRAIN) / 'train',
+                                                            SIMPLE_SETS,
+                                                            COMPLEX_SETS,
+                                                            config.BATCH_SIZE,
+                                                            epoch,
+                                                            config.REPLAY_LINEAR_DECAY_RATE,
+                                                            config.REPLAY_MIN_FREQ)
+            else:
+                _train_generator = consistant_data_generator(NPZ_SAVE_LOC(TRAIN) / 'train', 
+                                                config.INPUT_SETS,
+                                                config.BATCH_SIZE)
+            train_generator = enumerate(_train_generator)
 
-                x_batch_train = rfn.structured_to_unstructured(x_batch_train)
+            for step, (x_batch_train_named, y_batch_train, e_weight_train) in train_generator:
+                x_catagories = x_batch_train_named['category']
+                x_batch_train = rfn.structured_to_unstructured(x_batch_train_named)
+                y_batch_train = rfn.structured_to_unstructured(y_batch_train)
+                # For some reason the second last dim is always 1, not sure why but this fixes it
+                y_batch_train = np.squeeze(y_batch_train)
+                e_weight_train = np.squeeze(e_weight_train)
+
                 if step >= train_steps:
                     break
                 loss_value, reg_acc_value, weighted_acc_value, grads = train_step(
@@ -477,8 +554,8 @@ def train(experimental_configuration: dict = {}):
                     y_batch_train,
                     e_weight_train,
                     model,
-                    optimizer,
                     loss_function,
+                    x_catagories
                 )
                 optimizer.apply_gradients(zip(grads, model.trainable_variables))
                 train_loss_tracker.update_state(loss_value)
@@ -496,11 +573,31 @@ def train(experimental_configuration: dict = {}):
             print(f"\nTraining loss over epoch: {train_loss_tracker.result():.4e}")
             print(f"\nTime taken for training: {time.time() - start_time:.2f} sec")
 
+            
+
             batch_loss_val, batch_accuracy_val, batch_weighted_accuracy_val = [], [], []
-            for step, (x_batch_val_named, y_batch_val, e_weight_val) in enumerate(
-                data_generator(VAL_DIR, config.BATCH_SIZE, False)
-            ):
+
+            if config.REPLAY:
+                _val_generator = progressive_data_generator(NPZ_SAVE_LOC(TRAIN) / 'val',
+                                                            SIMPLE_SETS,
+                                                            COMPLEX_SETS,
+                                                            config.BATCH_SIZE,
+                                                            epoch,
+                                                            config.REPLAY_LINEAR_DECAY_RATE,
+                                                            config.REPLAY_MIN_FREQ)
+            else:
+                _val_generator = consistant_data_generator(NPZ_SAVE_LOC(TRAIN) / 'val', 
+                                                config.INPUT_SETS,
+                                                config.BATCH_SIZE)
+            val_generator = enumerate(_val_generator)
+            
+            for step, (x_batch_val_named, y_batch_val_named, e_weight_val) in val_generator:
+                x_catagories_val = x_batch_val_named['category']
                 x_batch_val = rfn.structured_to_unstructured(x_batch_val_named)
+                y_batch_val = rfn.structured_to_unstructured(y_batch_val_named)
+                # For some reason the second last dim is always 1, not sure why but this fixes it
+                y_batch_val = np.squeeze(y_batch_val)
+                e_weight_val = np.squeeze(e_weight_val)
                 if step >= val_steps:
                     break
                 (
@@ -509,18 +606,15 @@ def train(experimental_configuration: dict = {}):
                     val_weighted_acc_value,
                     predicted_y,
                 ) = val_step(
-                    x_batch_val, y_batch_val, e_weight_val, model, loss_function
+                    x_batch_val, y_batch_val, e_weight_val, model, loss_function, x_catagories_val
                 )
                 val_loss_tracker.update_state(val_loss_value)
                 val_reg_acc.update_state(val_reg_acc_value)
                 val_weighted_acc.update_state(val_weighted_acc_value)
 
                 mask = x_batch_val_named['category'] == 1   # remove non-energy points
-                val_true_labels.extend(
-                    (y_batch_val[mask] > config.FRACTIONAL_ENERGY_CUTOFF).astype(
-                        np.float32
-                    )
-                )
+                val_true_labels.extend(y_batch_val[mask])
+                val_energy_weights.extend(e_weight_val[mask])
                 val_predictions.extend(predicted_y.numpy()[mask])
 
                 print(
@@ -534,15 +628,25 @@ def train(experimental_configuration: dict = {}):
 
             val_true_labels = tf.convert_to_tensor(val_true_labels)
             val_predictions = tf.convert_to_tensor(val_predictions)
+            val_weights = tf.convert_to_tensor(val_energy_weights)
 
-            val_f1_score.update_state(
+            val_true_labels = tf.cast(val_true_labels, dtype=tf.float32)
+            val_predictions = tf.cast(val_predictions, dtype=tf.float32)
+            val_weights = tf.cast(val_weights, dtype=tf.float32)
+
+            val_weighted_f1_score.update_state(
+                val_true_labels, # tf.expand_dims(val_true_labels, axis=-1),
+                val_predictions, # tf.expand_dims(val_predictions, axis=-1),
+                sample_weight=val_weights,
+            )
+            val_unweighted_f1_score.update_state(
                 val_true_labels, # tf.expand_dims(val_true_labels, axis=-1),
                 val_predictions # tf.expand_dims(val_predictions, axis=-1),
             )
-            recall_metric.update_state(val_true_labels, val_predictions)
-            precision_metric.update_state(val_true_labels, val_predictions)
+            mean_iou_metric.update_state(val_true_labels, val_predictions)
 
-            val_f1 = val_f1_score.result().numpy()
+            val_f1 = val_unweighted_f1_score.result().numpy()
+            weighted_val_f1 = val_weighted_f1_score.result().numpy()
 
             print(f"\n Validation F1 Score: {val_f1}")
             print(f"\nValidation loss: {val_loss_tracker.result():.4e}")
@@ -558,9 +662,14 @@ def train(experimental_configuration: dict = {}):
                     "val/accuracy": val_reg_acc.result().numpy(),
                     "val/weighted_accuracy": val_weighted_acc.result().numpy(),
                     "learning_rate": optimizer.learning_rate.numpy(),
-                    "val/f1_score": val_f1_score.result().numpy()[0],
-                    "val/recall": recall_metric.result().numpy(),
-                    "val/precision": precision_metric.result().numpy(),
+                    "val/f1_score_focal": val_f1[0],
+                    "val/f1_score_non_focal": val_f1[1],
+                    "val/f1_score_neutral": val_f1[2],
+                    "val/f1_weighted_score_focal": weighted_val_f1[0],
+                    "val/f1_weighted_score_non_focal": weighted_val_f1[1],
+                    "val/f1_weighted_score_neutral": weighted_val_f1[2],
+                    "val/mean_iou": mean_iou_metric.result().numpy(),
+                    "percent_simple_data": max(1-epoch*config.REPLAY_LINEAR_DECAY_RATE, config.REPLAY_MIN_FREQ) if config.REPLAY else 1,
                     # "gradients": [tf.reduce_mean(tf.abs(grad)).numpy() for grad in grads],
                     # "weights": [
                     #     tf.reduce_mean(tf.abs(weight)).numpy()
@@ -572,7 +681,12 @@ def train(experimental_configuration: dict = {}):
             # callbacks
 
             # discard first epochs to trigger callbacks
-            if epoch > 5 & (val_weighted_acc.result().numpy() < 1):
+            if epoch > 5:
+
+                if config.SAVE_INTERMEDIATES and epoch % config.SAVE_FREQ == 0:
+                    checkpoint_path = f"{MODELS_PATH}/PointNet_{epoch=}_name={run.name}.keras"
+                    model.save(checkpoint_path)
+
                 checkpoint_callback.on_epoch_end(
                     epoch,
                     # TODO: adapt for user-defined metric tracking
@@ -580,9 +694,13 @@ def train(experimental_configuration: dict = {}):
                         "val_loss": val_loss_tracker.result(),
                         "val/accuracy": val_reg_acc.result(),
                         "val_weighted_accuracy": val_weighted_acc.result(),
-                        "val/f1_score": val_f1_score.result().numpy()[0],
-                        "val/recall": recall_metric.result().numpy(),
-                        "val/precision": precision_metric.result().numpy(),
+                        "val/f1_score_focal": val_f1[0],
+                        "val/f1_score_non_focal": val_f1[1],
+                        "val/f1_score_neutral": val_f1[2],
+                        "val/f1_weighted_score_focal": weighted_val_f1[0],
+                        "val/f1_weighted_score_non_focal": weighted_val_f1[1],
+                        "val/f1_weighted_score_neutral": weighted_val_f1[2],
+                        "val/mean_iou": mean_iou_metric.result().numpy(),
                     },
                 )
                 if config.EARLY_STOPPING:
@@ -592,9 +710,14 @@ def train(experimental_configuration: dict = {}):
                             "val_loss": val_loss_tracker.result(),
                             "val/accuracy": val_reg_acc.result(),
                             "val_weighted_accuracy": val_weighted_acc.result(),
-                            "val/f1_score": val_f1_score.result().numpy()[0],
-                            "val/recall": recall_metric.result().numpy(),
-                            "val/precision": precision_metric.result().numpy(),
+                            "val/f1_score_focal": val_f1[0],
+                            "val/f1_score_non_focal": val_f1[1],
+                            "val/f1_score_neutral": val_f1[2],
+                            "val/f1_weighted_score_focal": weighted_val_f1[0],
+                            "val/f1_weighted_score_non_focal": weighted_val_f1[1],
+                            "val/f1_weighted_score_neutral": weighted_val_f1[2],
+                            "val/mean_iou": mean_iou_metric.result().numpy(),
+                           
                         },
                     )
                     if early_stopping_callback.model.stop_training:

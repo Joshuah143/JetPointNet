@@ -19,6 +19,34 @@ from data_processing.jets.preprocessing_header import *
 from data_processing.jets.awk_utils import *
 from data_processing.jets.common_utils import *
 
+track_layer_branches = [f"trackEta_{layer}" for layer in calo_layers] + [
+    f"trackPhi_{layer}" for layer in calo_layers
+]
+jets_other_included_fields = [
+    "trackSubtractedCaloEnergy",
+    "trackPt",
+    "nTrack",
+    "cluster_cell_ID",
+    "trackNumberDOF",
+    "trackChiSquared",
+    "cluster_cell_E",
+    "cluster_cell_hitsTruthIndex",
+    "cluster_cell_hitsTruthE",
+    "trackTruthParticleIndex",
+    'truthPartPdgId',
+    "eventNumber",
+]
+
+fields_list = track_layer_branches + jets_other_included_fields
+
+
+with uproot.open(str(GEO_FILE_LOC) + ":CellGeo") as cellgeo:
+    cell_ID_geo = cellgeo["cell_geo_ID"].array(library="np")[0]
+    eta_geo = cellgeo["cell_geo_eta"].array(library="np")[0]
+    phi_geo = cellgeo["cell_geo_phi"].array(library="np")[0]
+    rPerp_geo = cellgeo["cell_geo_rPerp"].array(library="np")[0]
+    Sigma_geo = cellgeo["cell_geo_sigma"].array(library="np")[0]
+
 
 def split_and_save_to_disk(processed_data, base_filename, id_splits: dict, save_locations: dict):
     """
@@ -56,11 +84,12 @@ def split_and_save_to_disk(processed_data, base_filename, id_splits: dict, save_
         data = processed_data[mask]
         ak.to_parquet(data, os.path.join(folder, base_filename.split("/")[-1] + f"_{split}.parquet"))
 
-def setup_directories():
+
+def setup_directories(dataset_name):
     # Directories for train, val, and test sets
-    train_dir = os.path.join(AWK_SAVE_LOC(AWK), "train")
-    val_dir = os.path.join(AWK_SAVE_LOC(AWK), "val")
-    test_dir = os.path.join(AWK_SAVE_LOC(AWK), "test")
+    train_dir = os.path.join(AWK_SAVE_LOC(AWK), "train", dataset_name)
+    val_dir = os.path.join(AWK_SAVE_LOC(AWK), "val", dataset_name)
+    test_dir = os.path.join(AWK_SAVE_LOC(AWK), "test", dataset_name)
 
     # Ensure directories exist
     os.makedirs(AWK_SAVE_LOC(AWK), exist_ok=True)
@@ -76,7 +105,7 @@ def process_events(
     cell_eta_geo,
     cell_phi_geo,
     cell_rPerp_geo,
-    thread_id,
+    cell_Sigma_geo
     # progress_dict,
 ):
     """
@@ -86,9 +115,7 @@ def process_events(
     - data: The events data to process.
     - cellgeo: The cell geometry data.
     """
-    tracks_sample = (
-        ak.ArrayBuilder()
-    )  # Initialize the awkward array structure for track samples
+    tracks_sample = ak.ArrayBuilder()  # Initialize the awkward array structure for track samples
     for event_idx, event in enumerate(data):
         if DEBUG_NUM_EVENTS_TO_USE is not None:
             if (
@@ -98,7 +125,7 @@ def process_events(
 
         event_cells, event_cell_truths, track_etas, track_phis = (
             process_and_filter_cells(
-                event, cell_ID_geo, cell_eta_geo, cell_phi_geo, cell_rPerp_geo
+                event, cell_ID_geo, cell_eta_geo, cell_phi_geo, cell_rPerp_geo, cell_Sigma_geo
             )
         )  # Flatten and process cells in this event
 
@@ -116,6 +143,11 @@ def process_events(
             if len(focal_points) == 0:
                 print(f"Track {track_idx} of event {event['eventNumber']} skipped due to no track hits")
                 continue
+
+            # TODO: LOOK AT THIS IN DETAIL -- DO NOT MERGE
+            # if event['trackTruthParticleIndex'][track_idx] == -1:
+            #     print(f"Track {track_idx} of event {event['eventNumber']} skipped due to no truth particle")
+            #     continue
 
             tracks_sample.begin_record()  # Each track is a record within the event list
 
@@ -176,7 +208,7 @@ def process_events_wrapper(args):
     return process_events(*args)
 
 
-def process_chunk(chunk, cell_ID_geo, cell_eta_geo, cell_phi_geo, cell_rPerp_geo):
+def process_chunk(chunk, cell_ID_geo, cell_eta_geo, cell_phi_geo, cell_rPerp_geo, cell_Sigma_geo):
     """
     Modified `process_chunk` to handle progress reporting using multiprocessing.Pool and tqdm.
     """
@@ -191,8 +223,7 @@ def process_chunk(chunk, cell_ID_geo, cell_eta_geo, cell_phi_geo, cell_rPerp_geo
             cell_eta_geo,
             cell_phi_geo,
             cell_rPerp_geo,
-            i,
-            # progress_dict,
+            cell_Sigma_geo, 
         )
         for i in range(AWK_THREADS_PER_CHUNK)
         for start_idx, end_idx in [
@@ -213,15 +244,18 @@ def process_chunk(chunk, cell_ID_geo, cell_eta_geo, cell_phi_geo, cell_rPerp_geo
     combined_array = ak.concatenate(results)
     return combined_array
 
-def event_handler_wrapper(filename):
-    print(f"Handling {filename}")
+def event_handler_wrapper(filepath):
+    print(f"Handling {filepath}")
 
-    save_locations = setup_directories()
+    data_set_name = prefix_to_set[filepath.split("/")[-1][:FILE_PREFIX_LEN]]
+    save_locations = setup_directories(data_set_name)
     chunk_counter = 0
 
-    base_filename = f"{filename}_chunk_{chunk_counter}"
+    base_filename = f"{filepath}_chunk_{chunk_counter}"
+
+    root_filename = base_filename.split("/")[-1]
     
-    existence_test_file  = base_filename.split("/")[-1] + f"_train.parquet"
+    existence_test_file = root_filename + f"_train.parquet"
 
     if not OVERWRITE_AWK:
         print(f"Testing for existence of: {os.path.join(save_locations['train_dir'], existence_test_file)}")
@@ -232,7 +266,7 @@ def event_handler_wrapper(filename):
         return
 
     try:
-        with uproot.open(filename + ":EventTree") as events:
+        with uproot.open(filepath + ":EventTree") as events:
             id_split = split_data(
                 events, split_seed=62, retrieve=False
             )
@@ -242,19 +276,16 @@ def event_handler_wrapper(filename):
             ):
                 print(f"\nProcessing chunk {chunk_counter + 1} of size {len(chunk)}")
 
-                processed_data = process_chunk(chunk, cell_ID_geo, eta_geo, phi_geo, rPerp_geo)
-
+                processed_data = process_chunk(chunk, cell_ID_geo, eta_geo, phi_geo, rPerp_geo, Sigma_geo)
+                base_filename = f"{filepath}_chunk_{chunk_counter}"
                 split_and_save_to_disk(processed_data, base_filename, id_split, save_locations)
 
                 chunk_counter += 1
-    except ValueError: #uproot.exceptions.KeyInFileError:
-        print(f"Skipping {filename}, no EventTree found")
+    except uproot.exceptions.KeyInFileError:
+        print(f"Skipping {filepath}, no EventTree found")
 
 
-if __name__ == "__main__":
-    num_files_completed = 0
-    cellgeo = uproot.open(str(GEO_FILE_LOC) + ":CellGeo")
-
+def main():
     # print("Events Keys:")
     # for key in events.keys():
     #     print(key)
@@ -262,32 +293,6 @@ if __name__ == "__main__":
     # for key in cellgeo.keys():
     #     print(key)
     # print()
-
-    track_layer_branches = [f"trackEta_{layer}" for layer in calo_layers] + [
-        f"trackPhi_{layer}" for layer in calo_layers
-    ]
-    jets_other_included_fields = [
-        "trackSubtractedCaloEnergy",
-        "trackPt",
-        "nTrack",
-        "cluster_cell_ID",
-        "trackNumberDOF",
-        "trackChiSquared",
-        "cluster_cell_E",
-        "cluster_cell_hitsTruthIndex",
-        "cluster_cell_hitsTruthE",
-        "trackTruthParticleIndex",
-        "eventNumber",
-    ]
-    fields_list = track_layer_branches + jets_other_included_fields
-
-    cell_ID_geo = cellgeo["cell_geo_ID"].array(library="np")[0]
-    eta_geo = cellgeo["cell_geo_eta"].array(library="np")[0]
-    phi_geo = cellgeo["cell_geo_phi"].array(library="np")[0]
-    rPerp_geo = cellgeo["cell_geo_rPerp"].array(library="np")[0]
-
-    # >>> len(TRAIN_IDS), len(VAL_IDS), len(TEST_IDS)
-    # (1100, 600, 300)
 
     start_time = time.time()
 
@@ -304,3 +309,7 @@ if __name__ == "__main__":
 
     end_time = time.time()
     print(f"Total Time Elapsed: {(end_time - start_time) / 60 / 60:.2f} Hours")
+
+
+if __name__ == "__main__":
+    main()

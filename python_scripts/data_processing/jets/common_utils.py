@@ -43,10 +43,10 @@ def intersection_fixed_r(eta, phi, fixed_r):
 # Define the function to calculate the intersection with a fixed Z layer
 def intersection_fixed_z(eta, phi, fixed_z):
     x, y, z_unit = eta_phi_to_cartesian(eta, phi)
-    scale_factor = fixed_z / z_unit
+    scale_factor = np.sign(eta) * fixed_z / z_unit
     x *= scale_factor
     y *= scale_factor
-    z = fixed_z
+    z = fixed_z * np.sign(eta)
     return x, y, z
 
 
@@ -63,7 +63,10 @@ def calculate_delta_r(eta1, phi1, eta2, phi2):
 def calculate_max_sample_length_simplified(tracks_array):
     """Compute maximum number of points"""
     current_index = 0
-    length_arr = []
+    track_points_arr = []
+    cells_in_track_arr = []
+    number_of_adj_arr = []
+    number_non_neg_adj_tracks = []
     for event in tracks_array:
         for track in event:
             n_focus_track_hits = len(track["track_layer_intersections"])
@@ -77,8 +80,12 @@ def calculate_max_sample_length_simplified(tracks_array):
                     length += n_associated_track_hits
     
             current_index += 1
-            length_arr.append(length)
-    return length_arr
+            track_points_arr.append(length)
+            cells_in_track_arr.append(len(track["associated_cells"]))
+            number_of_adj_arr.append(len(track["associated_tracks"]))
+            number_non_neg_adj_tracks.append(len(track["associated_tracks"][track["associated_tracks"]['track_part_Idx'] != -1]))
+
+    return track_points_arr, cells_in_track_arr, number_of_adj_arr, number_non_neg_adj_tracks
 
 
 def calculate_max_sample_length(tracks_array):
