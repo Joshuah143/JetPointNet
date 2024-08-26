@@ -420,6 +420,7 @@ def process_associated_tracks(
     # Iterate over all tracks in the event to find adjacent tracks
     total_pt=0
     for adj_track_idx in range(nTrack):
+        total_pt+=event["trackPt"][adj_track_idx]
         if adj_track_idx == track_idx:  # Skip the focal track itself
             continue
 
@@ -448,7 +449,6 @@ def process_associated_tracks(
                 event["trackTruthParticleIndex"][adj_track_idx]
             )
             tracks_sample.field("trackPt").real(event["trackPt"][adj_track_idx])
-            total_pt+=event["trackPt"][adj_track_idx]
             chi2_dof = event["trackChiSquared"][adj_track_idx] / event["trackNumberDOF"][adj_track_idx]
             tracks_sample.field("trackChiSquared/trackNumberDOF").real(chi2_dof)
             tracks_sample.field("track_layer_intersections")

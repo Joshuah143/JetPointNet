@@ -80,7 +80,7 @@ elif USER == "jhimmens":
     DATA_PATH = Path("/fast_scratch_1/atlas/pflow/jhimmens_working_files")
 
     # ===== ROOT TO AWK =====
-    AWK_OUTPUT_DIRECTORY_NAME = "rev_8_norm_update"
+    AWK_OUTPUT_DIRECTORY_NAME = "rev_9_pt_norm_fix"
     AWK_DATASET_NAME = "collected_data"
     OVERWRITE_AWK = False
     GEO_FILE_LOC = "/fast_scratch_1/atlas/pflow/rho_small.root"
@@ -89,7 +89,7 @@ elif USER == "jhimmens":
     TRAIN_SPLIT_RATIO = 0.55
     VAL_SPLIT_RATIO = 0.3
     AWK_THREADS_PER_CHUNK = 96  # root to awk
-    ROOT_FILES_DIR = "/fast_scratch_1/atlas/pflow/20240626/user.mswiatlo.mc21_13p6TeV.900148.singlerho.recon.ESD.e8537_e8455_s3986_s3874_r14060_2024.06.26.v1_mltree.root" 
+    ROOT_FILES_DIR = "/fast_scratch_1/atlas/pflow/20240614/" 
 
     # rho+delta: /fast_scratch_1/atlas/pflow/20240626/
     # dijet: /fast_scratch_1/atlas/pflow/20240614/
@@ -111,16 +111,16 @@ elif USER == "jhimmens":
     SAMPLE_LENGTH_WORKERS = 96
 
     # ===== AWK TO NPZ =====
-    NPZ_OUTPUT_DIRECTORY_NAME = "rev_8_norm_update"
+    NPZ_OUTPUT_DIRECTORY_NAME = "rev_9_pt_norm_fix"
     NPZ_DATASET_NAME = "collected_data"
     OVERWRITE_NPZ = False
     NPZ_NUM_CHUNK_THREADS = 70  # awk to npz
-    NPZ_ALlOWED_SETS = ['rho']
+    NPZ_ALlOWED_SETS = ['rho', 'delta', 'JZ0', 'JZ1', 'JZ2', 'JZ3', 'JZ4', 'JZ5']
 
     # ===== TRAINING =====
-    TRAIN_OUTPUT_DIRECTORY_NAME = "rev_7"
+    TRAIN_OUTPUT_DIRECTORY_NAME = "rev_9_pt_norm_fix"
     TRAIN_DATASET_NAME = "collected_data"
-    TRAIN_ALlOWED_SETS = {'rho': 0.5, 'delta': 0.5} #NOTE! This is just for the directories, the values is the percent of each batch that should contain data from that set
+    TRAIN_ALlOWED_SETS = {'JZ4': 1} #NOTE! This is just for the directories, the values is the percent of each batch that should contain data from that set
 else:
     raise Exception("User not found!")
 

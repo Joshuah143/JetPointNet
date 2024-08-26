@@ -90,6 +90,7 @@ class OrthogonalRegularizer(tf.keras.regularizers.OrthogonalRegularizer):
         return {"num_features": self.num_features, "l2": self.l2}
 
 
+"""
 def rectified_TSSR_Activation(x):
     a = 0.01  # leaky ReLu style slope when negative
     b = 0.1  # sqrt(x) damping coefficient when x > 1
@@ -114,6 +115,7 @@ def rectified_TSSR_Activation(x):
         negative_part,
         tf.where(small_positive_condition, small_positive_part, large_positive_part),
     )
+"""
 
 
 # Never used
@@ -199,19 +201,6 @@ def TNet(input_tensor, size, add_regularization=False): # JH: why dont we add re
 def PointNetSegmentation(
     num_points, num_features, num_classes, output_activation_function, model_version
 ):
-    """
-    Input shape per point is:
-       [x (mm),
-        y (mm),
-        z (mm),
-        minimum_of_distance_to_focused_track (mm),
-        energy (GeV),
-        type (focused track, cells, associated track, masked out)
-
-    Note that in awk_to_npz.py, if add_tracks_as_labels == False then the labels for the tracks is "-1" (to be masked of the loss and not predicted on)
-
-    """
-
     input_points = tf.keras.Input(shape=(num_points, num_features))
 
     # Masking layer to ignore points with the last feature index as -1
@@ -314,19 +303,6 @@ def PointNetSegmentation(
 # ============ Losses ===================================================================================================
 
 
-"""
-def _pad_targets(y_true, y_pred, energies):
-    if y_pred.shape[0] != y_true.shape[0]:
-        pad_size = y_pred.shape[0] - y_true.shape[0]
-        padding = tf.zeros(
-            (pad_size, y_true.shape[1], y_true.shape[2]), dtype=tf.float32
-        )
-        y_true = tf.concat([y_true, padding], axis=0)
-        energies = tf.concat([energies, padding], axis=0)
-    return y_true, energies
-"""
-
-
 @tf.autograph.experimental.do_not_convert
 def masked_weighted_loss(
     y_true: tf.Tensor,
@@ -387,71 +363,7 @@ def masked_weighted_loss(
     # Calculate categorical cross-entropy loss
     weighted_loss = loss_function(y_true, y_pred, sample_weight=energies_times_mask)
 
-    # Weighted categorical cross-entropy loss, ensuring all dimensions match
-    
-    # weighted_loss = loss * energies_times_mask
-
-    # Normalize the weighted loss
-    # total_energy_weight = tf.reduce_sum(
-    #     weighted_loss, axis=1, keepdims=True
-    # )  # Keep dimensions with 'keepdims'
-    # normalized_loss = (weighted_loss) / (total_energy_weight + 1)
-
-    # Combine the mean losses from both labels
     return weighted_loss
-
-
-"""
-def masked_weighted_bce_loss(y_true, y_pred, energies):
-    energies = tf.square(energies)
-
-    # Ensure valid_mask and y_true are compatible for operations
-    valid_mask = tf.cast(tf.not_equal(y_true, -1.0), tf.float32)  # This should be [batch, points, 1]
-
-    # Adjust y_true based on the threshold, maintain dimensions as [batch, points, 1]
-    y_true_adjusted = tf.cast(tf.greater_equal(y_true, 0.5), tf.float32) * valid_mask
-
-    # Calculate binary cross-entropy loss, ensuring to keep the dimensions consistent
-    bce_loss = tf.keras.losses.binary_crossentropy(y_true_adjusted, y_pred, from_logits=True)
-    bce_loss = tf.expand_dims(bce_loss, axis=-1)  # Ensure BCE loss has the same [batch, points, 1] shape as others
-
-    # Weighted binary cross-entropy loss, ensuring all dimensions match
-    weighted_bce_loss = bce_loss * energies * valid_mask
-
-    # Normalize the weighted BCE loss
-    total_energy_weight = tf.reduce_sum(energies * valid_mask, axis=1, keepdims=True)  # Keep dimensions with 'keepdims'
-    normalized_bce_loss = weighted_bce_loss / (total_energy_weight + 1e-5)
-
-    # Create masks for 'zero' and 'one' labels, apply to normalized loss, and compute means
-    mask_zeros = tf.cast(tf.equal(y_true_adjusted, 0.0), tf.float32)
-    mask_ones = tf.cast(tf.equal(y_true_adjusted, 1.0), tf.float32)
-    mean_normalized_bce_loss_zeros = tf.reduce_sum(normalized_bce_loss * mask_zeros) / (tf.reduce_sum(mask_zeros) + 1 )
-    mean_normalized_bce_loss_ones = tf.reduce_sum(normalized_bce_loss * mask_ones) / (tf.reduce_sum(mask_ones) + 1 )
-
-    # Combine the mean losses from both labels
-    return (mean_normalized_bce_loss_zeros + mean_normalized_bce_loss_ones) / 2
-
-"""
-
-
-def masked_regular_accuracy(
-    y_true: tf.Tensor,
-    y_pred: tf.Tensor,
-    x_class: tf.Tensor,
-):
-
-    mask = tf.equal(x_class, POINT_TYPE_ENCODING['cell']) 
-    mask = tf.cast(mask, tf.float32)
-
-    # Convert one-hot encoded vectors to class indices
-    y_true_class = tf.argmax(y_true, axis=-1)
-    y_pred_class = tf.argmax(y_pred, axis=-1)
-
-    correct_predictions = tf.equal(y_pred_class, y_true_class)
-    masked_correct_predictions = tf.cast(correct_predictions, tf.float32) * mask
-
-    accuracy = tf.reduce_sum(masked_correct_predictions) / (tf.reduce_sum(mask) + 1e-5)
-    return accuracy
 
 
 @tf.autograph.experimental.do_not_convert
@@ -460,8 +372,10 @@ def masked_weighted_accuracy(
     y_pred: tf.Tensor,
     energies: tf.Tensor,
     x_class: tf.Tensor,
+    unweighted_accuracy_metric: tf.keras.metrics.Metric,
+    weighted_accuracy_metric: tf.keras.metrics.Metric,
     transform: None | str = None,
-    energy_threshold: float = 0,
+    energy_threshold: float = 0, 
 ):
     """
     Computes the masked weighted accuracy of predictions.
@@ -478,10 +392,6 @@ def masked_weighted_accuracy(
         - "standardize": batch-standardize to zero mean and unit variance.
         - "threshold": threshold at 0 --> discard contributions by negative energies.
     energy_threshold (float, optional): the threshold to cutoff energy weighting if "threshold" is the transform
-
-
-    Returns:
-    tf.Tensor: standardized accuracy.
     """
     # Transform energy weights
     match transform:
@@ -504,23 +414,15 @@ def masked_weighted_accuracy(
         case _:
             raise ValueError(f"Unknown transform value: {transform}")
 
-    mask = tf.equal(x_class, POINT_TYPE_ENCODING['cell']) 
-    mask = tf.cast(mask, tf.float32)
+    valid_mask = tf.equal(x_class, POINT_TYPE_ENCODING['cell']) 
+    valid_mask = tf.cast(valid_mask, tf.float32)
 
-    # Convert one-hot encoded vectors to class indices
-    y_true_class = tf.argmax(y_true, axis=-1)
-    y_pred_class = tf.argmax(y_pred, axis=-1)
+    energies_times_mask = energies * valid_mask
 
-    correct_predictions = tf.equal(y_pred_class, y_true_class)
-    masked_correct_predictions = tf.cast(correct_predictions, tf.float32) * mask
+    weighted_accuracy_metric.update_state(y_true, y_pred, sample_weight=energies_times_mask)
+    unweighted_accuracy_metric.update_state(y_true, y_pred, sample_weight=valid_mask)
 
-    weighted_correct_predictions = masked_correct_predictions * energies
-    sum_weights = tf.reduce_sum(energies * mask, axis=1)
-    normalized_accuracy = tf.reduce_sum(weighted_correct_predictions, axis=1) / (
-        sum_weights + 1e-5
-    )
-
-    return normalized_accuracy
+    return unweighted_accuracy_metric.result(), weighted_accuracy_metric.result()
 
 
 # =======================================================================================================================
@@ -529,7 +431,7 @@ def masked_weighted_accuracy(
 
 # ============ CALLBACKS ================================================================================
 
-# This Scheduler is currently not used, it could be an avenue for sweeping is the LR decay function
+"""
 class CustomLRScheduler(tf.keras.callbacks.Callback):
 
     def __init__(
@@ -580,6 +482,6 @@ class CustomLRScheduler(tf.keras.callbacks.Callback):
             print(
                 f"\nEpoch {epoch}: Updating learning rate from {old_lr:.4e} to {self.optim_lr.numpy():.4e}"
             )
-
+"""
 
 # =======================================================================================================================

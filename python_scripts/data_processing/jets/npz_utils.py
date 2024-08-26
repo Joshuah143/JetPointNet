@@ -281,7 +281,7 @@ def build_input_array(tracks_sample_array, max_sample_length):
                     add_multitrack_truths(cells_list, {}, [], [])
 
             
-            event_array_dtype = np.dtype([ # none can be unsigned because NPZ_PAD_VAL is used as a pad for all, see above
+            event_array_dtype = np.dtype([
                 ('event_number', np.int32),
                 ('cell_ID', np.int32),
                 ('track_ID', np.int32),

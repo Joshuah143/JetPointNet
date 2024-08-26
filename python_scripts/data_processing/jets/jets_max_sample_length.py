@@ -30,7 +30,6 @@ def read_parquet(filename):
 def max_length_calculator_wrapper(full_path):
     ak_array = read_parquet(full_path)
     max_sample_length_arr, number_of_cells_in_track_arr, number_of_adj_track_arr, number_non_neg_adj_tracks = calculate_max_sample_length_simplified(ak_array)
-    # print("Max sample length found: ", max_sample_length)
     return max_sample_length_arr, full_path.split('/')[-1], number_of_cells_in_track_arr, number_of_adj_track_arr, number_non_neg_adj_tracks
 
 
@@ -63,25 +62,3 @@ if __name__ == "__main__":
     print(f"Finding sample length")
     find_global_max_sample_length()
     print("Completed!")
-
-
-"""" old in case of rollback for stats
-
-
- print(f"Global Max Sample Length: {global_max_sample_length}")
-    hits_df = pd.DataFrame(
-        hits_count,
-        columns=["eventNumber", "trackID", "nHits", "nCell", "nUnfocusHits"],
-        dtype=int,
-    )
-    hits_df.sort_values(["eventNumber", "trackID"], inplace=True)
-    # hits_df["nTrack"] = hits_df.groupby(["eventNumber"]).trackID.count().values # L: don't work due to repeated eventNumbers, would need join
-
-    # dump metadata
-    metadata_path = Path(folder_path).parent / "metadata"
-    metadata_path.mkdir(exist_ok=True, parents=True)
-    hits_df.to_csv(metadata_path / f"hits_per_event.csv", index=False)
-
-    return global_max_sample_length
-
-"""

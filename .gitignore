@@ -31,3 +31,5 @@ __pycache__/
 models/__pycache__/
 PointNetModel.keras
 .idea/
+wandb
+notebooks/joshua_working_notebooks

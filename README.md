@@ -50,9 +50,6 @@ Also, raw data files are read from eos (namely */eos/home-m/mswiatlo/forLuca/*  
 
 ![](development/Dependencies.png)
 
-## Running the grid job
+## Known Issues
 
- + Join the VO and get a GRID certificate by following https://atlassoftwaredocs.web.cern.ch/ASWTutorial/basicSetup/grid_cert/ and https://atlassoftwaredocs.web.cern.ch/gridtutorial/grid-job/
- + Run `setupATLAS; lsetup panda` to setup the environment
- + Log into lxplus with your CERN credentials
- + Note: More instructions to come as we run grid jobs, for now this is incomplete.
+- The early stopping of the train loop can cause the job to crash when enabled
