@@ -244,15 +244,15 @@ def PointNetSegmentation(
         lambda x: tf.tile(x, [1, num_points, 1])
     )(global_feature_expanded)
 
-    # Concatenate point features with global features
-    if model_version == 0: # old version ~5M params
+    # Segmentaion head
+    if model_version == 0: # ~5M params
         c = tf.keras.layers.Concatenate()([point_features, global_feature_expanded])
 
         c = conv_mlp(c, 512, apply_attention=False)
         c = conv_mlp(c, 256, apply_attention=False)
 
         c = conv_mlp(c, 128, dropout_rate=0.3)
-    elif model_version == 1: # just add in 2 extra layers ~6M params
+    elif model_version == 1: # ~6M params
         c = tf.keras.layers.Concatenate()([point_features, global_feature_expanded])
 
         c = conv_mlp(c, 1024, apply_attention=False)
@@ -262,7 +262,7 @@ def PointNetSegmentation(
         c = conv_mlp(c, 128, apply_attention=False)
 
         c = conv_mlp(c, 128, dropout_rate=0.3)
-    elif model_version == 2: # double everything! ~7M params
+    elif model_version == 2: # ~7M params
         c = tf.keras.layers.Concatenate()([point_features, global_feature_expanded])
 
         c = conv_mlp(c, 1024, apply_attention=False)
@@ -272,7 +272,7 @@ def PointNetSegmentation(
         c = conv_mlp(c, 256, apply_attention=False)
 
         c = conv_mlp(c, 256, dropout_rate=0.3)
-    elif model_version == 3: # double everything! (again!)
+    elif model_version == 3: 
         c = tf.keras.layers.Concatenate()([point_features, global_feature_expanded])
 
         c = conv_mlp(c, 2048, apply_attention=False)
@@ -320,6 +320,8 @@ def masked_weighted_loss(
     y_true (tf.Tensor): True labels.
     y_pred (tf.Tensor): Predicted labels.
     energies (tf.Tensor): Weights for each prediction.
+    loss_function: (tf.keras.losses.Loss): The loss function to call with the model outputs
+    x_class: (tf.Tensor): The point-type for each cell, CELL, PAD, TRACK, etc
     transform (str, optional): Transformation to apply to energies. Possible values:
         - None: no transformation (default).
         - "absolute": absolute value.
@@ -384,6 +386,9 @@ def masked_weighted_accuracy(
     y_true (tf.Tensor): True labels.
     y_pred (tf.Tensor): Predicted labels.
     energies (tf.Tensor): Weights for each prediction.
+    x_class: (tf.Tensor): The point-type for each cell, CELL, PAD, TRACK, etc
+    unweighted_accuracy_metric (tf.keras.metrics.Metric): The metric to be called with outputs
+    weighted_accuracy_metric (tf.keras.metrics.Metric): The metric to be called with outputs
     transform (str, optional): Transformation to apply to energies. Possible values:
         - None: no transformation (default).
         - "absolute": absolute value.

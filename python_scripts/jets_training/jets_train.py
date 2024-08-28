@@ -326,7 +326,10 @@ def merge_configurations(priority_config, baseline_config):
     return baseline_config
 
 
-def train(experimental_configuration: dict = {}):
+def train(experimental_configuration: dict = None):
+    if experimental_configuration is None:
+        experimental_configuration = {}
+    
     run_config = merge_configurations(experimental_configuration, baseline_configuration)
     with wandb.init(
         project="pointcloud", 
