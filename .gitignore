@@ -4,11 +4,15 @@ pnet_data
 
 # debug/experimental code
 scratch
+notebooks/root_images
 
 # results/logs
 wandb
 models/
-results
+result/
+results/
+images/
+visualizations/
 
 # ignore containers. These are not tracked here
 containers/*
@@ -18,9 +22,14 @@ pi0*
 
 nohup.out
 training_log.csv
+jupyter_logbook.txt
+ip.txt
 
 __pycache__
 __pycache__/
 */__pycache__
 models/__pycache__/
 PointNetModel.keras
+.idea/
+wandb
+notebooks/joshua_working_notebooks
