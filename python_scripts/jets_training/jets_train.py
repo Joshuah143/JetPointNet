@@ -49,7 +49,7 @@ from data_processing.jets.preprocessing_header import (
 USER = Path.home().name
 print(f"Logged in as {USER}")
 if USER == "jhimmens":
-    GPU_ID = "5"
+    GPU_ID = "1"
     ASSIGN_GPU = True
 elif USER == "luclissa":
     GPU_ID = "0"
@@ -103,7 +103,7 @@ baseline_configuration = dict(
     ES_PATIENCE=15,
     ACC_ENERGY_WEIGHTING="square",
     LOSS_ENERGY_WEIGHTING="square",
-    LOSS_FUNCTION="CategoricalFocalCrossentropy",
+    LOSS_FUNCTION="MeanSquaredError", #"CategoricalFocalCrossentropy",
     OUTPUT_ACTIVATION_FUNCTION="softmax",  # softmax, linear (requires changes to the BCE fucntion in the loss function)
     OUTPUT_LAYER_SEGMENTATION_CUTOFF=0.5,
     EARLY_STOPPING=False,
@@ -143,8 +143,8 @@ TRAIN_INPUTS = [
     'track_chi2_dof',
     'cell_sigma',
     "normalized_distance",
-    "cell_E",
-    "track_pt",
+    "normalized_cell_E",
+    "normalized_track_pt",
 ]
 
 TRAIN_TARGETS = [
@@ -479,7 +479,7 @@ def train(experimental_configuration: dict = None):
         # Will raise AttributeError if the loss function is not found
         logits = config.OUTPUT_ACTIVATION_FUNCTION == "linear"
         loss_function = getattr(tf.keras.losses, config.LOSS_FUNCTION)(
-            from_logits=logits, # NOTE: False for "sigmoid", True for "linear"
+            # from_logits=logits, # NOTE: False for "sigmoid", True for "linear"
             # reduction='none',
         )
 

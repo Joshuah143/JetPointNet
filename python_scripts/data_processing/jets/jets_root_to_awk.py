@@ -31,6 +31,7 @@ jets_other_included_fields = [
     "trackChiSquared",
     "cluster_cell_E",
     "cluster_cell_hitsTruthIndex",
+    "cluster_cell_hitsTruthTotalE",
     "cluster_cell_hitsTruthE",
     "trackTruthParticleIndex",
     'truthPartPdgId',
@@ -281,8 +282,8 @@ def event_handler_wrapper(filepath):
                 split_and_save_to_disk(processed_data, base_filename, id_split, save_locations)
 
                 chunk_counter += 1
-    except uproot.exceptions.KeyInFileError:
-        print(f"Skipping {filepath}, no EventTree found")
+    except uproot.exceptions.KeyInFileError as e:
+        print(f"Skipping {filepath}, no EventTree found, {e}")
 
 
 def main():

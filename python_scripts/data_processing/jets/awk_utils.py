@@ -58,6 +58,10 @@ def process_and_filter_cells(
     cell_Es_with_multiples_np = ak.to_numpy(ak.flatten(event["cluster_cell_E"]))
     cell_part_truth_Idxs_with_multiples = ak.flatten(event["cluster_cell_hitsTruthIndex"])
     cell_part_truth_Es_with_multiples = ak.flatten(event["cluster_cell_hitsTruthE"])
+    cell_hitsTruthTotalE_with_multiples = ak.flatten(event["cluster_cell_hitsTruthTotalE"])
+
+    # print(f"{cell_part_truth_Es_with_multiples[0]=}")
+    # print(f"{cell_hitsTruthTotalE_with_multiples[0]=}")
 
     # print(len(cell_Es_with_multiples))
     # print(len(cell_IDs_with_multiples))
@@ -75,11 +79,11 @@ def process_and_filter_cells(
     unique_cell_Es = cell_Es_with_multiples_np[unique_indices]
     unique_cell_hitsTruthIndices = cell_part_truth_Idxs_with_multiples[unique_indices]
     unique_cell_hitsTruthEs = cell_part_truth_Es_with_multiples[unique_indices]
+    unique_cell_hitsTruthTotalE = cell_hitsTruthTotalE_with_multiples[unique_indices]
 
     # Sum the cell_E values for each unique cell_ID
     for cell_id in enumerate(unique_cell_IDs[cell_ID_counts > 1]):
         unique_cell_Es[unique_cell_IDs == cell_id] += np.sum(cell_Es_with_multiples_np[cell_IDs_with_multiples_np == cell_id])
-
 
     # Matching cells with their geometric data
     cell_ID_geo_array = (
@@ -126,6 +130,7 @@ def process_and_filter_cells(
             "cell_hitsTruthPDGIDs": cell_hitsTruthPDGIDs,
             "cell_hitsTruthCharges": cell_hitsTruthCharge,
             "cell_hitsTruthEs": unique_cell_hitsTruthEs,
+            "cell_hitsTruthTotalE": unique_cell_hitsTruthTotalE, # the scalar is broadcast at -1 level, not great but it is ~fine
         }
     )
 
@@ -326,8 +331,11 @@ def process_associated_cell_info(
         cell_part_charges = filtered_cell_truths[cell_idx]["cell_hitsTruthCharges"]
         cell_part_pdgIDs = filtered_cell_truths[cell_idx]["cell_hitsTruthPDGIDs"]
 
-        # NOTE: This should be updated to the actual truth energy
-        total_energy = np.sum(cell_part_Es) 
+        array_of_total_E = filtered_cell_truths[cell_idx]["cell_hitsTruthTotalE"]
+        if len(array_of_total_E) == 0:
+            total_energy = 0
+        else:
+            total_energy = array_of_total_E[0] # 0 index does not matter, so long as an index is chosen, all are same from broadcast at zip
         tracks_sample.field("Total_Truth_Energy").real(total_energy)
 
         focal_E = 0

@@ -313,7 +313,6 @@ def build_input_array(tracks_sample_array, max_sample_length):
                 ('normalized_track_pt_cell_E', np.float32),
             ])
             track_array_np = np.array(track_array, dtype=event_array_dtype)
-            # Replace NaN values with NPZ_PAD_VAL
             track_array_np = np.nan_to_num(track_array_np, nan=NPZ_PAD_VAL)
             samples.append(track_array_np)
             cell_hits_truths.append(cells_list)

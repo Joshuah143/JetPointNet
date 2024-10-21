@@ -87,7 +87,20 @@ rsync -avzP /fast_scratch_1/atlas/pflow/jhimmens_working_files/pnet_data/process
 du -sh /fast_scratch_1/atlas/pflow/jhimmens_working_files/pnet_data/processed_files/collected_data/rev_2
 
 
+rsync -avzP 20240916.v0 jhimmens@lxplus.cern.ch:/eos/user/j/jhimmens/jetpointnet/data/
+
+rsync -avzP /fast_scratch_1/atlas/pflow/jhimmens_working_files/pnet_data/processed_files/collected_data/rev_9_pt_norm_fix/SavedNpz/deltaR=0.2_maxLen=800_MaxTrackAtributions=26/train/JZ4/user.mswiatlo.39955735._000653.mltree.root_chunk_0_train.parquet.npz jhimmens@lxplus.cern.ch:/eos/user/j/jhimmens/jetpointnet/data/for_luca_npz/
 
 rsync -avzP /fast_scratch_1/atlas/pflow/jhimmens_working_files/pnet_data/processed_files/collected_data/rev_4/SavedNpz/ jhimmens@lxplus.cern.ch:/eos/user/j/jhimmens/jetpointnet/data/rev_4/SavedNpz
 
 rsync -avzP /fast_scratch_1/atlas/pflow/jhimmens_working_files/pnet_data/processed_files/collected_data/rev_4/SavedNpz/ m1:/data/jhimmens/pnet_data/processed_files/collected_data/rev_4/SavedNpz
+
+# Issues for prod:
+- Distance of R
+- Files are path dependant
+- Track min cell hits
+- Tracking information from npz to reconstructed
+- Sample cutoffs (not a real issue imo)
+
+is subtraction real or symbolic
+lets go with real

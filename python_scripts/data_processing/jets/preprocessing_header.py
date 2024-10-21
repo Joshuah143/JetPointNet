@@ -8,7 +8,6 @@ SCRIPT_PATH = REPO_PATH / "python_scripts"
 sys.path.append(str(SCRIPT_PATH))
 
 from data_processing.jets.track_metadata import (
-    calo_layers,
     has_fixed_r,
     fixed_r,
     fixed_z,
@@ -20,7 +19,7 @@ HAS_FIXED_R, FIXED_R, FIXED_Z = (
     fixed_z,
 )  # Loading the calorimeter geometery
 
-prefix_match = {
+old_prefix_match = {
     "rho": 'user.mswiatlo.40097513',
     "delta": 'user.mswiatlo.40097496',
     "JZ0": 'user.mswiatlo.39955613',
@@ -31,6 +30,22 @@ prefix_match = {
     "JZ5": 'user.mswiatlo.39955768',
     "JZ6": 'user.mswiatlo.39955825',
 }
+
+prefix_match = {
+    "rho": 'user.jhimmens.41286604',
+    "delta": 'user.jhimmens.41286601',
+    "JZ0": 'user.jhimmens.41286639',
+    "JZ1": 'user.jhimmens.41286647',
+    "JZ2": 'user.jhimmens.41286659',
+    "JZ3": 'user.jhimmens.41286671',
+    "JZ4": 'user.jhimmens.41286680',
+    "JZ5": 'user.jhimmens.41286685',
+    "JZ6": 'user.jhimmens.41286688',
+    "JZ7": 'user.jhimmens.41286693',
+    "JZ8": 'user.jhimmens.41286696',
+    "JZ9": 'user.jhimmens.41286702',
+}
+
 FILE_PREFIX_LEN = len(prefix_match['rho'])
 
 prefix_to_set = {j:i for i,j in prefix_match.items()}
@@ -77,10 +92,10 @@ elif USER == "jhimmens":
     MIN_TRACK_CELL_HITS = 25
     MAX_SAMPLE_LENGTH = 800
     MAX_TRACK_ASSOCIATIONS = 26
-    DATA_PATH = Path("/fast_scratch_1/atlas/pflow/jhimmens_working_files")
+    DATA_PATH = Path("/fast_scratch_3/atlas/pflow/jhimmens_working_files")
 
     # ===== ROOT TO AWK =====
-    AWK_OUTPUT_DIRECTORY_NAME = "rev_9_pt_norm_fix"
+    AWK_OUTPUT_DIRECTORY_NAME = "rev_10_energy_fix_totalE"
     AWK_DATASET_NAME = "collected_data"
     OVERWRITE_AWK = False
     GEO_FILE_LOC = "/fast_scratch_1/atlas/pflow/rho_small.root"
@@ -88,8 +103,8 @@ elif USER == "jhimmens":
     # TEST_SPLIT_RATIO is implied to be the remaining percentage
     TRAIN_SPLIT_RATIO = 0.55
     VAL_SPLIT_RATIO = 0.3
-    AWK_THREADS_PER_CHUNK = 96  # root to awk
-    ROOT_FILES_DIR = "/fast_scratch_1/atlas/pflow/20240614/" 
+    AWK_THREADS_PER_CHUNK = 100  # root to awk
+    ROOT_FILES_DIR = "/fast_scratch_3/atlas/pflow/ntuples/20240916.v0" 
 
     # rho+delta: /fast_scratch_1/atlas/pflow/20240626/
     # dijet: /fast_scratch_1/atlas/pflow/20240614/
@@ -111,16 +126,16 @@ elif USER == "jhimmens":
     SAMPLE_LENGTH_WORKERS = 96
 
     # ===== AWK TO NPZ =====
-    NPZ_OUTPUT_DIRECTORY_NAME = "rev_9_pt_norm_fix"
+    NPZ_OUTPUT_DIRECTORY_NAME = "rev_10_energy_fix_totalE"
     NPZ_DATASET_NAME = "collected_data"
     OVERWRITE_NPZ = False
-    NPZ_NUM_CHUNK_THREADS = 70  # awk to npz
-    NPZ_ALlOWED_SETS = ['rho', 'delta', 'JZ0', 'JZ1', 'JZ2', 'JZ3', 'JZ4', 'JZ5']
+    NPZ_NUM_CHUNK_THREADS = 96  # awk to npz
+    NPZ_ALlOWED_SETS = ['rho', 'delta', 'JZ0', 'JZ1', 'JZ2', 'JZ3', 'JZ4', 'JZ5', 'JZ6']
 
     # ===== TRAINING =====
-    TRAIN_OUTPUT_DIRECTORY_NAME = "rev_9_pt_norm_fix"
+    TRAIN_OUTPUT_DIRECTORY_NAME = "rev_10_energy_fix_totalE"
     TRAIN_DATASET_NAME = "collected_data"
-    TRAIN_ALlOWED_SETS = {'JZ4': 1} #NOTE! This is just for the directories, the values is the percent of each batch that should contain data from that set
+    TRAIN_ALlOWED_SETS = {'JZ4':1} #NOTE! This is just for the directories, the values is the percent of each batch that should contain data from that set
 else:
     raise Exception("User not found!")
 
@@ -191,7 +206,7 @@ def NPZ_SAVE_LOC(working_file: str):
             / NPZ_DATASET_NAME
             / NPZ_OUTPUT_DIRECTORY_NAME
             / "SavedNpz"
-            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}_MaxTrackAtributions={MAX_TRACK_ASSOCIATIONS}"
+            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}"
         )
     elif working_file == TRAIN:
         return (
@@ -200,7 +215,7 @@ def NPZ_SAVE_LOC(working_file: str):
             / TRAIN_DATASET_NAME
             / TRAIN_OUTPUT_DIRECTORY_NAME
             / "SavedNpz"
-            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}_MaxTrackAtributions={MAX_TRACK_ASSOCIATIONS}"
+            / f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}"
             #/ f"deltaR={MAX_DISTANCE}_maxLen={MAX_SAMPLE_LENGTH}_EScale={ENERGY_SCALE}"
         )
     else:
