@@ -1,14 +1,9 @@
 import uproot
+import awkward as ak
 
-def load_from_root(root_file, geo_file, truth) -> uproot.TTree:
-    pass
-
-
-def load_from_args(truth) -> uproot.TTree:
+def load_from_args(truth) -> ak.Array:
     pass
 
 
 def main(config):
     pass
-
-
