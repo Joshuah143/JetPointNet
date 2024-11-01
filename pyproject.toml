@@ -18,6 +18,8 @@ matplotlib = "^3.9.2"
 plotly = "^5.24.1"
 tqdm = "^4.66.5"
 pyarrow = "^17.0.0"
+atlas-mpl-style = "^0.23.3"
+ipympl = "^0.9.4"
 
 
 [build-system]

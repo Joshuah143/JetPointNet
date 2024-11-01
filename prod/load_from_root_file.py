@@ -1,5 +1,4 @@
 from typing import List, Dict, Any
-
 import uproot
 import awkward as ak
 from multiprocessing import Pool
@@ -11,8 +10,8 @@ from itertools import repeat
 from prod.coordinate_conversions import intersection_fixed_z, eta_phi_to_cartesian
 from prod.track_metadata import fixed_r, fixed_z
 
-NUM_THREADS = os.cpu_count()
-EVENT_BATCHES = 80
+NUM_THREADS = 3 #os.cpu_count()
+EVENT_BATCHES = 2
 
 
 def load_from_root(root_files_location, geo_file, truth=True) -> ak.Array:
@@ -23,15 +22,16 @@ def load_from_root(root_files_location, geo_file, truth=True) -> ak.Array:
                     "rPerp": geo_locations['cell_geo_rPerp'].array()[0],
                     "sigma": geo_locations['cell_geo_sigma'].array()[0]}
 
-    events_iterator = uproot.iterate({root_files_location: "EventTree"}, step_size=EVENT_BATCHES)
-    with Pool(processes=NUM_THREADS) as pool:
-        processed_events = list(pool.starmap(
-            build_awk_arr,
-            zip(events_iterator, repeat(calo_geo), repeat(truth))
-        ))
+    # events_iterator = uproot.iterate({root_files_location: "EventTree"}, step_size=EVENT_BATCHES)
+    # # TODO: save intermediates to prevent lost work
+    # with Pool(processes=NUM_THREADS) as pool:
+    #     processed_events = list(pool.starmap(
+    #         build_awk_arr,
+    #         zip(events_iterator, repeat(calo_geo), repeat(truth))
+    #     ))
 
-    # events = next(uproot.iterate({root_files_location: "EventTree"}, step_size=EVENT_BATCHES))
-    # processed_events = [build_awk_arr(events, calo_geo, truth)]
+    events = next(uproot.iterate({root_files_location: "EventTree"}, step_size=EVENT_BATCHES))
+    processed_events = [build_awk_arr(events, calo_geo, truth)]
     return ak.Array([item for sublist in processed_events for item in sublist])
 
 
@@ -81,33 +81,32 @@ def generate_tracks(event, truth=True) -> list[dict[str, list[dict[str, Any] | d
 
         calo_hits = []
 
-        for i in range(len(event['trackEta_EMB1'])):
-            for layer, radius in fixed_r.items():
-                eta = event[f"trackEta_{layer}"][i]
-                phi = event[f"trackPhi_{layer}"][i]
-                if phi > -9999999:
-                    x, y, z = eta_phi_to_cartesian(eta, phi, radius)
-                    hit = {
-                        'x': x,
-                        'y': y,
-                        'z': z,
-                        'eta': eta,
-                        'phi': phi,
-                    }
-                    calo_hits.append(hit)
-            for layer, z in fixed_z.items():
-                eta = event[f"trackEta_{layer}"][i]
-                phi = event[f"trackPhi_{layer}"][i]
-                if phi > -9999999:
-                    x, y, _ = intersection_fixed_z(eta, phi, z)
-                    hit = {
-                        'x': x,
-                        'y': y,
-                        'z': z,
-                        'eta': eta,
-                        'phi': phi,
-                    }
-                    calo_hits.append(hit)
+        for layer, radius in fixed_r.items():
+            eta = ak.to_numpy(event[f"trackEta_{layer}"])[idx]
+            phi = ak.to_numpy(event[f"trackPhi_{layer}"])[idx]
+            if phi > -9999999:
+                x, y, z = eta_phi_to_cartesian(eta, phi, radius)
+                hit = {
+                    'x': x,
+                    'y': y,
+                    'z': z,
+                    'eta': eta,
+                    'phi': phi,
+                }
+                calo_hits.append(hit)
+        for layer, z in fixed_z.items():
+            eta = ak.to_numpy(event[f"trackEta_{layer}"])[idx]
+            phi = ak.to_numpy(event[f"trackPhi_{layer}"])[idx]
+            if phi > -9999999:
+                x, y, _ = intersection_fixed_z(eta, phi, z)
+                hit = {
+                    'x': x,
+                    'y': y,
+                    'z': z,
+                    'eta': eta,
+                    'phi': phi,
+                }
+                calo_hits.append(hit)
 
         track['hits'] = calo_hits
         tracks.append(track)
@@ -117,7 +116,7 @@ def generate_cells(event, geo_dict, truth=True) -> list:
     cells = []
 
     for cluster_idx in range(event['nCluster']):
-        # event['cluster_nCells'][cluster_idx] cannot be since it does not have 5 MeV cell cut
+        # NOTE: event['cluster_nCells'][cluster_idx] cannot be since it does not have 5 MeV cell cut
         for cell_idx in range(len(event['cluster_cell_ID'][cluster_idx])):
             cell_ID = event['cluster_cell_ID'][cluster_idx][cell_idx]
 
@@ -131,10 +130,11 @@ def generate_cells(event, geo_dict, truth=True) -> list:
             rPerp = geo_dict["rPerp"][idx]
             x, y, z = eta_phi_to_cartesian(eta, phi, rPerp)
 
+            # TODO: Combine duplicate cells
             cell = {
                 "cell_E": event['cluster_cell_E'][cluster_idx][cell_idx],
                 "cell_ID": cell_ID,
-                "cell_sigma": geo_dict["sigma"][idx],
+                "cell_sigma": geo_dict["sigma"][idx][0],
                 'eta': eta[0],
                 'phi': phi[0],
                 'x': x[0],
@@ -154,5 +154,5 @@ def generate_cells(event, geo_dict, truth=True) -> list:
 
 
 if __name__ == "__main__":
-    loaded = load_from_root("data/rho/*.root", "data/rho_small.root")
-    ak.to_json(loaded, "test_input.json", num_indent_spaces=4)
+    loaded = load_from_root("data/JZ4/*.root", "data/rho_small.root")
+    ak.to_json(loaded, "test_inputjz4.json", num_indent_spaces=2)
