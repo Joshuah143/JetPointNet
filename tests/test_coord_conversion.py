@@ -1,6 +1,6 @@
 import math
 import unittest
-from coordinate_conversions import *
+from prod.coordinate_conversions import *
 
 class MyTestCase(unittest.TestCase):
     # Tests for eta_phi_to_cartesian(eta, phi, R=1)

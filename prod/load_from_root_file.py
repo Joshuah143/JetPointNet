@@ -45,7 +45,8 @@ def process_event(event: ak.Record, geo_dict: dict, truth=True) -> dict:
                      "coreFlags": event["coreFlags"],
                      "tracks": generate_tracks(event, truth),
                      "cells": generate_cells(event, geo_dict, truth),
-                     "attributed": []}
+                     "attributed": {"tracks": [],
+                                    "neutral": []}}
 
     return updated_event
 

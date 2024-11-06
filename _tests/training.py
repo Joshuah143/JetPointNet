@@ -151,7 +151,7 @@ if USE_WANDB:
         },
         job_type="training",
         tags=["test"],
-        notes="This run tests new functionalities.",
+        notes="This run _tests new functionalities.",
     )
 
 
