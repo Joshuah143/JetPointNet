@@ -26,19 +26,15 @@ sys.path.append(str(SCRIPT_PATH))
 import pandas as pd
 import numpy as np
 from tqdm.auto import tqdm
-from multiprocessing import Pool
 
 from data_processing.jets.preprocessing_header import (
     AWK_SAVE_LOC,
     NPZ_SAVE_LOC,
-    NUM_CHUNK_THREADS,
 )
-from python_scripts.data_processing.jets.common_utils import get_split
+from old_framwork.python_scripts.data_processing.jets.common_utils import get_split
 import wandb
 import plotly.express as px
 import plotly.graph_objects as go
-from jets_training.jets_train import TRAIN_INPUTS
-
 
 ENERGY_SCALE = 1
 DATASET = AWK_SAVE_LOC.parent.parent.name
