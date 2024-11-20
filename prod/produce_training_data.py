@@ -2,26 +2,42 @@ from pathlib import Path
 import awkward as ak
 import numpy as np
 
-
-from prod.load_from_root_file import load_from_root
-from prod.to_numpy import event_to_trainable
+from load_from_root_file import load_from_root
+from to_numpy import event_to_trainable
 
 # Meta params
-input_data_dir = Path("/Users/joshuahimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/data")
-output_data_dir = Path("/Users/joshuahimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/training_data")
+input_data_dir = Path("/fast_scratch_3/atlas/pflow/ntuples/20240916.v0/")
+output_data_dir = Path("/fast_scratch_3/atlas/pflow/augmented_training_data")
+geo_file = Path("/fast_scratch_1/atlas/pflow/rho_small.root")
 max_sample_length = 800
 desired_sets = [
     "rho",
-    # "delta",
-    # "JZ0",
-    # "JZ1",
-    # "JZ2",
-    # "JZ3",
-    # "JZ4",
-    # "JZ5",
-    # "JZ6",
-    # "JZ7",
+    "delta",
+    "JZ0",
+    "JZ1",
+    "JZ2",
+    "JZ3",
+    "JZ4",
+    "JZ5",
+    "JZ6",
+    "JZ7",
+    "JZ8",
+    "JZ9",
 ]
+set_to_dir_name = {
+    "JZ0": "user.jhimmens.801165.Py8EG_A14NNPDF23LO_jj_JZ0.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
+    "JZ1": "user.jhimmens.801166.Py8EG_A14NNPDF23LO_jj_JZ1.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
+    "JZ2": "user.jhimmens.801167.Py8EG_A14NNPDF23LO_jj_JZ2.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
+    "JZ3": "user.jhimmens.801168.Py8EG_A14NNPDF23LO_jj_JZ3.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
+    "JZ4": "user.jhimmens.801169.Py8EG_A14NNPDF23LO_jj_JZ4.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
+    "JZ5": "user.jhimmens.801170.Py8EG_A14NNPDF23LO_jj_JZ5.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
+    "JZ6": "user.jhimmens.801171.Py8EG_A14NNPDF23LO_jj_JZ6.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
+    "JZ7": "user.jhimmens.801172.Py8EG_A14NNPDF23LO_jj_JZ7.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
+    "JZ8": "user.jhimmens.801173.Py8EG_A14NNPDF23LO_jj_JZ8.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
+    "JZ9": "user.jhimmens.801174.Py8EG_A14NNPDF23LO_jj_JZ9incl.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
+    "delta": "user.jhimmens.mc21_13p6TeV.900147.singleDelta.recon.ESD.e8537_e8455_s3986_s3874_r14060_20240916.v0_mltree.root",
+    "rho": "user.jhimmens.mc21_13p6TeV.900148.singlerho.recon.ESD.e8537_e8455_s3986_s3874_r14060_20240916.v0_mltree.root",
+}
 data_split = {
     'train': 0.6,
     'val': 0.2,
@@ -33,7 +49,8 @@ def save_train_data(save_location: Path):
     for set_name in desired_sets:
         print(f"Handling set: {set_name}")
         print(f"Loading data from: {input_data_dir/set_name}")
-        tree: ak.Array = load_from_root(input_data_dir/set_name/"*.root")
+
+        tree: ak.Array = load_from_root(input_data_dir/set_to_dir_name[set_name]/"*.root", geo_file, debug=False)
 
         # sort into data_split sets
         split_tree = split_data(tree, data_split)
@@ -47,7 +64,6 @@ def save_train_data(save_location: Path):
                 ak.to_parquet(data, split_save_location / f"{iters}_reductions.parquet")
                 iters += 1
                 data = perform_subtraction(data)
-
 
 
 def setup_directories(save_location: Path):
@@ -200,3 +216,5 @@ def single_event_subtraction(b: ak.ArrayBuilder, event: ak.Record):
     b.end_list()
     b.end_record()
 
+if __name__ == "__main__":
+    save_train_data(output_data_dir)
