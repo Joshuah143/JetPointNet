@@ -1,8 +1,7 @@
 from pathlib import Path
 import awkward as ak
 import numpy as np
-from keras.src.legacy.backend import update
-from matplotlib.style.core import update_nested_dict
+
 
 from prod.load_from_root_file import load_from_root
 from prod.to_numpy import event_to_trainable
@@ -45,6 +44,7 @@ def save_train_data(save_location: Path):
             while max(ak.num(data['tracks'])) > 0: # while there are still tracks in the data
                 trainable = ak_to_numpy(data)
                 np.save(split_save_location / f"{iters}_reductions.npy", trainable)
+                ak.to_parquet(data, split_save_location / f"{iters}_reductions.parquet")
                 iters += 1
                 data = perform_subtraction(data)
 
@@ -131,7 +131,6 @@ def single_event_subtraction(b: ak.ArrayBuilder, event: ak.Record):
                                   'phi': cell['phi'],
                                   'sigma': cell['cell_sigma']})
 
-            # TODO: add normalized params
             b.begin_record()
             b.field("cell_cluster_index")
             b.integer(cell['cell_cluster_index'])

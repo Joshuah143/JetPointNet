@@ -46,7 +46,7 @@ event_array_dtype = np.dtype([
     # ('normalized_track_pt_cell_E', np.float32), TBD if combined classes are required/useful
 ])
 
-def event_to_trainable(event: ak.Array, delta_r_max=0.2, truth=True, max_event_len=800) -> np.ndarray:
+def event_to_trainable(event: ak.Record, delta_r_max=0.2, truth=True, max_event_len=800) -> np.ndarray:
     trainable_array = []
     # handle focal track
     print("PRINTING EVENT:")
@@ -56,9 +56,6 @@ def event_to_trainable(event: ak.Array, delta_r_max=0.2, truth=True, max_event_l
         # TODO: throw error here, this should never be reached in production
         return np.zeros(max_event_len, dtype=event_array_dtype)
     focal_index = ak.argmax(event['tracks']['trackPt']) # selected by pT
-    print(focal_index)
-    # focal_index = int(ak.to_numpy(focal_index))
-    # print(focal_index)
 
     focal_track = event['tracks'][focal_index]
     focal_eta = focal_track['trackEta']
@@ -91,7 +88,6 @@ def event_to_trainable(event: ak.Array, delta_r_max=0.2, truth=True, max_event_l
     event_data['eventNumber'] = event['eventNumber']
 
     event_data = truncate_or_pad(event_data, max_event_len)
-    # TODO: normalize the data: E, pT, x, y, z
     event_data = normalize_event_data(event_data)
 
     print(f"Len pre-shrink: {len(event_data)}")
@@ -107,13 +103,12 @@ def normalize_event_data(event_data):
     norms = np.linalg.norm(positions, axis=1)
     norms[norms == 0] = 1  # Avoid division by zero
 
-    # TODO: Should these be normalized together to scale the space or independently
+    # TODO: Should these be normalized together to scale the space or independently?
     event_data['normalized_x'] = event_data['x'] / norms
     event_data['normalized_y'] = event_data['y'] / norms
     event_data['normalized_z'] = event_data['z'] / norms
 
     # Normalize cell_E and track_pt
-    # For cells
     cell_E_valid = event_data['cell_E'][event_data['cell_E'] != -1]
     if len(cell_E_valid) > 0:
         max_cell_E = np.max(cell_E_valid)
@@ -262,7 +257,7 @@ def add_cells(cells, focal_track, truth: bool):
         focal_energy_per_cell = ak.sum(cell_hits_truth_e * is_focal_particle, axis=-1).to_numpy()
         cell_data['truth_cell_focal_energy'] = focal_energy_per_cell
 
-        # TODO: manage divide by 0
+        # TODO: manage divide by 0, not a huge error, but it will compain
         cell_data['truth_cell_focal_fraction_energy'] = focal_energy_per_cell/cell_truth_total_e
         cell_data['truth_cell_focal_observed_fraction_energy'] = focal_energy_per_cell / cell_e
 

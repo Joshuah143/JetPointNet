@@ -14,7 +14,7 @@ from track_metadata import fixed_r, fixed_z
 NUM_THREADS = os.cpu_count()
 EVENT_BATCHES = 20
 
-def load_from_root(root_files_location: Path, geo_file=Path("data/rho_small.root"), truth: bool=True) -> ak.Array:
+def load_from_root(root_files_location: Path, geo_file=Path("data/rho_small.root"), truth: bool=True, debug=False) -> ak.Array:
     with uproot.open(geo_file)["CellGeo"] as geo_locations:
         calo_geo = {"ID": geo_locations['cell_geo_ID'].array()[0],
                     "eta": geo_locations['cell_geo_eta'].array()[0],
@@ -24,19 +24,22 @@ def load_from_root(root_files_location: Path, geo_file=Path("data/rho_small.root
 
     events_iterator = uproot.iterate({root_files_location: "EventTree"}, step_size=EVENT_BATCHES)
     # TODO: save intermediates to prevent lost work
-    with Pool(processes=NUM_THREADS) as pool:
-        processed_events = list(pool.starmap(
-            build_awk_arr,
-            zip(filtered_events_iterator(events_iterator), repeat(calo_geo), repeat(truth))
-        ))
+    if debug:
+        events = next(uproot.iterate({root_files_location: "EventTree"}, step_size=EVENT_BATCHES))
+        processed_events = [build_awk_arr(events, calo_geo, truth)]
+        return ak.Array(ak.flatten(processed_events))
+    else:
+        with Pool(processes=NUM_THREADS) as pool:
+            processed_events = list(pool.starmap(
+                build_awk_arr,
+                zip(filtered_events_iterator(events_iterator), repeat(calo_geo), repeat(truth))
+            ))
 
-    ak_arr_batched = ak.Array(processed_events)
-    ak_arr = ak.flatten(ak_arr_batched)
-    return ak_arr
+        ak_arr_batched = ak.Array(processed_events)
+        ak_arr = ak.flatten(ak_arr_batched)
+        return ak_arr
 
-    # events = next(uproot.iterate({root_files_location: "EventTree"}, step_size=EVENT_BATCHES))
-    # processed_events = [build_awk_arr(events, calo_geo, truth)]
-    # return ak.Array([item for sublist in processed_events for item in sublist])
+
 
 def filter_events(event_batch):
     INVALID_TRUTH_INDEX = -1
@@ -70,7 +73,7 @@ def process_event(event: ak.Record, geo_dict: dict, truth=True) -> dict:
                      "coreFlags": event["coreFlags"],
                      "tracks": generate_tracks(event, truth),
                      "cells": generate_cells(event, geo_dict, truth),
-                     "attributed": {[]}}
+                     "attributed": {}}
 
     return updated_event
 
@@ -118,19 +121,21 @@ def generate_tracks(event, truth=True) -> list[dict[str, list[dict[str, Any] | d
                     'z': z,
                     'eta': eta,
                     'phi': phi,
+                    'layer': layer,
                 }
                 calo_hits.append(hit)
         for layer, z in fixed_z.items():
             eta = ak.to_numpy(event[f"trackEta_{layer}"])[idx]
             phi = ak.to_numpy(event[f"trackPhi_{layer}"])[idx]
             if phi > -9999999:
-                x, y, _ = intersection_fixed_z(eta, phi, z)
+                x, y, z_with_correct_sign = intersection_fixed_z(eta, phi, z)
                 hit = {
                     'x': x,
                     'y': y,
-                    'z': z,
+                    'z': z_with_correct_sign,
                     'eta': eta,
                     'phi': phi,
+                    'layer': layer,
                 }
                 calo_hits.append(hit)
 
@@ -167,6 +172,7 @@ def generate_cells(event, geo_dict, truth=True) -> list:
                 'x': x[0],
                 'y': y[0],
                 'z': z[0],
+                'rPerp': rPerp[0]
             }
 
             if truth:
