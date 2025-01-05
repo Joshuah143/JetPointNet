@@ -3,7 +3,8 @@
 # - implement logging confusion matrix: MINOR
 # - implement lr scheduler: DONE, but need experimenting with more schedulers
 # - move to .fit instead of custom train/val loop
-# - experiment with more losses/metrics: ATTEMPTED, doesn't seem feasible because of per-point weighted loss (can't pass weights to loss during .fit) --> TO CHECK BETTER?
+# - experiment with more losses/metrics: ATTEMPTED,
+# doesn't seem feasible because of per-point weighted loss (can't pass weights to loss during .fit) --> TO CHECK BETTER?
 
 import sys
 from pathlib import Path
@@ -26,7 +27,7 @@ from JetPointNet import (
     TF_SEED,
 )
 
-# tf.config.run_functions_eagerly(True) - Useful when using the debugger - dont delete, but should not be used in production
+# tf.config.run_functions_eagerly(True) - Useful when using the debugger - don't delete, but should not be used in production
 
 # SET PATHS FOR I/O AND CONFIG
 USER = Path.home().name
@@ -56,7 +57,7 @@ TRAIN_INPUT_SETS = {
     'rho': 1
 }
 
-MAX_SAMPLE_LENGTH = 800
+MAX_SAMPLE_LENGTH = 800 # must match sample lengths in numpy generation script
 
 TRAIN_INPUTS = [
     "category",
@@ -117,14 +118,6 @@ baseline_configuration = dict(
     METRIC="val/f1_score_focal",
     MODE="max",
 )
-
-
-
-
-
-
-
-
 
 # note that if you change the output activation function you must change the loss function
 if (baseline_configuration["OUTPUT_ACTIVATION_FUNCTION"] in ["softmax", "sigmoid"]
@@ -201,21 +194,18 @@ def single_set_data_generator(data_dir, set_name, batch_size: int, **kwargs):
                     yield batch_feats, batch_targets, batch_e_weights
 
 def consistent_data_generator(data_dir, data_sets: dict, batch_size: int, **kwargs):
-    # Setup the generators
-    genorator_dict = {set_name: single_set_data_generator(data_dir, set_name, int(batch_size * inclusion_ratio)) for
+    # Set up the generators
+    generator_dict = {set_name: single_set_data_generator(data_dir, set_name, int(batch_size * inclusion_ratio)) for
                       set_name, inclusion_ratio in data_sets.items()}
     while True:
         feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
-        for generator in genorator_dict.values():
+        for generator in generator_dict.values():
             feats_inner_buffer, targets_inner_buffer, e_weights_inner_buffer = next(generator)
             feats_buffer.extend(feats_inner_buffer)
             targets_buffer.extend(targets_inner_buffer)
             e_weights_buffer.extend(e_weights_inner_buffer)
 
         yield _format_batch(feats_buffer, targets_buffer, e_weights_buffer)
-
-
-
 
 def calculate_steps(data_dir, batch_size):
     total_samples = 0
@@ -255,7 +245,9 @@ def merge_configurations(priority_config, baseline_config):
             baseline_config[hyperparam] = {"value": value}
         else:
             raise AttributeError(
-                f"{hyperparam} set in experimental config, but not found in baseline config, this parameter is not used and is likely set by error. Please check the config is in `baseline_config`.")
+                f"{hyperparam} set in experimental config, but not found in baseline config, "
+                f"this parameter is not used and is likely set by error. "
+                f"Please check the config is in `baseline_config`.")
     return baseline_config
 
 def train(experimental_configuration: dict = None):
@@ -486,7 +478,10 @@ def train(experimental_configuration: dict = None):
                 train_weighted_acc.update_state(weighted_acc_value)
 
                 print(
-                    f"\rEpoch {epoch + 1}, Step {step + 1}/{train_steps}, Training Loss: {train_loss_tracker.result().numpy():.4e}, Reg Acc: {train_reg_acc.result().numpy():.4f}, Weighted Acc: {train_weighted_acc.result().numpy():.4f}",
+                    f"\rEpoch {epoch + 1}, Step {step + 1}/{train_steps}, "
+                    f"Training Loss: {train_loss_tracker.result().numpy():.4e}, "
+                    f"Reg Acc: {train_reg_acc.result().numpy():.4f}, "
+                    f"Weighted Acc: {train_weighted_acc.result().numpy():.4f}",
                     end="",
                 )
                 batch_loss_train.append(train_loss_tracker.result().numpy())
@@ -531,7 +526,10 @@ def train(experimental_configuration: dict = None):
                 val_predictions.extend(predicted_y.numpy()[mask])
 
                 print(
-                    f"\rEpoch {epoch + 1}, Step {step + 1}/{val_steps}, Validation Loss: {val_loss_tracker.result().numpy():.4e}, Reg Acc: {val_reg_acc.result().numpy():.4f}, Weighted Acc: {val_weighted_acc.result().numpy():.4f}",
+                    f"\rEpoch {epoch + 1}, Step {step + 1}/{val_steps}, "
+                    f"Validation Loss: {val_loss_tracker.result().numpy():.4e}, "
+                    f"Reg Acc: {val_reg_acc.result().numpy():.4f}, "
+                    f"Weighted Acc: {val_weighted_acc.result().numpy():.4f}",
                     end="",
                 )
 

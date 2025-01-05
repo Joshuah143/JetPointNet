@@ -83,7 +83,7 @@ def process_split(args):
     while max(ak.num(data['tracks'])) > 0:  # while there are still tracks in the data
         print(f"{len(data)} event remaining after {iters} iterations")
         trainable = ak_to_numpy(data)
-        np.save(split_save_location / f"{iters}_reductions__{split_id}.npy", trainable)
+        np.save(split_save_location / f"{iters}_reductions__{split_id}.npz", trainable)
         # this should be able to be saved as parquet instead of json, but it runs into an issue inside ak
         ak.to_json(data, split_save_location / f"{iters}_reductions_{split_id}.json", line_delimited=True)
         iters += 1

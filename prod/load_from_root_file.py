@@ -189,6 +189,6 @@ def generate_cells(event, geo_dict, truth=True) -> list:
 
 if __name__ == "__main__":
     loaded = load_from_root("data/JZ4/*.root")
-    with open("test_input_JZ4.json", "w") as file:
+    with open("../../../../../../Application Support/JetBrains/PyCharm2024.3/scratches/test_input_JZ4.json", "w") as file:
         file.write(ak.to_json(loaded))
         print(len(loaded))
