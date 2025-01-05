@@ -22,6 +22,7 @@ ipympl = "^0.9.4"
 keras = "^3.6.0"
 tensorflow = "^2.17.1"
 numpy = "*"
+notebook = "^7.3.2"
 
 
 [build-system]

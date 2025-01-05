@@ -1,3 +1,4 @@
+from multiprocessing import Pool
 from pathlib import Path
 import awkward as ak
 import numpy as np
@@ -6,37 +7,44 @@ from load_from_root_file import load_from_root
 from to_numpy import event_to_trainable
 
 # Meta params
-input_data_dir = Path("/fast_scratch_3/atlas/pflow/ntuples/20240916.v0/")
-output_data_dir = Path("/fast_scratch_3/atlas/pflow/augmented_training_data")
-geo_file = Path("/fast_scratch_1/atlas/pflow/rho_small.root")
+input_data_dir = Path("/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/data") # directory for data to be taken from
+output_data_dir = Path("/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/training_data") # path for saved data to be writen to
+geo_file = Path("/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/data/rho_small.root") # a file with a cell_geo_tree
+
+# input_data_dir = Path("/fast_scratch_3/atlas/pflow/ntuples/20240916.v0/") # directory for data to be taken from
+# output_data_dir = Path("/fast_scratch_3/atlas/pflow/augmented_training_data") # path for saved data to be writen to
+# geo_file = Path("/fast_scratch_1/atlas/pflow/rho_small.root") # a file with a cell_geo_tree
+
+
 max_sample_length = 800
 desired_sets = [
-    "rho",
-    "delta",
-    "JZ0",
-    "JZ1",
-    "JZ2",
-    "JZ3",
+    # "rho",
+    # "delta",
+    # "JZ0",
+    # "JZ1",
+    # "JZ2",
+    # "JZ3",
     "JZ4",
-    "JZ5",
-    "JZ6",
-    "JZ7",
-    "JZ8",
-    "JZ9",
+#     "JZ5",
+#     "JZ6",
+#     "JZ7",
+#     "JZ8",
+#     "JZ9",
 ]
 set_to_dir_name = {
-    "JZ0": "user.jhimmens.801165.Py8EG_A14NNPDF23LO_jj_JZ0.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
-    "JZ1": "user.jhimmens.801166.Py8EG_A14NNPDF23LO_jj_JZ1.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
-    "JZ2": "user.jhimmens.801167.Py8EG_A14NNPDF23LO_jj_JZ2.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
-    "JZ3": "user.jhimmens.801168.Py8EG_A14NNPDF23LO_jj_JZ3.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
-    "JZ4": "user.jhimmens.801169.Py8EG_A14NNPDF23LO_jj_JZ4.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
-    "JZ5": "user.jhimmens.801170.Py8EG_A14NNPDF23LO_jj_JZ5.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
-    "JZ6": "user.jhimmens.801171.Py8EG_A14NNPDF23LO_jj_JZ6.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
-    "JZ7": "user.jhimmens.801172.Py8EG_A14NNPDF23LO_jj_JZ7.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
-    "JZ8": "user.jhimmens.801173.Py8EG_A14NNPDF23LO_jj_JZ8.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
-    "JZ9": "user.jhimmens.801174.Py8EG_A14NNPDF23LO_jj_JZ9incl.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
-    "delta": "user.jhimmens.mc21_13p6TeV.900147.singleDelta.recon.ESD.e8537_e8455_s3986_s3874_r14060_20240916.v0_mltree.root",
-    "rho": "user.jhimmens.mc21_13p6TeV.900148.singlerho.recon.ESD.e8537_e8455_s3986_s3874_r14060_20240916.v0_mltree.root",
+#     "JZ0": "user.jhimmens.801165.Py8EG_A14NNPDF23LO_jj_JZ0.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
+#     "JZ1": "user.jhimmens.801166.Py8EG_A14NNPDF23LO_jj_JZ1.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
+#     "JZ2": "user.jhimmens.801167.Py8EG_A14NNPDF23LO_jj_JZ2.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
+#     "JZ3": "user.jhimmens.801168.Py8EG_A14NNPDF23LO_jj_JZ3.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
+    "JZ4": "JZ4",
+#     "JZ4": "user.jhimmens.801169.Py8EG_A14NNPDF23LO_jj_JZ4.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
+#     "JZ5": "user.jhimmens.801170.Py8EG_A14NNPDF23LO_jj_JZ5.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
+#     "JZ6": "user.jhimmens.801171.Py8EG_A14NNPDF23LO_jj_JZ6.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
+#     "JZ7": "user.jhimmens.801172.Py8EG_A14NNPDF23LO_jj_JZ7.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
+#     "JZ8": "user.jhimmens.801173.Py8EG_A14NNPDF23LO_jj_JZ8.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
+#     "JZ9": "user.jhimmens.801174.Py8EG_A14NNPDF23LO_jj_JZ9incl.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
+#     "delta": "user.jhimmens.mc21_13p6TeV.900147.singleDelta.recon.ESD.e8537_e8455_s3986_s3874_r14060_20240916.v0_mltree.root",
+#     "rho": "user.jhimmens.mc21_13p6TeV.900148.singlerho.recon.ESD.e8537_e8455_s3986_s3874_r14060_20240916.v0_mltree.root",
 }
 data_split = {
     'train': 0.6,
@@ -44,26 +52,43 @@ data_split = {
     'test': 0.2
 }
 
-def save_train_data(save_location: Path):
+def save_train_data(save_location: Path, chunk_size: int = 100):
     setup_directories(save_location)
     for set_name in desired_sets:
         print(f"Handling set: {set_name}")
-        print(f"Loading data from: {input_data_dir/set_name}")
+        print(f"Loading data from: {input_data_dir/set_to_dir_name[set_name]}")
 
-        tree: ak.Array = load_from_root(input_data_dir/set_to_dir_name[set_name]/"*.root", geo_file, debug=False)
+        root_tree: ak.Array = load_from_root(input_data_dir/set_to_dir_name[set_name]/"*.root",
+                                             geo_file,
+                                             debug=False)
 
-        # sort into data_split sets
-        split_tree = split_data(tree, data_split)
-        for split_type, data in split_tree.items():
-            split_save_location = save_location / split_type / set_name
-            split_save_location.mkdir(exist_ok=True)
+        split_tree = split_data(root_tree, data_split)
+        tasks = []
+        for split_type_name, data in split_tree.items(): # ('test', uproot items)
+            # Can iterate over the data and save it in chunks, data is an awkward array of records
             iters = 0
-            while max(ak.num(data['tracks'])) > 0: # while there are still tracks in the data
-                trainable = ak_to_numpy(data)
-                np.save(split_save_location / f"{iters}_reductions.npy", trainable)
-                ak.to_parquet(data, split_save_location / f"{iters}_reductions.parquet")
-                iters += 1
-                data = perform_subtraction(data)
+            split_save_location = save_location / split_type_name / set_name
+
+            for start_idx in range(0, len(data), chunk_size):
+                chunk = data[start_idx : start_idx + chunk_size]
+                split_save_location = save_location / split_type_name / set_name
+                tasks.append((split_type_name, chunk, split_save_location, start_idx))
+        with Pool() as pool:
+            pool.map(process_split, tasks)
+
+
+def process_split(args):
+    split_type, data, split_save_location, split_id = args
+    iters = 0
+    while max(ak.num(data['tracks'])) > 0:  # while there are still tracks in the data
+        print(f"{len(data)} event remaining after {iters} iterations")
+        trainable = ak_to_numpy(data)
+        np.save(split_save_location / f"{iters}_reductions__{split_id}.npy", trainable)
+        # this should be able to be saved as parquet instead of json, but it runs into an issue inside ak
+        ak.to_json(data, split_save_location / f"{iters}_reductions_{split_id}.json", line_delimited=True)
+        iters += 1
+        data = perform_subtraction(data)
+        # current: old events are not removed from the data, all saved files have the same size, this is a large issue
 
 
 def setup_directories(save_location: Path):
@@ -105,6 +130,10 @@ def perform_subtraction(ak_array: ak.Array):
 
 # This could be more efficient by, but the mutability of the Record becomes an issue
 def single_event_subtraction(b: ak.ArrayBuilder, event: ak.Record):
+    if len(event['tracks']) == 0:
+        # print(f'event {event["eventNumber"]} skipped due to no remaining tracks')
+        # print(f'{len(event["attributed"])} tracks attributed')
+        return
     b.begin_record()
 
     max_pt_index = ak.argmax(event['tracks']['trackPt'])
@@ -188,6 +217,7 @@ def single_event_subtraction(b: ak.ArrayBuilder, event: ak.Record):
     b.begin_list()
     b.begin_record()
     b.field('track')
+    # FIX BELOW
     b.append(event['tracks'][max_pt_index])
     b.field('cells')
     b.begin_list()

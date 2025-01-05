@@ -49,8 +49,6 @@ event_array_dtype = np.dtype([
 def event_to_trainable(event: ak.Record, delta_r_max=0.2, truth=True, max_event_len=800) -> np.ndarray:
     trainable_array = []
     # handle focal track
-    print("PRINTING EVENT:")
-    print(event.show(type=True))
     if ak.num(event['tracks'], axis=0) == 0:
         print("No tracks contained in event, skipping")
         # TODO: throw error here, this should never be reached in production
@@ -89,8 +87,6 @@ def event_to_trainable(event: ak.Record, delta_r_max=0.2, truth=True, max_event_
 
     event_data = truncate_or_pad(event_data, max_event_len)
     event_data = normalize_event_data(event_data)
-
-    print(f"Len pre-shrink: {len(event_data)}")
     trainable_array.append(event_data)
 
     # Convert to numpy array
@@ -257,8 +253,18 @@ def add_cells(cells, focal_track, truth: bool):
         focal_energy_per_cell = ak.sum(cell_hits_truth_e * is_focal_particle, axis=-1).to_numpy()
         cell_data['truth_cell_focal_energy'] = focal_energy_per_cell
 
-        # TODO: manage divide by 0, not a huge error, but it will compain
-        cell_data['truth_cell_focal_fraction_energy'] = focal_energy_per_cell/cell_truth_total_e
-        cell_data['truth_cell_focal_observed_fraction_energy'] = focal_energy_per_cell / cell_e
+        cell_data['truth_cell_focal_fraction_energy'] = np.divide(
+            focal_energy_per_cell,
+            cell_truth_total_e,
+            out=np.zeros_like(focal_energy_per_cell),
+            where=(cell_truth_total_e != 0)
+        )
+
+        cell_data['truth_cell_focal_observed_fraction_energy'] = np.divide(
+            focal_energy_per_cell,
+            cell_e,
+            out=np.zeros_like(focal_energy_per_cell),
+            where=(cell_e != 0)
+        )
 
     return cell_data

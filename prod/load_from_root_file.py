@@ -37,6 +37,7 @@ def load_from_root(root_files_location: Path, geo_file=Path("data/rho_small.root
 
         ak_arr_batched = ak.Array(processed_events)
         ak_arr = ak.flatten(ak_arr_batched)
+        print(f"Loaded {len(ak_arr)} events from {root_files_location}")
         return ak_arr
 
 
