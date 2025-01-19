@@ -7,5 +7,6 @@ test:
   before_script:
     - pip install poetry
     - poetry install
+    - source $(poetry env info --path)/bin/activate
   script:
     - make test
