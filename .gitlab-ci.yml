@@ -9,5 +9,3 @@ test:
     - poetry install
   script:
     - make test
-  only:
-    - main
