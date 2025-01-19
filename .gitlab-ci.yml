@@ -5,6 +5,8 @@ test:
   stage: test
   image: python:3.13
   before_script:
+    - apt-get update
+    - apt-get install -y cmake build-essential
     - pip install poetry
     - poetry install
   script:
