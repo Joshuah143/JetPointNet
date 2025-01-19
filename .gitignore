@@ -1,6 +1,9 @@
-
 # ignore data files. Must manually configure
 pnet_data
+*.npy
+*.npz
+*.json
+*.root
 
 # debug/experimental code
 scratch

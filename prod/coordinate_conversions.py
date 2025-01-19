@@ -1,5 +1,6 @@
 import numpy as np
 
+
 # TODO: only allow named arguments
 def eta_phi_to_cartesian(eta, phi, R=1):
     # theta = 2 * np.arctan(np.exp(-eta))
@@ -7,6 +8,7 @@ def eta_phi_to_cartesian(eta, phi, R=1):
     y = R * np.sin(phi)
     z = R * np.sinh(eta)
     return x, y, z
+
 
 # TODO: only allow named arguments
 def intersection_fixed_z(eta, phi, fixed_z):
@@ -16,6 +18,7 @@ def intersection_fixed_z(eta, phi, fixed_z):
     y *= scale_factor
     z = fixed_z * np.sign(eta)
     return x, y, z
+
 
 # TODO: only allow named arguments
 def calculate_delta_r(eta1, phi1, eta2, phi2):

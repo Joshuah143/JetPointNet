@@ -51,30 +51,30 @@ RESULTS_PATH.mkdir(exist_ok=True, parents=True)
 MODELS_PATH = Path("models") / EXPERIMENT_NAME
 MODELS_PATH.mkdir(exist_ok=True, parents=True)
 
-TRAINING_FILE_LOCATION = Path("/Users/joshuahimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/training_data")
+TRAINING_FILE_LOCATION = Path(
+    "/Users/joshuahimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/training_data"
+)
 
-TRAIN_INPUT_SETS = {
-    'rho': 1
-}
+TRAIN_INPUT_SETS = {"rho": 1}
 
-MAX_SAMPLE_LENGTH = 800 # must match sample lengths in numpy generation script
+MAX_SAMPLE_LENGTH = 800  # must match sample lengths in numpy generation script
 
 TRAIN_INPUTS = [
     "category",
-    'delta_R',
+    "delta_R",
     "track_num",
     "normalized_x",
     "normalized_y",
     "normalized_z",
-    'track_chi2_dof',
-    'cell_sigma',
-    "normalized_distance",
+    "track_chi2_dof",
+    "cell_sigma",
+    # "normalized_distance", not included in most recent training data
     "normalized_cell_E",
     "normalized_track_pt",
 ]
 
 TRAIN_TARGETS = [
-    'truth_cell_focal_observed_fraction_energy',
+    "truth_cell_focal_observed_fraction_energy",
 ]
 
 baseline_configuration = dict(
@@ -120,22 +120,31 @@ baseline_configuration = dict(
 )
 
 # note that if you change the output activation function you must change the loss function
-if (baseline_configuration["OUTPUT_ACTIVATION_FUNCTION"] in ["softmax", "sigmoid"]
-        and baseline_configuration["OUTPUT_LAYER_SEGMENTATION_CUTOFF"] != 0.5):
+if (
+    baseline_configuration["OUTPUT_ACTIVATION_FUNCTION"] in ["softmax", "sigmoid"]
+    and baseline_configuration["OUTPUT_LAYER_SEGMENTATION_CUTOFF"] != 0.5
+):
     raise Exception("Invalid OUTPUT_LAYER_SEGMENTATION_CUTOFF")
-elif (baseline_configuration["OUTPUT_ACTIVATION_FUNCTION"] in ["linear"]
-        and baseline_configuration["OUTPUT_LAYER_SEGMENTATION_CUTOFF"] != 0):
+elif (
+    baseline_configuration["OUTPUT_ACTIVATION_FUNCTION"] in ["linear"]
+    and baseline_configuration["OUTPUT_LAYER_SEGMENTATION_CUTOFF"] != 0
+):
     raise Exception("Invalid OUTPUT_LAYER_SEGMENTATION_CUTOFF")
+
 
 def load_data_from_npz(npz_file):
     all_feats = np.load(npz_file)["feats"]
-    feats = all_feats[:, :MAX_SAMPLE_LENGTH][TRAIN_INPUTS]  # discard tracking information
+    feats = all_feats[:, :MAX_SAMPLE_LENGTH][
+        TRAIN_INPUTS
+    ]  # discard tracking information
     frac_labels = all_feats[:, :MAX_SAMPLE_LENGTH][TRAIN_TARGETS]
     energy_weights = all_feats[:, :MAX_SAMPLE_LENGTH]["cell_E"]
     return feats, frac_labels, energy_weights
 
+
 def _init_buffers():
     return [], [], []
+
 
 def _format_batch(feats_buffer, targets_buffer, e_weights_buffer):
     batch_feats = np.array(feats_buffer)
@@ -143,6 +152,7 @@ def _format_batch(feats_buffer, targets_buffer, e_weights_buffer):
     batch_e_weights = np.expand_dims(e_weights_buffer, axis=-1)
 
     return batch_feats, batch_targets, batch_e_weights
+
 
 def single_set_data_generator(data_dir, set_name, batch_size: int, **kwargs):
     if kwargs.get("seed", 0):
@@ -173,13 +183,9 @@ def single_set_data_generator(data_dir, set_name, batch_size: int, **kwargs):
                 fill_size = batch_size - len(feats_buffer)
                 # get fill_size elements starting from last_batch_idx
                 last_index = min(last_batch_idx + fill_size, file_size)
-                feats_buffer.extend(feats[last_batch_idx: last_index])
-                targets_buffer.extend(
-                    targets[last_batch_idx: last_index]
-                )
-                e_weights_buffer.extend(
-                    e_weights[last_batch_idx: last_index]
-                )
+                feats_buffer.extend(feats[last_batch_idx:last_index])
+                targets_buffer.extend(targets[last_batch_idx:last_index])
+                e_weights_buffer.extend(e_weights[last_batch_idx:last_index])
 
                 # update unprocessed points and last index
                 unprocessed_size -= fill_size
@@ -188,24 +194,34 @@ def single_set_data_generator(data_dir, set_name, batch_size: int, **kwargs):
                 # check if batch is full, in case yield + reset buffers
                 if len(feats_buffer) == batch_size:
                     batch_feats, batch_targets, batch_e_weights = (
-                        feats_buffer, targets_buffer, e_weights_buffer
+                        feats_buffer,
+                        targets_buffer,
+                        e_weights_buffer,
                     )
                     feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
                     yield batch_feats, batch_targets, batch_e_weights
 
+
 def consistent_data_generator(data_dir, data_sets: dict, batch_size: int, **kwargs):
     # Set up the generators
-    generator_dict = {set_name: single_set_data_generator(data_dir, set_name, int(batch_size * inclusion_ratio)) for
-                      set_name, inclusion_ratio in data_sets.items()}
+    generator_dict = {
+        set_name: single_set_data_generator(
+            data_dir, set_name, int(batch_size * inclusion_ratio)
+        )
+        for set_name, inclusion_ratio in data_sets.items()
+    }
     while True:
         feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
         for generator in generator_dict.values():
-            feats_inner_buffer, targets_inner_buffer, e_weights_inner_buffer = next(generator)
+            feats_inner_buffer, targets_inner_buffer, e_weights_inner_buffer = next(
+                generator
+            )
             feats_buffer.extend(feats_inner_buffer)
             targets_buffer.extend(targets_inner_buffer)
             e_weights_buffer.extend(e_weights_inner_buffer)
 
         yield _format_batch(feats_buffer, targets_buffer, e_weights_buffer)
+
 
 def calculate_steps(data_dir, batch_size):
     total_samples = 0
@@ -215,19 +231,20 @@ def calculate_steps(data_dir, batch_size):
         total_samples += data["feats"].shape[0]
     return math.ceil(total_samples / batch_size)
 
+
 def _setup_model(
-        num_points: int,
-        num_features: int,
-        output_activation: str,
-        model_version: int,
-        num_classes: int = 1,
+    num_points: int,
+    num_features: int,
+    output_activation: str,
+    model_version: int,
+    num_classes: int = 1,
 ):
     model = PointNetSegmentation(
         num_points=num_points,
         num_features=num_features,
         num_classes=num_classes,
         output_activation_function=output_activation,
-        model_version=model_version
+        model_version=model_version,
     )
     trainable_count = np.sum([K.count_params(w) for w in model.trainable_weights])
     non_trainable_count = np.sum(
@@ -239,6 +256,7 @@ def _setup_model(
     print("Non-trainable params: {:,}".format(non_trainable_count))
     return model, trainable_count
 
+
 def merge_configurations(priority_config, baseline_config):
     for hyperparam, value in priority_config.items():
         if hyperparam in baseline_config.keys():
@@ -247,28 +265,36 @@ def merge_configurations(priority_config, baseline_config):
             raise AttributeError(
                 f"{hyperparam} set in experimental config, but not found in baseline config, "
                 f"this parameter is not used and is likely set by error. "
-                f"Please check the config is in `baseline_config`.")
+                f"Please check the config is in `baseline_config`."
+            )
     return baseline_config
+
 
 def train(experimental_configuration: dict = None):
     if experimental_configuration is None:
         experimental_configuration = {}
 
-    run_config = merge_configurations(experimental_configuration, baseline_configuration)
+    run_config = merge_configurations(
+        experimental_configuration, baseline_configuration
+    )
     with wandb.init(
-            project="pointcloud",
-            config=run_config,
-            job_type="training",
-            # tags=[TRAIN_OUTPUT_DIRECTORY_NAME,
-            #       TRAIN_DATASET_NAME,
-            #       str(TRAIN_ALlOWED_SETS.keys())],
-            notes=""
+        project="pointcloud",
+        config=run_config,
+        job_type="training",
+        # tags=[TRAIN_OUTPUT_DIRECTORY_NAME,
+        #       TRAIN_DATASET_NAME,
+        #       str(TRAIN_ALlOWED_SETS.keys())],
+        notes="",
     ) as run:
         config = wandb.config
 
         # number of steps and seed
-        train_steps = config.TRAIN_STEPS  # calculate_steps(TRAIN_DIR, config.BATCH_SIZE)  # 47
-        val_steps = config.VAL_STEPS  # calculate_steps(VAL_DIR, config.BATCH_SIZE)  # 26
+        train_steps = (
+            config.TRAIN_STEPS
+        )  # calculate_steps(TRAIN_DIR, config.BATCH_SIZE)  # 47
+        val_steps = (
+            config.VAL_STEPS
+        )  # calculate_steps(VAL_DIR, config.BATCH_SIZE)  # 26
         print(f"{train_steps = };\t{val_steps = }")
 
         seed = config.TF_SEED
@@ -328,7 +354,7 @@ def train(experimental_configuration: dict = None):
             num_features=len(TRAIN_INPUTS),
             num_classes=len(TRAIN_TARGETS),
             output_activation=config.OUTPUT_ACTIVATION_FUNCTION,
-            model_version=config.MODEL_VERSION
+            model_version=config.MODEL_VERSION,
         )
 
         wandb.log({"trainable_params": trainable_params})
@@ -383,9 +409,13 @@ def train(experimental_configuration: dict = None):
         # )
 
         lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
-            initial_learning_rate=config.TRAIN_LR if not config.IS_TUNE else config.TUNE_LR,
+            initial_learning_rate=(
+                config.TRAIN_LR if not config.IS_TUNE else config.TUNE_LR
+            ),
             decay_steps=train_steps,
-            decay_rate=config.TRAIN_LR_DECAY if not config.IS_TUNE else config.TUNE_LR_DECAY,
+            decay_rate=(
+                config.TRAIN_LR_DECAY if not config.IS_TUNE else config.TUNE_LR_DECAY
+            ),
         )
 
         # Optimizer & Loss
@@ -399,7 +429,7 @@ def train(experimental_configuration: dict = None):
         # Will raise AttributeError if the loss function is not found
         logits = config.OUTPUT_ACTIVATION_FUNCTION == "linear"
         loss_function = getattr(tf.keras.losses, config.LOSS_FUNCTION)(
-            from_logits=logits, # NOTE: False for "sigmoid", True for "linear"
+            from_logits=logits,  # NOTE: False for "sigmoid", True for "linear"
             # reduction='none',
         )
 
@@ -449,13 +479,17 @@ def train(experimental_configuration: dict = None):
                 [],
             )
 
-            _train_generator = consistent_data_generator(TRAINING_FILE_LOCATION / 'train',
-                                                         config.INPUT_SETS,
-                                                         config.BATCH_SIZE)
+            _train_generator = consistent_data_generator(
+                TRAINING_FILE_LOCATION / "train", config.INPUT_SETS, config.BATCH_SIZE
+            )
             train_generator = enumerate(_train_generator)
 
-            for step, (x_batch_train_named, y_batch_train, e_weight_train) in train_generator:
-                x_catagories = x_batch_train_named['category']
+            for step, (
+                x_batch_train_named,
+                y_batch_train,
+                e_weight_train,
+            ) in train_generator:
+                x_catagories = x_batch_train_named["category"]
                 x_batch_train = rfn.structured_to_unstructured(x_batch_train_named)
                 y_batch_train = rfn.structured_to_unstructured(y_batch_train)
                 # For some reason the second last dim is always 1, not sure why but this fixes it
@@ -470,7 +504,7 @@ def train(experimental_configuration: dict = None):
                     e_weight_train,
                     model,
                     loss_function,
-                    x_catagories
+                    x_catagories,
                 )
                 optimizer.apply_gradients(zip(grads, model.trainable_variables))
                 train_loss_tracker.update_state(loss_value)
@@ -493,14 +527,17 @@ def train(experimental_configuration: dict = None):
 
             batch_loss_val, batch_accuracy_val, batch_weighted_accuracy_val = [], [], []
 
-
-            _val_generator = consistent_data_generator(TRAINING_FILE_LOCATION / 'val',
-                                                       config.INPUT_SETS,
-                                                       config.BATCH_SIZE)
+            _val_generator = consistent_data_generator(
+                TRAINING_FILE_LOCATION / "val", config.INPUT_SETS, config.BATCH_SIZE
+            )
             val_generator = enumerate(_val_generator)
 
-            for step, (x_batch_val_named, y_batch_val_named, e_weight_val) in val_generator:
-                x_catagories_val = x_batch_val_named['category']
+            for step, (
+                x_batch_val_named,
+                y_batch_val_named,
+                e_weight_val,
+            ) in val_generator:
+                x_catagories_val = x_batch_val_named["category"]
                 x_batch_val = rfn.structured_to_unstructured(x_batch_val_named)
                 y_batch_val = rfn.structured_to_unstructured(y_batch_val_named)
                 # For some reason the second last dim is always 1, not sure why but this fixes it
@@ -514,13 +551,18 @@ def train(experimental_configuration: dict = None):
                     val_weighted_acc_value,
                     predicted_y,
                 ) = val_step(
-                    x_batch_val, y_batch_val, e_weight_val, model, loss_function, x_catagories_val
+                    x_batch_val,
+                    y_batch_val,
+                    e_weight_val,
+                    model,
+                    loss_function,
+                    x_catagories_val,
                 )
                 val_loss_tracker.update_state(val_loss_value)
                 val_reg_acc.update_state(val_reg_acc_value)
                 val_weighted_acc.update_state(val_weighted_acc_value)
 
-                mask = x_batch_val_named['category'] == 1  # remove non-energy points
+                mask = x_batch_val_named["category"] == 1  # remove non-energy points
                 val_true_labels.extend(y_batch_val[mask])
                 val_energy_weights.extend(e_weight_val[mask])
                 val_predictions.extend(predicted_y.numpy()[mask])
@@ -552,7 +594,7 @@ def train(experimental_configuration: dict = None):
             )
             val_unweighted_f1_score.update_state(
                 val_true_labels,  # tf.expand_dims(val_true_labels, axis=-1),
-                val_predictions  # tf.expand_dims(val_predictions, axis=-1),
+                val_predictions,  # tf.expand_dims(val_predictions, axis=-1),
             )
             mean_iou_metric.update_state(val_true_labels, val_predictions)
 
@@ -563,7 +605,8 @@ def train(experimental_configuration: dict = None):
             print(f"\nValidation loss: {val_loss_tracker.result():.4e}")
             print(f"\nTime taken for validation: {time.time() - start_time:.2f} sec")
 
-            wandb.log({
+            wandb.log(
+                {
                     "epoch": epoch,
                     "train/loss": train_loss_tracker.result().numpy(),
                     "train/accuracy": train_reg_acc.result().numpy(),
@@ -587,7 +630,9 @@ def train(experimental_configuration: dict = None):
             # discard first epochs to trigger callbacks
             if epoch > 50:
                 if config.SAVE_INTERMEDIATES and epoch % config.SAVE_FREQ == 0:
-                    checkpoint_path = f"{MODELS_PATH}/PointNet_{epoch=}_name={run.name}.keras"
+                    checkpoint_path = (
+                        f"{MODELS_PATH}/PointNet_{epoch=}_name={run.name}.keras"
+                    )
                     model.save(checkpoint_path)
 
                 checkpoint_callback.on_epoch_end(
@@ -628,7 +673,9 @@ def train(experimental_configuration: dict = None):
 
         print("\n\nTraining completed!")
 
-        last_checkpoint_path = f"{MODELS_PATH}/PointNet_last_{epoch=}_name={run.name}.keras"
+        last_checkpoint_path = (
+            f"{MODELS_PATH}/PointNet_last_{epoch=}_name={run.name}.keras"
+        )
         model.save(last_checkpoint_path)
 
         # Log the best and last models to wandb
@@ -640,9 +687,9 @@ def train(experimental_configuration: dict = None):
         final_model_artifact.add_file(last_checkpoint_path)
         wandb.log_artifact(final_model_artifact)
 
+
 if __name__ == "__main__":
     train({})
-
 
 
 ## OLD METHODS
@@ -676,4 +723,3 @@ if __name__ == "__main__":
 #             total_e_weights = np.concatenate([simple_e_weights, complex_e_weights], axis=0)
 #
 #         yield total_feats, total_targets, total_e_weights
-

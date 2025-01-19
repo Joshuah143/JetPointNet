@@ -136,12 +136,14 @@ def hard_sigmoid(x):
 # ============ Main Model Blocks ========================================================================================
 
 
-def conv_mlp(input_tensor, filters, dropout_rate=None, apply_attention=False, name=None):
+def conv_mlp(
+    input_tensor, filters, dropout_rate=None, apply_attention=False, name=None
+):
     if name is not None:
-        x = tf.keras.layers.Conv1D(filters=filters, kernel_size=1, activation="relu", name=name)(
-            input_tensor
-        )
-    else: 
+        x = tf.keras.layers.Conv1D(
+            filters=filters, kernel_size=1, activation="relu", name=name
+        )(input_tensor)
+    else:
         x = tf.keras.layers.Conv1D(filters=filters, kernel_size=1, activation="relu")(
             input_tensor
         )
@@ -181,7 +183,9 @@ def dense_block(input_tensor, units, dropout_rate=None, regularizer=None):
     return x
 
 
-def TNet(input_tensor, size, add_regularization=False): # JH: why dont we add redularization? Not an issue I dont think, but super strange
+def TNet(
+    input_tensor, size, add_regularization=False
+):  # JH: why dont we add redularization? Not an issue I dont think, but super strange
     # size is either 6 for the first TNet or 64 for the second
     x = conv_mlp(input_tensor, 64)
     x = conv_mlp(x, 128)
@@ -231,8 +235,8 @@ def PointNetSegmentation(
     # T-Net for feature transformation
     feature_tnet = TNet(x, 96, add_regularization=True)
     x = tf.keras.layers.Dot(axes=(2, 1))([x, feature_tnet])
-    x = conv_mlp(x, 128) # JH: this should be 64?
-    x = conv_mlp(x, 256) # JG: this should be 128?
+    x = conv_mlp(x, 128)  # JH: this should be 64?
+    x = conv_mlp(x, 256)  # JG: this should be 128?
     x = conv_mlp(x, 1024)
 
     # Get global features and expand
@@ -245,14 +249,14 @@ def PointNetSegmentation(
     )(global_feature_expanded)
 
     # Segmentaion head
-    if model_version == 0: # ~5M params
+    if model_version == 0:  # ~5M params
         c = tf.keras.layers.Concatenate()([point_features, global_feature_expanded])
 
         c = conv_mlp(c, 512, apply_attention=False)
         c = conv_mlp(c, 256, apply_attention=False)
 
         c = conv_mlp(c, 128, dropout_rate=0.3)
-    elif model_version == 1: # ~6M params
+    elif model_version == 1:  # ~6M params
         c = tf.keras.layers.Concatenate()([point_features, global_feature_expanded])
 
         c = conv_mlp(c, 1024, apply_attention=False)
@@ -262,17 +266,17 @@ def PointNetSegmentation(
         c = conv_mlp(c, 128, apply_attention=False)
 
         c = conv_mlp(c, 128, dropout_rate=0.3)
-    elif model_version == 2: # ~7M params
+    elif model_version == 2:  # ~7M params
         c = tf.keras.layers.Concatenate()([point_features, global_feature_expanded])
 
         c = conv_mlp(c, 1024, apply_attention=False)
-       
+
         c = conv_mlp(c, 1024, apply_attention=False)
         c = conv_mlp(c, 512, apply_attention=False)
         c = conv_mlp(c, 256, apply_attention=False)
 
         c = conv_mlp(c, 256, dropout_rate=0.3)
-    elif model_version == 3: 
+    elif model_version == 3:
         c = tf.keras.layers.Concatenate()([point_features, global_feature_expanded])
 
         c = conv_mlp(c, 2048, apply_attention=False)
@@ -284,7 +288,6 @@ def PointNetSegmentation(
         c = conv_mlp(c, 256, dropout_rate=0.3)
     else:
         raise Exception("INVALID MODEL VERSION")
-
 
     segmentation_output = tf.keras.layers.Conv1D(
         num_classes, kernel_size=1, activation=output_activation_function, name="SEG"
@@ -355,9 +358,8 @@ def masked_weighted_loss(
             pass
         case _:
             raise ValueError(f"Unknown transform value: {transform}")
-        
 
-    valid_mask = tf.equal(x_class, POINT_TYPE_ENCODING['cell']) 
+    valid_mask = tf.equal(x_class, POINT_TYPE_ENCODING["cell"])
     valid_mask = tf.cast(valid_mask, tf.float32)
 
     energies_times_mask = energies * valid_mask
@@ -377,7 +379,7 @@ def masked_weighted_accuracy(
     unweighted_accuracy_metric: tf.keras.metrics.Metric,
     weighted_accuracy_metric: tf.keras.metrics.Metric,
     transform: None | str = None,
-    energy_threshold: float = 0, 
+    energy_threshold: float = 0,
 ):
     """
     Computes the masked weighted accuracy of predictions.
@@ -419,12 +421,14 @@ def masked_weighted_accuracy(
         case _:
             raise ValueError(f"Unknown transform value: {transform}")
 
-    valid_mask = tf.equal(x_class, POINT_TYPE_ENCODING['cell']) 
+    valid_mask = tf.equal(x_class, POINT_TYPE_ENCODING["cell"])
     valid_mask = tf.cast(valid_mask, tf.float32)
 
     energies_times_mask = energies * valid_mask
 
-    weighted_accuracy_metric.update_state(y_true, y_pred, sample_weight=energies_times_mask)
+    weighted_accuracy_metric.update_state(
+        y_true, y_pred, sample_weight=energies_times_mask
+    )
     unweighted_accuracy_metric.update_state(y_true, y_pred, sample_weight=valid_mask)
 
     return unweighted_accuracy_metric.result(), weighted_accuracy_metric.result()
