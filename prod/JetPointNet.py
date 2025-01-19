@@ -19,7 +19,14 @@ REPO_PATH = Path.home() / "workspace/jetpointnet"
 SCRIPT_PATH = REPO_PATH / "python_scripts"
 sys.path.append(str(SCRIPT_PATH))
 
-from data_processing.jets.preprocessing_header import POINT_TYPE_ENCODING
+SENTINEL_NO_DATA = -1
+POINT_TYPE_LABELS = {
+    0: "focal_track",
+    1: "cell",
+    2: "non_focal_track",
+    SENTINEL_NO_DATA: "padding",
+}
+POINT_TYPE_ENCODING = {v: k for k, v in POINT_TYPE_LABELS.items()}
 
 
 # =======================================================================================================================
@@ -248,7 +255,7 @@ def PointNetSegmentation(
         lambda x: tf.tile(x, [1, num_points, 1])
     )(global_feature_expanded)
 
-    # Segmentaion head
+    # Segmentation head
     if model_version == 0:  # ~5M params
         c = tf.keras.layers.Concatenate()([point_features, global_feature_expanded])
 
@@ -338,6 +345,8 @@ def masked_weighted_loss(
     tf.Tensor: standardized loss.
     """
 
+    y_pred = tf.squeeze(y_pred, axis=-1)
+
     # Transform energy weights
     match transform:
         case "absolute":
@@ -364,7 +373,11 @@ def masked_weighted_loss(
 
     energies_times_mask = energies * valid_mask
 
-    # Calculate categorical cross-entropy loss
+    energies_times_mask = tf.expand_dims(energies_times_mask, axis=-1)
+
+    y_true = tf.expand_dims(y_true, axis=-1)
+    y_pred = tf.expand_dims(y_pred, axis=-1)
+
     weighted_loss = loss_function(y_true, y_pred, sample_weight=energies_times_mask)
 
     return weighted_loss
@@ -425,6 +438,10 @@ def masked_weighted_accuracy(
     valid_mask = tf.cast(valid_mask, tf.float32)
 
     energies_times_mask = energies * valid_mask
+
+    y_true = tf.expand_dims(y_true, axis=-1)
+
+    energies_times_mask = tf.expand_dims(energies_times_mask, axis=-1)
 
     weighted_accuracy_metric.update_state(
         y_true, y_pred, sample_weight=energies_times_mask

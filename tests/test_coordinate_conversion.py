@@ -1,4 +1,3 @@
-import math
 import unittest
 import pytest
 from prod.coordinate_conversions import eta_phi_to_cartesian

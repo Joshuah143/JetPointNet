@@ -59,7 +59,10 @@ def event_to_trainable(
         print("No tracks contained in event, skipping")
         # TODO: throw error here, this should never be reached in production
         return np.zeros(max_event_len, dtype=event_array_dtype)
+
     focal_index = ak.argmax(event["tracks"]["trackPt"])  # selected by pT
+
+    # TODO: This process crashes if there are no track hits for the focal track
 
     focal_track = event["tracks"][focal_index]
     focal_eta = focal_track["trackEta"]

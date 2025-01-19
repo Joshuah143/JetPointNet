@@ -3,7 +3,6 @@ import numpy as np
 import awkward as ak
 import pandas as pd
 from pathlib import Path
-from pprint import pprint
 from uproot.extras import pandas
 from visualizations.np_visualization import visualize_sample
 

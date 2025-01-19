@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import Any
 import uproot
 import awkward as ak
 from multiprocessing import Pool

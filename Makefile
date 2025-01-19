@@ -4,6 +4,12 @@ format:
 test:
 	pytest -v
 
-setup_dev_env:
+setup-dev-env:
+	@echo "Setting up development environment"
 	poetry install
+	@echo "Setting up pre-commit hooks"
 	poetry run pre-commit install
+	@poetry shell
+
+env:
+	poetry shell

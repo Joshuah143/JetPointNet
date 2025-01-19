@@ -6,7 +6,6 @@
 # - experiment with more losses/metrics: ATTEMPTED,
 # doesn't seem feasible because of per-point weighted loss (can't pass weights to loss during .fit) --> TO CHECK BETTER?
 
-import sys
 from pathlib import Path
 import os
 
@@ -40,7 +39,7 @@ elif USER == "luclissa":
     ASSIGN_GPU = False
     os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 else:
-    raise Exception("UNKOWN USER")
+    raise Exception("UNKNOWN USER")
 
 if ASSIGN_GPU and __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID
@@ -61,7 +60,7 @@ MAX_SAMPLE_LENGTH = 800  # must match sample lengths in numpy generation script
 
 TRAIN_INPUTS = [
     "category",
-    "delta_R",
+    "delta_r",
     "track_num",
     "normalized_x",
     "normalized_y",
@@ -104,7 +103,7 @@ baseline_configuration = dict(
     LOSS_ENERGY_WEIGHTING="square",
     LOSS_FUNCTION="MeanSquaredError",  # "CategoricalFocalCrossentropy",
     OUTPUT_ACTIVATION_FUNCTION="softmax",
-    # softmax, linear (requires changes to the BCE fucntion in the loss function)
+    # softmax, linear (requires changes to the BCE function in the loss function)
     OUTPUT_LAYER_SEGMENTATION_CUTOFF=0.5,
     EARLY_STOPPING=False,
     TRAIN_STEPS=EPOCH_COMPLEXITY // BATCH_SIZE,
@@ -133,7 +132,7 @@ elif (
 
 
 def load_data_from_npz(npz_file):
-    all_feats = np.load(npz_file)["feats"]
+    all_feats = np.load(npz_file)  # may need ['feats] depending on numpy version
     feats = all_feats[:, :MAX_SAMPLE_LENGTH][
         TRAIN_INPUTS
     ]  # discard tracking information
@@ -159,7 +158,9 @@ def single_set_data_generator(data_dir, set_name, batch_size: int, **kwargs):
         np.random.seed(kwargs["seed"])
 
     # get filenames and initialize buffers
-    npz_files = glob.glob(os.path.join(data_dir, set_name, "*.npz"))
+    npz_files = glob.glob(
+        os.path.join(data_dir, set_name, "*.np[yz]")
+    )  # TODO: switch back to NPZ after rename of files
     feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
     if len(npz_files) == 0:
         raise Exception(f"No npz files found for {set_name} in {data_dir}")
@@ -429,7 +430,7 @@ def train(experimental_configuration: dict = None):
         # Will raise AttributeError if the loss function is not found
         logits = config.OUTPUT_ACTIVATION_FUNCTION == "linear"
         loss_function = getattr(tf.keras.losses, config.LOSS_FUNCTION)(
-            from_logits=logits,  # NOTE: False for "sigmoid", True for "linear"
+            # from_logits=logits,  # NOTE: False for "sigmoid", True for "linear"
             # reduction='none',
         )
 
@@ -588,15 +589,19 @@ def train(experimental_configuration: dict = None):
             val_weights = tf.cast(val_weights, dtype=tf.float32)
 
             val_weighted_f1_score.update_state(
-                val_true_labels,  # tf.expand_dims(val_true_labels, axis=-1),
+                tf.expand_dims(
+                    val_true_labels, axis=-1
+                ),  # tf.expand_dims(val_true_labels, axis=-1),
                 val_predictions,  # tf.expand_dims(val_predictions, axis=-1),
                 sample_weight=val_weights,
             )
             val_unweighted_f1_score.update_state(
-                val_true_labels,  # tf.expand_dims(val_true_labels, axis=-1),
+                tf.expand_dims(val_true_labels, axis=-1),
                 val_predictions,  # tf.expand_dims(val_predictions, axis=-1),
             )
-            mean_iou_metric.update_state(val_true_labels, val_predictions)
+            mean_iou_metric.update_state(
+                tf.expand_dims(val_true_labels, axis=-1), val_predictions
+            )
 
             val_f1 = val_unweighted_f1_score.result().numpy()
             weighted_val_f1 = val_weighted_f1_score.result().numpy()
@@ -616,11 +621,11 @@ def train(experimental_configuration: dict = None):
                     "val/weighted_accuracy": val_weighted_acc.result().numpy(),
                     "learning_rate": optimizer.learning_rate.numpy(),
                     "val/f1_score_focal": val_f1[0],
-                    "val/f1_score_non_focal": val_f1[1],
-                    "val/f1_score_neutral": val_f1[2],
+                    # "val/f1_score_non_focal": val_f1[1],
+                    # "val/f1_score_neutral": val_f1[2],
                     "val/f1_weighted_score_focal": weighted_val_f1[0],
-                    "val/f1_weighted_score_non_focal": weighted_val_f1[1],
-                    "val/f1_weighted_score_neutral": weighted_val_f1[2],
+                    # "val/f1_weighted_score_non_focal": weighted_val_f1[1],
+                    # "val/f1_weighted_score_neutral": weighted_val_f1[2],
                     "val/mean_iou": mean_iou_metric.result().numpy(),
                 }
             )
@@ -643,11 +648,11 @@ def train(experimental_configuration: dict = None):
                         "val/accuracy": val_reg_acc.result(),
                         "val_weighted_accuracy": val_weighted_acc.result(),
                         "val/f1_score_focal": val_f1[0],
-                        "val/f1_score_non_focal": val_f1[1],
-                        "val/f1_score_neutral": val_f1[2],
+                        # "val/f1_score_non_focal": val_f1[1],
+                        # "val/f1_score_neutral": val_f1[2],
                         "val/f1_weighted_score_focal": weighted_val_f1[0],
-                        "val/f1_weighted_score_non_focal": weighted_val_f1[1],
-                        "val/f1_weighted_score_neutral": weighted_val_f1[2],
+                        # "val/f1_weighted_score_non_focal": weighted_val_f1[1],
+                        # "val/f1_weighted_score_neutral": weighted_val_f1[2],
                         "val/mean_iou": mean_iou_metric.result().numpy(),
                     },
                 )
@@ -659,11 +664,11 @@ def train(experimental_configuration: dict = None):
                             "val/accuracy": val_reg_acc.result(),
                             "val_weighted_accuracy": val_weighted_acc.result(),
                             "val/f1_score_focal": val_f1[0],
-                            "val/f1_score_non_focal": val_f1[1],
-                            "val/f1_score_neutral": val_f1[2],
+                            # "val/f1_score_non_focal": val_f1[1],
+                            # "val/f1_score_neutral": val_f1[2],
                             "val/f1_weighted_score_focal": weighted_val_f1[0],
-                            "val/f1_weighted_score_non_focal": weighted_val_f1[1],
-                            "val/f1_weighted_score_neutral": weighted_val_f1[2],
+                            # "val/f1_weighted_score_non_focal": weighted_val_f1[1],
+                            # "val/f1_weighted_score_neutral": weighted_val_f1[2],
                             "val/mean_iou": mean_iou_metric.result().numpy(),
                         },
                     )

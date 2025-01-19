@@ -1,5 +1,4 @@
 import awkward as ak
-import pathlib
 
 
 def sample_event(event: ak.Record):

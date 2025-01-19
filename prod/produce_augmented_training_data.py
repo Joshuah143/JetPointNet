@@ -12,13 +12,13 @@ input_data_dir = Path(
 )  # directory for data to be taken from
 output_data_dir = Path(
     "/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/training_data"
-)  # path for saved data to be writen to
+)  # path for saved data to be written to
 geo_file = Path(
     "/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/data/rho_small.root"
 )  # a file with a cell_geo_tree
 
 # input_data_dir = Path("/fast_scratch_3/atlas/pflow/ntuples/20240916.v0/") # directory for data to be taken from
-# output_data_dir = Path("/fast_scratch_3/atlas/pflow/augmented_training_data") # path for saved data to be writen to
+# output_data_dir = Path("/fast_scratch_3/atlas/pflow/augmented_training_data") # path for saved data to be written to
 # geo_file = Path("/fast_scratch_1/atlas/pflow/rho_small.root") # a file with a cell_geo_tree
 
 

@@ -7,7 +7,7 @@ pnet_data
 
 # debug/experimental code
 scratch
-old_framwork/notebooks/root_images
+old_framework/notebooks/root_images
 
 # results/logs
 wandb
@@ -35,4 +35,4 @@ models/__pycache__/
 PointNetModel.keras
 .idea/
 wandb
-old_framwork/notebooks/joshua_working_notebooks
+old_framework/notebooks/joshua_working_notebooks
