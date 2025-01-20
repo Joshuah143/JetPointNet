@@ -1,34 +1,35 @@
-import numpy as np
+import os
 import sys
 from pathlib import Path
-import os
+
+import numpy as np
 import pandas as pd
 
 REPO_PATH = Path.home() / "workspace/jetpointnet"
 SCRIPT_PATH = REPO_PATH / "python_scripts"
 sys.path.append(str(SCRIPT_PATH))
 
-from particle import Particle
-import numpy as np
-from numpy.lib import recfunctions as rfn
-import matplotlib.pyplot as plt
-from matplotlib.colors import LogNorm
 import glob
+
+import matplotlib.pyplot as plt
+import numpy as np
+from data_processing.jets.preprocessing_header import NPZ_SAVE_LOC, POINT_TYPE_ENCODING
+from jets_training.jets_train import (
+    EXPERIMENT_NAME,
+    MAX_SAMPLE_LENGTH,
+    NPZ_SAVE_LOC,
+    TRAIN,
+    TRAIN_INPUTS,
+    TRAIN_TARGETS,
+    baseline_configuration,
+)
+from jets_training.models.JetPointNet import PointNetSegmentation
+from matplotlib.colors import LogNorm
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+from numpy.lib import recfunctions as rfn
+from particle import Particle
 from sklearn import metrics
 from tqdm.auto import tqdm
-from numpy.lib import recfunctions as rfn
-from jets_training.models.JetPointNet import PointNetSegmentation
-from jets_training.jets_train import (
-    TRAIN_INPUTS,
-    MAX_SAMPLE_LENGTH,
-    baseline_configuration,
-    EXPERIMENT_NAME,
-    NPZ_SAVE_LOC,
-    TRAIN_TARGETS,
-    TRAIN,
-)
-from data_processing.jets.preprocessing_header import NPZ_SAVE_LOC, POINT_TYPE_ENCODING
 
 # OUTPUT_ACTIVATION_FUNCTION = baseline_configuration['OUTPUT_ACTIVATION_FUNCTION']
 # OUTPUT_LAYER_SEGMENTATION_CUTOFF = baseline_configuration['OUTPUT_LAYER_SEGMENTATION_CUTOFF']
@@ -43,6 +44,7 @@ USE_TRUTH_E = False
 
 # there is an issue that these are needed
 import warnings
+
 from sklearn.exceptions import UndefinedMetricWarning
 
 # Suppress the specific warning

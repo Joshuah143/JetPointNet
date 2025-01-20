@@ -6,42 +6,40 @@
 # - move to .fit instead of custom train/val loop
 # - experiment with more losses/metrics: ATTEMPTED, doesn't seem feasible because of per-point weighted loss (can't pass weights to loss during .fit) --> TO CHECK BETTER?
 
+import os
 import sys
 from pathlib import Path
-import os
 
 REPO_PATH = Path.home() / "workspace/jetpointnet"
 SCRIPT_PATH = REPO_PATH / "python_scripts"
 sys.path.append(str(SCRIPT_PATH))
 
-import numpy as np
-import tensorflow as tf
 import glob
 import math
-import wandb
 import time
-import wandb
-from tqdm.auto import tqdm
-from numpy.lib import recfunctions as rfn
+
+import numpy as np
+import tensorflow as tf
 import tensorflow.keras.backend as K
-from jets_training.models.JetPointNet import (
-    PointNetSegmentation,
-    masked_weighted_loss,
-    masked_weighted_accuracy,
-    set_global_determinism,
-    TF_SEED,
-)
+import wandb
 from data_processing.jets.preprocessing_header import (
     MAX_DISTANCE,
-    NPZ_SAVE_LOC,
     MAX_SAMPLE_LENGTH,
+    NPZ_SAVE_LOC,
     TRAIN,
-    TRAIN_OUTPUT_DIRECTORY_NAME,
     TRAIN_DATASET_NAME,
+    TRAIN_OUTPUT_DIRECTORY_NAME,
     TRAIN_ALlOWED_SETS,
-    TRAIN,
 )
-
+from jets_training.models.JetPointNet import (
+    TF_SEED,
+    PointNetSegmentation,
+    masked_weighted_accuracy,
+    masked_weighted_loss,
+    set_global_determinism,
+)
+from numpy.lib import recfunctions as rfn
+from tqdm.auto import tqdm
 
 # tf.config.run_functions_eagerly(True) - Useful when using the debugger - dont delete, but should not be used in production
 

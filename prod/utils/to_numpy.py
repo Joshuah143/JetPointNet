@@ -1,6 +1,6 @@
 import awkward as ak
 import numpy as np
-from utils.coordinate_conversions import calculate_delta_r  # TODO: fix??
+from .coordinate_conversions import calculate_delta_r
 
 SENTINEL_NO_DATA = -1
 POINT_TYPE_LABELS = {
@@ -12,7 +12,6 @@ POINT_TYPE_LABELS = {
 POINT_TYPE_ENCODING = {v: k for k, v in POINT_TYPE_LABELS.items()}
 
 # TODO: add tests for this file
-
 
 event_array_dtype = np.dtype(
     [
@@ -53,16 +52,14 @@ event_array_dtype = np.dtype(
 
 
 def event_to_trainable(
-    event: ak.Record, delta_r_max=0.2, truth=True, max_event_len=800
+    event: ak.Record, focal_index: int, delta_r_max=0.2, truth=True, max_event_len=800
 ) -> np.ndarray:
     trainable_array = []
-    # handle focal track
+
     if ak.num(event["tracks"], axis=0) == 0:
         print("No tracks contained in event, skipping")
         # TODO: throw error here, this should never be reached in production
         return np.zeros(max_event_len, dtype=event_array_dtype)
-
-    focal_index = ak.argmax(event["tracks"]["trackPt"])  # selected by pT
 
     # TODO: This process crashes if there are no track hits for the focal track
 

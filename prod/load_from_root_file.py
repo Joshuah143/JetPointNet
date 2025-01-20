@@ -1,14 +1,15 @@
-from pathlib import Path
-from typing import Any
-import uproot
-import awkward as ak
-from multiprocessing import Pool
-import numpy as np
 import os
 from itertools import repeat
+from multiprocessing import Pool
+from pathlib import Path
+from typing import Any
 
-from utils.coordinate_conversions import intersection_fixed_z, eta_phi_to_cartesian
+import awkward as ak
+import numpy as np
+import uproot
 from track_metadata import fixed_r, fixed_z
+
+from utils.coordinate_conversions import eta_phi_to_cartesian, intersection_fixed_z
 
 NUM_THREADS = os.cpu_count()
 EVENT_BATCHES = 20

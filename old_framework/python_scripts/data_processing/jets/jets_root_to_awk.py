@@ -1,23 +1,23 @@
-import uproot
+import glob
+import os
+import sys
+import time
+from multiprocessing import Pool
+from pathlib import Path
+
 import awkward as ak
 import numpy as np
-import glob
-import time
-from pathlib import Path
-from multiprocessing import Pool
-import os
+import uproot
 from tqdm.auto import tqdm
-
-import sys
 
 REPO_PATH = Path.home() / "workspace/jetpointnet"
 SCRIPT_PATH = REPO_PATH / "python_scripts"
 sys.path.append(str(SCRIPT_PATH))
 
 
-from data_processing.jets.preprocessing_header import *
 from data_processing.jets.awk_utils import *
 from data_processing.jets.common_utils import *
+from data_processing.jets.preprocessing_header import *
 
 track_layer_branches = [f"trackEta_{layer}" for layer in calo_layers] + [
     f"trackPhi_{layer}" for layer in calo_layers

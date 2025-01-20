@@ -23,18 +23,15 @@ REPO_PATH = Path.home() / "workspace/jetpointnet"
 SCRIPT_PATH = REPO_PATH / "python_scripts"
 sys.path.append(str(SCRIPT_PATH))
 
-import pandas as pd
 import numpy as np
-from tqdm.auto import tqdm
-
-from data_processing.jets.preprocessing_header import (
-    AWK_SAVE_LOC,
-    NPZ_SAVE_LOC,
-)
-from old_framework.python_scripts.data_processing.jets.common_utils import get_split
-import wandb
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import wandb
+from data_processing.jets.preprocessing_header import AWK_SAVE_LOC, NPZ_SAVE_LOC
+from tqdm.auto import tqdm
+
+from old_framework.python_scripts.data_processing.jets.common_utils import get_split
 
 ENERGY_SCALE = 1
 DATASET = AWK_SAVE_LOC.parent.parent.name

@@ -6,11 +6,7 @@ REPO_PATH = Path.home() / "workspace/jetpointnet"
 SCRIPT_PATH = REPO_PATH / "python_scripts"
 sys.path.append(str(SCRIPT_PATH))
 
-from data_processing.jets.track_metadata import (
-    has_fixed_r,
-    fixed_r,
-    fixed_z,
-)
+from data_processing.jets.track_metadata import fixed_r, fixed_z, has_fixed_r
 
 HAS_FIXED_R, FIXED_R, FIXED_Z = (
     has_fixed_r,

@@ -17,8 +17,7 @@ SCRIPT_PATH = REPO_PATH / "python_scripts"
 sys.path.append(str(SCRIPT_PATH))
 
 import wandb
-from jets_training.jets_train import train, baseline_configuration
-
+from jets_training.jets_train import baseline_configuration, train
 
 WANDB_PROJECT = "pointcloud"
 

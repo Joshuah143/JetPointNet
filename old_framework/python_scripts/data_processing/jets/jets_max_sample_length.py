@@ -1,14 +1,15 @@
-from multiprocessing import Pool
-import os
-import pyarrow.parquet as pq
-from tqdm.auto import tqdm
-import awkward as ak
 import glob
+import json
+import os
+import sys
+from multiprocessing import Pool
+from pathlib import Path
+
+import awkward as ak
 import numpy as np
 import pandas as pd
-from pathlib import Path
-import sys
-import json
+import pyarrow.parquet as pq
+from tqdm.auto import tqdm
 
 REPO_PATH = Path.home() / "workspace/jetpointnet"
 SCRIPT_PATH = REPO_PATH / "python_scripts"
@@ -17,10 +18,9 @@ sys.path.append(str(SCRIPT_PATH))
 from data_processing.jets.common_utils import calculate_max_sample_length_simplified
 from data_processing.jets.preprocessing_header import (
     AWK_SAVE_LOC,
-    SAMPLE_LENGTH_WORKERS,
     LEN,
+    SAMPLE_LENGTH_WORKERS,
 )
-
 
 DATA_FOLDERS = ["train", "val", "test"]
 

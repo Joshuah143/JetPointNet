@@ -1,6 +1,8 @@
 import unittest
-import pytest
+
 import numpy as np
+import pytest
+
 from prod.utils.coordinate_conversions import (
     calculate_delta_r,
     eta_phi_to_cartesian,

@@ -1,6 +1,6 @@
+import os
 import sys
 from pathlib import Path
-import os
 
 REPO_PATH = Path.home() / "workspace/jetpointnet"
 SCRIPT_PATH = REPO_PATH / "python_scripts/data_processing/jets"
@@ -8,24 +8,24 @@ sys.path.append(str(SCRIPT_PATH))
 SCRIPT_PATH = REPO_PATH / "python_scripts"
 sys.path.append(str(SCRIPT_PATH))
 
-import numpy as np
-import tensorflow as tf
 import glob
 import math
 import time
+
+import numpy as np
+import tensorflow as tf
 import wandb
-from tqdm.auto import tqdm
+from data_processing.jets.preprocessing_header import MAX_DISTANCE, NPZ_SAVE_LOC
 from jets_training.models.JetPointNet import (
-    PointNetSegmentation,
-    masked_weighted_bce_loss,
-    masked_regular_accuracy,
-    masked_weighted_accuracy,
-    set_global_determinism,
     TF_SEED,
     CustomLRScheduler,
+    PointNetSegmentation,
+    masked_regular_accuracy,
+    masked_weighted_accuracy,
+    masked_weighted_bce_loss,
+    set_global_determinism,
 )
-from data_processing.jets.preprocessing_header import MAX_DISTANCE, NPZ_SAVE_LOC
-
+from tqdm.auto import tqdm
 
 # SET PATHS FOR I/O AND CONFIG
 USER = Path.home().name

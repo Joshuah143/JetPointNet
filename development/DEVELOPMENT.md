@@ -7,6 +7,7 @@ Delta R fr tracks is defined by their interaction with EMB2, for the delta R tha
 # Negative Cell Energy
 
 TODO: Negative cell energy and its effects on `frac_label` deserve further exploration.
+NOTE: After the cell E fix, this is likely irrelevant.
 
 # Todo: (Joshua)
 

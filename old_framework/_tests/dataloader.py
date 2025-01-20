@@ -1,6 +1,6 @@
+import os
 import sys
 from pathlib import Path
-import os
 
 REPO_PATH = Path.home() / "workspace/jetpointnet"
 SCRIPT_PATH = REPO_PATH / "python_scripts/data_processing/jets"
@@ -8,10 +8,10 @@ sys.path.append(str(SCRIPT_PATH))
 SCRIPT_PATH = REPO_PATH / "python_scripts"
 sys.path.append(str(SCRIPT_PATH))
 
-import numpy as np
 import glob
-from data_processing.jets.preprocessing_header import MAX_DISTANCE, NPZ_SAVE_LOC
 
+import numpy as np
+from data_processing.jets.preprocessing_header import MAX_DISTANCE, NPZ_SAVE_LOC
 
 # SET PATHS FOR I/O AND CONFIG
 USER = Path.home().name

@@ -1,5 +1,6 @@
 import glob
 from pathlib import Path
+
 import numpy as np
 
 input_data_dir = Path("")

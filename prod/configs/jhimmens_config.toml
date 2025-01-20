@@ -6,7 +6,7 @@ no_data_value = -1
 
 [data_pipeline]
 enabled = true
-pipeline = "augmented" # (overlapping, augmented)
+pipeline = "overlapping" # (overlapping, augmented)
 root_files_dir = "/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/data"
 output_dir = "/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/training_data"
 chunk_output = true
@@ -34,8 +34,10 @@ val = 0.2
 test = 0.2
 
 [data_pipeline.overlapping]
+chunk_size = 10
 
 [data_pipeline.augmented]
+chunk_size = 10
 
 [data_pipeline.set_paths]
 #JZ0 = "user.jhimmens.801165.Py8EG_A14NNPDF23LO_jj_JZ0.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"

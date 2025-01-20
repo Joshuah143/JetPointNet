@@ -1,15 +1,15 @@
-import numpy as np
 import awkward as ak
-from data_processing.jets.track_metadata import (
+import numpy as np
+from data_processing.jets.track_metadata import (  # Assuming these are correctly defined
     calo_layers,
-    has_fixed_r,
     fixed_r,
     fixed_z,
-)  # Assuming these are correctly defined
+    has_fixed_r,
+)
 
 HAS_FIXED_R, FIXED_R, FIXED_Z = has_fixed_r, fixed_r, fixed_z
-from data_processing.jets.preprocessing_header import *
 from data_processing.jets.common_utils import calculate_delta_r
+from data_processing.jets.preprocessing_header import *
 
 
 def add_train_label_record(

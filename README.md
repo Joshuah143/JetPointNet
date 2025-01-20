@@ -1,4 +1,3 @@
-
 # JetPointNet
 
 This repository contains the code used to develop particle-flow models based on pointcloud data for jets data.
@@ -28,14 +27,18 @@ git clone ssh://git@gitlab.cern.ch:7999/atlas-jetetmiss/pflow/commontools/jetpoi
 make setup-env
 ```
 
-
 ## Usage
 
-Data Preprocessing:
+All configuration is done in the `prod/configs/USER_config.toml`.
+I config file can also be set in the environment variable `JETPOINTNET_CONFIG_FILE`.
+Once a run, either training or data processing is defined, it can be run with:
+```shell
+make run
+```
 
 # TODO: fix before merge
 
-**Note:** preprocessing with the ttbar set is possible, however with larger sets you should attempt to use already processed npz files to avoid a lengthy re-processing. Additionally for other sets you should use a grid job for the processing (see last set of instructions). The current data set is available as npz file on CERNBox, if you are using them you can skip these steps.
+**Note:** preprocessing with the ttbar set is possible, however, with larger sets you should attempt to use already processed npz files to avoid a lengthy re-processing. Additionally for other sets you should use a grid job for the processing (see last set of instructions). The current data set is available as npz file on CERNBox, if you are using them you can skip these steps.
  - update configurations and paths inside `python_scripts/data_processing/preprocessing_header.py`
  - run `python_scripts/data_processing/jets_root_to_awk.py` to convert *root* data into *awkward array* format.
   This reads data from `FILE_LOC` or `FILES_DIR` and `GEO_LOC` and saves results into the `AWK_SAVE_LOC` (all defined in `preprocessing_header.py`)
@@ -45,13 +48,22 @@ Model Training:
  - once you have preprocessed data, then you can start playing with training scripts at `python_scripts/jets_training/`.
   In particular, the script `jets_train.py` is used for running individual models and `jets_sweep.py` is used to perform sweeps.
 
-## Notes
 
-This branch assumes the repository is located at HOME_PATH / workspace/jetpointnet.
-Also, raw data files are read from eos (namely */eos/home-m/mswiatlo/forLuca/*  and  */eos/home-m/mswiatlo/images/truthPerCell*), while derived files are stored inside the repo at `pnet_data/` folder and organised in subfolders.
+## Next steps:
 
+- Apply garbage collection to the augmented data processing scripts to ensure stills still meet cluster min significance
+- Try Mask formers instead of PointNet
+- Change batching algorithm for training
 
 ## Known Issues
 
 - Many... we should probably start a list here
 - The early stopping of the train loop can cause the job to crash when enabled
+- The augmented data processing scripts work on JZ4 but seem to fail when I run on the server...?
+
+### Authors:
+- Dr. Maximilian Swiatlowski (TRIUMF)
+- Dr. Luca Clissa (UNIBO)
+- Joshua Himmens (TRIUMF/UBC)
+- Marko Jovanovic (TRIUMF)
+- Jessica Bohm (TRIUMF)

@@ -1,11 +1,12 @@
 from multiprocessing import Pool
 from pathlib import Path
+
 import awkward as ak
 import numpy as np
-
 from load_from_root_file import load_from_root
-from utils.to_numpy import event_to_trainable
+from utils.data_loading import setup_directories, split_data
 from utils.dev_tools import load_config
+from utils.to_numpy import event_to_trainable
 
 config = load_config()
 
@@ -20,10 +21,11 @@ desired_sets = config["data_pipeline"]["sets_to_process"]
 set_to_dir_name = config["data_pipeline"]["set_paths"]
 data_split = config["data_pipeline"]["splits"]
 save_location = Path(config["data_pipeline"]["output_dir"])
+chunk_size = config["data_pipeline"]["augmented"]["chunk_size"]
 
 
-def save_train_data(chunk_size: int = 100):
-    setup_directories(save_location)
+def save_train_data():
+    setup_directories(save_location, desired_sets, data_split)
     # TODO: should warn if the output directory already exists as data may not be overwritten causing issues
     for set_name in desired_sets:
         print(f"Handling set: {set_name}")
@@ -45,10 +47,10 @@ def save_train_data(chunk_size: int = 100):
                 split_save_location = save_location / split_type_name / set_name
                 tasks.append((split_type_name, chunk, split_save_location, start_idx))
         with Pool() as pool:
-            pool.map(process_split, tasks)
+            pool.map(_process_split, tasks)
 
 
-def process_split(args):
+def _process_split(args):
     split_type, data, split_save_location, split_id = args
     iters = 0
     while max(ak.num(data["tracks"])) > 0:  # while there are still tracks in the data
@@ -66,34 +68,16 @@ def process_split(args):
         # current: old events are not removed from the data, all saved files have the same size, this is a large issue
 
 
-def setup_directories(save_location: Path):
-    save_location.mkdir(exist_ok=True)
-    for split_type in data_split.keys():
-        split_save_location = save_location / split_type
-        split_save_location.mkdir(exist_ok=True)
-        for set_name in desired_sets:
-            set_save_location = split_save_location / set_name
-            set_save_location.mkdir(exist_ok=True)
-
-
-def split_data(tree: ak.Array, data_splits: dict):
-    split_tree = {}
-    current_idx = 0
-    end_idx = len(tree)
-    for split_type, split_ratio in data_splits.items():
-        subset_term = int(split_ratio * end_idx) + current_idx
-        split_tree[split_type] = tree[current_idx:subset_term]
-        current_idx = subset_term
-    return split_tree
-
-
 def ak_to_numpy(ak_array: ak.Array):
     # for each event run the event_to_trainable function
     trainable = []
     for event in ak_array:
         if len(event["tracks"]) == 0:
             continue  # remove events with on tracks
-        trainable.append(event_to_trainable(event, delta_r_max=MAX_DELTA_R))
+        focal_index = ak.argmax(event["tracks"]["trackPt"])  # selected by pT
+        trainable.append(
+            event_to_trainable(event, focal_index=focal_index, delta_r_max=MAX_DELTA_R)
+        )
     return np.array(trainable)
 
 

@@ -36,3 +36,4 @@ PointNetModel.keras
 .idea/
 wandb
 old_framework/notebooks/joshua_working_notebooks
+.DS_Store

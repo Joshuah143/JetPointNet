@@ -6,25 +6,25 @@
 # - experiment with more losses/metrics: ATTEMPTED,
 # doesn't seem feasible because of per-point weighted loss (can't pass weights to loss during .fit) --> TO CHECK BETTER?
 
-from pathlib import Path
+import glob
+import math
 import os
+import time
+from pathlib import Path
 
 import numpy as np
 import tensorflow as tf
-import glob
-import math
-import time
-import wandb
-from tqdm.auto import tqdm
-from numpy.lib import recfunctions as rfn
 import tensorflow.keras.backend as K
+import wandb
 from JetPointNet import (
-    PointNetSegmentation,
-    masked_weighted_loss,
-    masked_weighted_accuracy,
-    set_global_determinism,
     TF_SEED,
+    PointNetSegmentation,
+    masked_weighted_accuracy,
+    masked_weighted_loss,
+    set_global_determinism,
 )
+from numpy.lib import recfunctions as rfn
+from tqdm.auto import tqdm
 
 # tf.config.run_functions_eagerly(True) - Useful when using the debugger - don't delete, but should not be used in production
 

@@ -41,4 +41,4 @@ repos:
       - id: codespell
         args:
           - --write-changes
-          - --skip=*.ipynb
+          - --skip=*.ipynb,poetry.lock

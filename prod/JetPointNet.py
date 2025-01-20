@@ -6,14 +6,14 @@ Original Architecture From Pointnet Paper:
 https://arxiv.org/pdf/1612.00593.pdf
 """
 
-import tensorflow as tf
-import numpy as np
-import keras
 import os
 import random
 import sys
 from pathlib import Path
-import os
+
+import keras
+import numpy as np
+import tensorflow as tf
 
 REPO_PATH = Path.home() / "workspace/jetpointnet"
 SCRIPT_PATH = REPO_PATH / "python_scripts"

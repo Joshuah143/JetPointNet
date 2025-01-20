@@ -1,10 +1,11 @@
 # these are sample functions meant to be copied into a notebook and modified for debugging, npz visualization should be done in the training set
-import uproot
-import awkward as ak
+import sys
 from pathlib import Path
+
+import awkward as ak
 import matplotlib.pyplot as plt
 import numpy as np
-import sys
+import uproot
 from numpy.lib import recfunctions as rfn
 
 REPO_PATH = Path.home() / "workspace/jetpointnet"
@@ -15,12 +16,11 @@ from data_processing.jets.common_utils import (
     calculate_cartesian_coordinates,
     intersection_fixed_z,
 )
-from data_processing.jets.track_metadata import fixed_r, fixed_z
 from data_processing.jets.preprocessing_header import (
-    POINT_TYPE_LABELS,
     POINT_TYPE_ENCODING,
+    POINT_TYPE_LABELS,
 )
-
+from data_processing.jets.track_metadata import fixed_r, fixed_z
 
 GEO_FILE_LOC = "/fast_scratch_1/atlas/pflow/rho_small.root"
 
