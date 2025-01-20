@@ -34,9 +34,11 @@ repos:
       - id: check-added-large-files
         args: [ "--maxkb=5000" ]
 
+  # spell check
   - repo: https://github.com/codespell-project/codespell
     rev: v2.2.4
     hooks:
       - id: codespell
         args:
           - --write-changes
+          - --skip=*.ipynb

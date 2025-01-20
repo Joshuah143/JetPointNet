@@ -1,0 +1,88 @@
+[global_params]
+max_sample_length = 800
+geo_file_loc = "/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/data/rho_small.root" # a file with a cell_geo_tree
+user_name = "Joshua Himmens"
+no_data_value = -1
+
+[data_pipeline]
+enabled = true
+pipeline = "augmented" # (overlapping, augmented)
+root_files_dir = "/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/data"
+output_dir = "/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/training_data"
+chunk_output = true
+chunk_size = 1000
+max_delta_r = 0.2
+
+sets_to_process = [
+    # "rho",
+    # "delta",
+    # "JZ0",
+    # "JZ1",
+    # "JZ2",
+    # "JZ3",
+    "JZ4",
+    # "JZ5",
+    # "JZ6",
+    # "JZ7",
+    # "JZ8",
+    # "JZ9",
+]
+
+[data_pipeline.splits]
+train = 0.6
+val = 0.2
+test = 0.2
+
+[data_pipeline.overlapping]
+
+[data_pipeline.augmented]
+
+[data_pipeline.set_paths]
+#JZ0 = "user.jhimmens.801165.Py8EG_A14NNPDF23LO_jj_JZ0.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"
+#JZ1 = "user.jhimmens.801166.Py8EG_A14NNPDF23LO_jj_JZ1.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"
+#JZ2 = "user.jhimmens.801167.Py8EG_A14NNPDF23LO_jj_JZ2.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"
+#JZ3 = "user.jhimmens.801168.Py8EG_A14NNPDF23LO_jj_JZ3.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"
+#JZ4 = "user.jhimmens.801169.Py8EG_A14NNPDF23LO_jj_JZ4.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"
+#JZ5 = "user.jhimmens.801170.Py8EG_A14NNPDF23LO_jj_JZ5.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"
+#JZ6 = "user.jhimmens.801171.Py8EG_A14NNPDF23LO_jj_JZ6.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"
+#JZ7 = "user.jhimmens.801172.Py8EG_A14NNPDF23LO_jj_JZ7.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"
+#JZ8 = "user.jhimmens.801173.Py8EG_A14NNPDF23LO_jj_JZ8.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"
+#JZ9 = "user.jhimmens.801174.Py8EG_A14NNPDF23LO_jj_JZ9incl.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"
+#delta = "user.jhimmens.mc21_13p6TeV.900147.singleDelta.recon.ESD.e8537_e8455_s3986_s3874_r14060_20240916.v0_mltree.root"
+#rho = "user.jhimmens.mc21_13p6TeV.900148.singlerho.recon.ESD.e8537_e8455_s3986_s3874_r14060_20240916.v0_mltree.root"
+JZ4 = "JZ4"
+
+
+[training]
+enabled = false
+
+[training.infra]
+GPU = 1
+cuda_malloc_async = true
+
+[training.experiment]
+experiment_name = "jhimmens"
+
+[training.hyperparameters]
+training_sample_input_path = "/Users/joshuahimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/training_data"
+training_labels = [
+    "category",
+    "delta_r",
+    "track_num",
+    "normalized_x",
+    "normalized_y",
+    "normalized_z",
+    "track_chi2_dof",
+    "cell_sigma",
+    # "normalized_distance", not included in most recent training data
+    "normalized_cell_E",
+    "normalized_track_pt",
+]
+train_targets = [
+    "truth_cell_focal_observed_fraction_energy",
+]
+
+[training.hyperparameters.training_input_sets]
+rho = 1
+
+# TODO: add the actual model params

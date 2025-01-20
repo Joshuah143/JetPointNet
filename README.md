@@ -16,8 +16,8 @@ pip install -r requirements.txt # --no-cache-dir
 
 Please note that `--no-cache-dir` option is suggested.
 
-## Working Installation
-Ensure that you have a python version (3.10 or newer installed on your system).
+## Full Working Installation (with pre-commit hooks)
+Ensure that you have a python version (3.10 or newer installed on your system). You must also have `tensorflow[and-cuda]` installed.
 Then you can clone the repository and run the setup script:
 
 This script will set up the development environment using poetry and install all the necessary dependencies.
@@ -32,6 +32,8 @@ make setup-env
 ## Usage
 
 Data Preprocessing:
+
+# TODO: fix before merge
 
 **Note:** preprocessing with the ttbar set is possible, however with larger sets you should attempt to use already processed npz files to avoid a lengthy re-processing. Additionally for other sets you should use a grid job for the processing (see last set of instructions). The current data set is available as npz file on CERNBox, if you are using them you can skip these steps.
  - update configurations and paths inside `python_scripts/data_processing/preprocessing_header.py`
@@ -48,10 +50,8 @@ Model Training:
 This branch assumes the repository is located at HOME_PATH / workspace/jetpointnet.
 Also, raw data files are read from eos (namely */eos/home-m/mswiatlo/forLuca/*  and  */eos/home-m/mswiatlo/images/truthPerCell*), while derived files are stored inside the repo at `pnet_data/` folder and organised in subfolders.
 
-### Preprocessing dependency tree
-
-![](development/Dependencies.png)
 
 ## Known Issues
 
+- Many... we should probably start a list here
 - The early stopping of the train loop can cause the job to crash when enabled

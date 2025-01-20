@@ -4,59 +4,27 @@ import awkward as ak
 import numpy as np
 
 from load_from_root_file import load_from_root
-from to_numpy import event_to_trainable
+from utils.to_numpy import event_to_trainable
+from utils.dev_tools import load_config
 
-# Meta params
-input_data_dir = Path(
-    "/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/data"
-)  # directory for data to be taken from
-output_data_dir = Path(
-    "/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/training_data"
-)  # path for saved data to be written to
-geo_file = Path(
-    "/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/data/rho_small.root"
-)  # a file with a cell_geo_tree
+config = load_config()
 
-# input_data_dir = Path("/fast_scratch_3/atlas/pflow/ntuples/20240916.v0/") # directory for data to be taken from
-# output_data_dir = Path("/fast_scratch_3/atlas/pflow/augmented_training_data") # path for saved data to be written to
-# geo_file = Path("/fast_scratch_1/atlas/pflow/rho_small.root") # a file with a cell_geo_tree
+# Params
+input_data_dir = Path(config["data_pipeline"]["root_files_dir"])
+output_data_dir = Path(config["data_pipeline"]["output_dir"])
+geo_file = Path(config["global_params"]["geo_file_loc"])
 
-
-max_sample_length = 800
-desired_sets = [
-    # "rho",
-    # "delta",
-    # "JZ0",
-    # "JZ1",
-    # "JZ2",
-    # "JZ3",
-    "JZ4",
-    #     "JZ5",
-    #     "JZ6",
-    #     "JZ7",
-    #     "JZ8",
-    #     "JZ9",
-]
-set_to_dir_name = {
-    #     "JZ0": "user.jhimmens.801165.Py8EG_A14NNPDF23LO_jj_JZ0.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
-    #     "JZ1": "user.jhimmens.801166.Py8EG_A14NNPDF23LO_jj_JZ1.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
-    #     "JZ2": "user.jhimmens.801167.Py8EG_A14NNPDF23LO_jj_JZ2.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
-    #     "JZ3": "user.jhimmens.801168.Py8EG_A14NNPDF23LO_jj_JZ3.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
-    "JZ4": "JZ4",
-    #     "JZ4": "user.jhimmens.801169.Py8EG_A14NNPDF23LO_jj_JZ4.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
-    #     "JZ5": "user.jhimmens.801170.Py8EG_A14NNPDF23LO_jj_JZ5.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
-    #     "JZ6": "user.jhimmens.801171.Py8EG_A14NNPDF23LO_jj_JZ6.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
-    #     "JZ7": "user.jhimmens.801172.Py8EG_A14NNPDF23LO_jj_JZ7.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
-    #     "JZ8": "user.jhimmens.801173.Py8EG_A14NNPDF23LO_jj_JZ8.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
-    #     "JZ9": "user.jhimmens.801174.Py8EG_A14NNPDF23LO_jj_JZ9incl.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root",
-    #     "delta": "user.jhimmens.mc21_13p6TeV.900147.singleDelta.recon.ESD.e8537_e8455_s3986_s3874_r14060_20240916.v0_mltree.root",
-    #     "rho": "user.jhimmens.mc21_13p6TeV.900148.singlerho.recon.ESD.e8537_e8455_s3986_s3874_r14060_20240916.v0_mltree.root",
-}
-data_split = {"train": 0.6, "val": 0.2, "test": 0.2}
+MAX_DELTA_R = config["data_pipeline"]["max_delta_r"]
+max_sample_length = config["global_params"]["max_sample_length"]
+desired_sets = config["data_pipeline"]["sets_to_process"]
+set_to_dir_name = config["data_pipeline"]["set_paths"]
+data_split = config["data_pipeline"]["splits"]
+save_location = Path(config["data_pipeline"]["output_dir"])
 
 
-def save_train_data(save_location: Path, chunk_size: int = 100):
+def save_train_data(chunk_size: int = 100):
     setup_directories(save_location)
+    # TODO: should warn if the output directory already exists as data may not be overwritten causing issues
     for set_name in desired_sets:
         print(f"Handling set: {set_name}")
         print(f"Loading data from: {input_data_dir/set_to_dir_name[set_name]}")
@@ -125,7 +93,7 @@ def ak_to_numpy(ak_array: ak.Array):
     for event in ak_array:
         if len(event["tracks"]) == 0:
             continue  # remove events with on tracks
-        trainable.append(event_to_trainable(event))
+        trainable.append(event_to_trainable(event, delta_r_max=MAX_DELTA_R))
     return np.array(trainable)
 
 
@@ -263,4 +231,4 @@ def single_event_subtraction(b: ak.ArrayBuilder, event: ak.Record):
 
 
 if __name__ == "__main__":
-    save_train_data(output_data_dir)
+    save_train_data()

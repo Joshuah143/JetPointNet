@@ -5,10 +5,9 @@ import awkward as ak
 from multiprocessing import Pool
 import numpy as np
 import os
-from tqdm import tqdm
 from itertools import repeat
 
-from coordinate_conversions import intersection_fixed_z, eta_phi_to_cartesian
+from utils.coordinate_conversions import intersection_fixed_z, eta_phi_to_cartesian
 from track_metadata import fixed_r, fixed_z
 
 NUM_THREADS = os.cpu_count()
@@ -33,7 +32,7 @@ def load_from_root(
     events_iterator = uproot.iterate(
         {root_files_location: "EventTree"}, step_size=EVENT_BATCHES
     )
-    # TODO: save intermediates to prevent lost work
+
     if debug:
         events = next(
             uproot.iterate({root_files_location: "EventTree"}, step_size=EVENT_BATCHES)
@@ -223,13 +222,3 @@ def generate_cells(event, geo_dict, truth=True) -> list:
                 cell.update(cell_truth)
             cells.append(cell)
     return cells
-
-
-if __name__ == "__main__":
-    loaded = load_from_root("data/JZ4/*.root")
-    with open(
-        "../../../../../../Application Support/JetBrains/PyCharm2024.3/scratches/test_input_JZ4.json",
-        "w",
-    ) as file:
-        file.write(ak.to_json(loaded))
-        print(len(loaded))

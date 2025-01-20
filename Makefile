@@ -13,3 +13,6 @@ setup-dev-env:
 
 env:
 	poetry shell
+
+run:
+	poetry run python prod/main.py
