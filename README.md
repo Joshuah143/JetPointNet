@@ -36,18 +36,9 @@ Once a run, either training or data processing is defined, it can be run with:
 make run
 ```
 
-# TODO: fix before merge
-
-**Note:** preprocessing with the ttbar set is possible, however, with larger sets you should attempt to use already processed npz files to avoid a lengthy re-processing. Additionally for other sets you should use a grid job for the processing (see last set of instructions). The current data set is available as npz file on CERNBox, if you are using them you can skip these steps.
- - update configurations and paths inside `python_scripts/data_processing/preprocessing_header.py`
- - run `python_scripts/data_processing/jets_root_to_awk.py` to convert *root* data into *awkward array* format.
-  This reads data from `FILE_LOC` or `FILES_DIR` and `GEO_LOC` and saves results into the `AWK_SAVE_LOC` (all defined in `preprocessing_header.py`)
- - run `python_scripts/data_processing/jets_awk_to_npz.py` to convert *awkward array* data into *npz* format. This reads data from `AWK_SAVE_LOC`
-
-Model Training:
- - once you have preprocessed data, then you can start playing with training scripts at `python_scripts/jets_training/`.
-  In particular, the script `jets_train.py` is used for running individual models and `jets_sweep.py` is used to perform sweeps.
-
+There are 3 core steps, data processing, chunking, and training.
+All are defined in the `prod/configs/USER_config.toml` file.
+Chunking is optional and can be skipped if the data is already chunked or sufficiently randomised.
 
 ## Next steps:
 

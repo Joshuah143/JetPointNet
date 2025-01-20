@@ -1,0 +1,4 @@
+[global_params]
+max_sample_length = 800
+user_name = "Joshua Himmens"
+no_data_value = -1
