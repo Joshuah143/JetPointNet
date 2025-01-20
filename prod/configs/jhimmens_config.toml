@@ -5,7 +5,7 @@ user_name = "Joshua Himmens"
 no_data_value = -1
 
 [data_pipeline]
-enabled = true
+enabled = false
 pipeline = "overlapping" # (overlapping, augmented)
 root_files_dir = "/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/data"
 output_dir = "/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/training_data"
@@ -54,6 +54,32 @@ chunk_size = 10
 #rho = "user.jhimmens.mc21_13p6TeV.900148.singlerho.recon.ESD.e8537_e8455_s3986_s3874_r14060_20240916.v0_mltree.root"
 JZ4 = "JZ4"
 
+[data_chunking]
+enabled = true
+input_data_path = "/Users/joshuahimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/training_data"
+output_data_path = "/Users/joshuahimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/chunked_training_data"
+chunk_size = 1000
+
+enabled_splits = [
+    "train",
+    "val",
+    "test",
+]
+
+enabled_sets = [
+    # "rho",
+    # "delta",
+    # "JZ0",
+    # "JZ1",
+    # "JZ2",
+    # "JZ3",
+    "JZ4",
+    # "JZ5",
+    # "JZ6",
+    # "JZ7",
+    # "JZ8",
+    # "JZ9",
+]
 
 [training]
 enabled = false
@@ -61,12 +87,12 @@ enabled = false
 [training.infra]
 GPU = 1
 cuda_malloc_async = true
+input_data_path = "/Users/joshuahimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/chunked_training_data"
 
 [training.experiment]
 experiment_name = "jhimmens"
 
 [training.hyperparameters]
-training_sample_input_path = "/Users/joshuahimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/training_data"
 training_labels = [
     "category",
     "delta_r",
@@ -86,5 +112,40 @@ train_targets = [
 
 [training.hyperparameters.training_input_sets]
 rho = 1
+
+# Will be overwritten by a wandb sweep, should add a sweep config here as well
+[training.hyperparameters.model_params]
+MODEL_VERSION=1
+EPOCH_COMPLEXITY=204800
+TF_SEED=70
+BATCH_SIZE=700
+EPOCHS=1000
+IS_TUNE=false
+REPLAY=false
+REPLAY_LINEAR_DECAY_RATE=0.02  # decrease of data from simple set
+REPLAY_MIN_FREQ=0.10  # steady state of simple set
+TRAIN_LR=0.04
+SAVE_INTERMEDIATES=true
+SAVE_FREQ=10  # Save intermediate models
+TUNE_LR=0.001
+TRAIN_LR_DECAY=0.99
+TUNE_LR_DECAY=0.99
+LR_BETA1=0.98
+LR_BETA2=0.999
+ES_PATIENCE=15
+ACC_ENERGY_WEIGHTING="square"
+LOSS_ENERGY_WEIGHTING="square"
+LOSS_FUNCTION="MeanSquaredError"  # "CategoricalFocalCrossentropy",
+OUTPUT_ACTIVATION_FUNCTION="softmax"
+# softmax, linear (requires changes to the BCE function in the loss function)
+OUTPUT_LAYER_SEGMENTATION_CUTOFF=0.5
+EARLY_STOPPING=false
+# LR_MAX=0.000015,
+# LR_MIN=1e-5,
+# LR_RAMP_EP=2,
+# LR_SUS_EP=10,
+# LR_DECAY=0.7,
+METRIC="val/f1_score_focal"
+MODE="max"
 
 # TODO: add the actual model params

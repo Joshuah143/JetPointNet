@@ -14,6 +14,7 @@ from pathlib import Path
 
 import numpy as np
 import tensorflow as tf
+import tensorflow.metrics as metrics
 import tensorflow.keras.backend as K
 import wandb
 from JetPointNet import (
@@ -26,109 +27,35 @@ from JetPointNet import (
 from numpy.lib import recfunctions as rfn
 from tqdm.auto import tqdm
 
+from prod.utils.train_helpers import verify_model_config, setup_compute
+from utils.dev_tools import load_config
+
 # tf.config.run_functions_eagerly(True) - Useful when using the debugger - don't delete, but should not be used in production
 
-# SET PATHS FOR I/O AND CONFIG
-USER = Path.home().name
-print(f"Logged in as {USER}")
-if USER == "jhimmens":
-    GPU_ID = "1"
-    ASSIGN_GPU = True
-elif USER == "luclissa":
-    GPU_ID = "0"
-    ASSIGN_GPU = False
-    os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
-else:
-    raise Exception("UNKNOWN USER")
+config = load_config()
+setup_compute(config)
 
-if ASSIGN_GPU and __name__ == "__main__":
-    os.environ["CUDA_VISIBLE_DEVICES"] = GPU_ID
+if not config["training"]["enabled"]:
+    raise Exception("Training is disabled in the config.")
 
-EXPERIMENT_NAME = f"first_experiment"
+EXPERIMENT_NAME = config["training"]["experiment"]["experiment_name"]
 RESULTS_PATH = Path("result") / EXPERIMENT_NAME
 RESULTS_PATH.mkdir(exist_ok=True, parents=True)
 MODELS_PATH = Path("models") / EXPERIMENT_NAME
 MODELS_PATH.mkdir(exist_ok=True, parents=True)
 
-TRAINING_FILE_LOCATION = Path(
-    "/Users/joshuahimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/training_data"
+TRAINING_FILE_LOCATION = Path(config["training"]["infra"]["input_data_path"])
+MAX_SAMPLE_LENGTH = config["global_params"]["max_sample_length"]
+TRAIN_INPUT_SETS = config["training"]["hyperparameters"]["training_input_sets"]
+TRAIN_INPUTS = config["training"]["hyperparameters"]["training_labels"]
+TRAIN_TARGETS = config["training"]["hyperparameters"]["training_targets"]
+
+baseline_configuration = config["training"]["hyperparameters"]["model_params"]
+TRAIN_STEPS = VAL_STEPS = (
+    baseline_configuration["EPOCH_COMPLEXITY"] // baseline_configuration["BATCH_SIZE"],
 )
 
-TRAIN_INPUT_SETS = {"rho": 1}
-
-MAX_SAMPLE_LENGTH = 800  # must match sample lengths in numpy generation script
-
-TRAIN_INPUTS = [
-    "category",
-    "delta_r",
-    "track_num",
-    "normalized_x",
-    "normalized_y",
-    "normalized_z",
-    "track_chi2_dof",
-    "cell_sigma",
-    # "normalized_distance", not included in most recent training data
-    "normalized_cell_E",
-    "normalized_track_pt",
-]
-
-TRAIN_TARGETS = [
-    "truth_cell_focal_observed_fraction_energy",
-]
-
-baseline_configuration = dict(
-    MODEL_VERSION=1,
-    TRAIN_TARGETS=TRAIN_TARGETS,
-    TRAIN_INPUTS=TRAIN_INPUTS,
-    INPUT_SETS=TRAIN_INPUT_SETS,
-    EPOCH_COMPLEXITY=(EPOCH_COMPLEXITY := 1024 * 200),
-    TF_SEED=np.random.randint(0, 100),
-    MAX_SAMPLE_LENGTH=MAX_SAMPLE_LENGTH,  # 278 for delta R of 0.1, 859 for 0.2
-    BATCH_SIZE=(BATCH_SIZE := 700),
-    EPOCHS=1000,
-    IS_TUNE=False,
-    REPLAY=(REPLAY := False),
-    REPLAY_LINEAR_DECAY_RATE=0.02,  # decrease of data from simple set
-    REPLAY_MIN_FREQ=0.10,  # steady state of simple set
-    TRAIN_LR=0.04,
-    SAVE_INTERMEDIATES=True,
-    SAVE_FREQ=10,  # Save intermediate models
-    TUNE_LR=0.001,
-    TRAIN_LR_DECAY=0.99,
-    TUNE_LR_DECAY=0.99,
-    LR_BETA1=0.98,
-    LR_BETA2=0.999,
-    ES_PATIENCE=15,
-    ACC_ENERGY_WEIGHTING="square",
-    LOSS_ENERGY_WEIGHTING="square",
-    LOSS_FUNCTION="MeanSquaredError",  # "CategoricalFocalCrossentropy",
-    OUTPUT_ACTIVATION_FUNCTION="softmax",
-    # softmax, linear (requires changes to the BCE function in the loss function)
-    OUTPUT_LAYER_SEGMENTATION_CUTOFF=0.5,
-    EARLY_STOPPING=False,
-    TRAIN_STEPS=EPOCH_COMPLEXITY // BATCH_SIZE,
-    VAL_STEPS=EPOCH_COMPLEXITY // BATCH_SIZE,
-    # POTENTIALLY OVERWRITTEN BY THE WANDB SWEEP:
-    # LR_MAX=0.000015,
-    # LR_MIN=1e-5,
-    # LR_RAMP_EP=2,
-    # LR_SUS_EP=10,
-    # LR_DECAY=0.7,
-    METRIC="val/f1_score_focal",
-    MODE="max",
-)
-
-# note that if you change the output activation function you must change the loss function
-if (
-    baseline_configuration["OUTPUT_ACTIVATION_FUNCTION"] in ["softmax", "sigmoid"]
-    and baseline_configuration["OUTPUT_LAYER_SEGMENTATION_CUTOFF"] != 0.5
-):
-    raise Exception("Invalid OUTPUT_LAYER_SEGMENTATION_CUTOFF")
-elif (
-    baseline_configuration["OUTPUT_ACTIVATION_FUNCTION"] in ["linear"]
-    and baseline_configuration["OUTPUT_LAYER_SEGMENTATION_CUTOFF"] != 0
-):
-    raise Exception("Invalid OUTPUT_LAYER_SEGMENTATION_CUTOFF")
+verify_model_config(config)
 
 
 def load_data_from_npz(npz_file):
@@ -258,26 +185,8 @@ def _setup_model(
     return model, trainable_count
 
 
-def merge_configurations(priority_config, baseline_config):
-    for hyperparam, value in priority_config.items():
-        if hyperparam in baseline_config.keys():
-            baseline_config[hyperparam] = {"value": value}
-        else:
-            raise AttributeError(
-                f"{hyperparam} set in experimental config, but not found in baseline config, "
-                f"this parameter is not used and is likely set by error. "
-                f"Please check the config is in `baseline_config`."
-            )
-    return baseline_config
-
-
-def train(experimental_configuration: dict = None):
-    if experimental_configuration is None:
-        experimental_configuration = {}
-
-    run_config = merge_configurations(
-        experimental_configuration, baseline_configuration
-    )
+def train():
+    run_config = baseline_configuration
     with wandb.init(
         project="pointcloud",
         config=run_config,
@@ -287,18 +196,18 @@ def train(experimental_configuration: dict = None):
         #       str(TRAIN_ALlOWED_SETS.keys())],
         notes="",
     ) as run:
-        config = wandb.config
+        model_params = wandb.config
 
         # number of steps and seed
         train_steps = (
-            config.TRAIN_STEPS
+            model_params.TRAIN_STEPS
         )  # calculate_steps(TRAIN_DIR, config.BATCH_SIZE)  # 47
         val_steps = (
-            config.VAL_STEPS
+            model_params.VAL_STEPS
         )  # calculate_steps(VAL_DIR, config.BATCH_SIZE)  # 26
         print(f"{train_steps = };\t{val_steps = }")
 
-        seed = config.TF_SEED
+        seed = model_params.TF_SEED
         print(f"Setting training determinism based on {seed=}")
         set_global_determinism(seed=seed)
 
@@ -313,7 +222,7 @@ def train(experimental_configuration: dict = None):
                     energies=energy_weights,
                     loss_function=loss_function,
                     x_class=x_class,
-                    transform=config.LOSS_ENERGY_WEIGHTING,
+                    transform=model_params.LOSS_ENERGY_WEIGHTING,
                 )
                 reg_acc, weighted_acc = masked_weighted_accuracy(
                     y_true=y,
@@ -322,7 +231,7 @@ def train(experimental_configuration: dict = None):
                     x_class=x_class,
                     weighted_accuracy_metric=weighted_accuracy_metric,
                     unweighted_accuracy_metric=unweighted_accuracy_metric,
-                    transform=config.ACC_ENERGY_WEIGHTING,
+                    transform=model_params.ACC_ENERGY_WEIGHTING,
                 )
             grads = tape.gradient(loss, model.trainable_variables)
             return loss, reg_acc, weighted_acc, grads
@@ -334,7 +243,7 @@ def train(experimental_configuration: dict = None):
                 y_true=y,
                 y_pred=predictions,
                 energies=energy_weights,
-                transform=config.LOSS_ENERGY_WEIGHTING,
+                transform=model_params.LOSS_ENERGY_WEIGHTING,
                 x_class=x_class,
                 loss_function=loss_function,
             )
@@ -345,34 +254,34 @@ def train(experimental_configuration: dict = None):
                 x_class=x_class,
                 weighted_accuracy_metric=weighted_accuracy_metric,
                 unweighted_accuracy_metric=unweighted_accuracy_metric,
-                transform=config.ACC_ENERGY_WEIGHTING,
+                transform=model_params.ACC_ENERGY_WEIGHTING,
             )
             return v_loss, reg_acc, weighted_acc, predictions
 
         # model, trackers and callbacks and setup
         model, trainable_params = _setup_model(
-            num_points=config.MAX_SAMPLE_LENGTH,
+            num_points=model_params.MAX_SAMPLE_LENGTH,
             num_features=len(TRAIN_INPUTS),
             num_classes=len(TRAIN_TARGETS),
-            output_activation=config.OUTPUT_ACTIVATION_FUNCTION,
-            model_version=config.MODEL_VERSION,
+            output_activation=model_params.OUTPUT_ACTIVATION_FUNCTION,
+            model_version=model_params.MODEL_VERSION,
         )
 
         wandb.log({"trainable_params": trainable_params})
 
-        train_loss_tracker = tf.metrics.Mean(name="train_loss")
-        train_reg_acc = tf.metrics.Mean(name="train_regular_accuracy")
-        train_weighted_acc = tf.metrics.Mean(name="train_weighted_accuracy")
+        train_loss_tracker = metrics.Mean(name="train_loss")
+        train_reg_acc = metrics.Mean(name="train_regular_accuracy")
+        train_weighted_acc = metrics.Mean(name="train_weighted_accuracy")
 
-        val_loss_tracker = tf.metrics.Mean(name="val_loss")
-        val_reg_acc = tf.metrics.Mean(name="val_regular_accuracy")
-        val_weighted_acc = tf.metrics.Mean(name="val_weighted_accuracy")
+        val_loss_tracker = metrics.Mean(name="val_loss")
+        val_reg_acc = metrics.Mean(name="val_regular_accuracy")
+        val_weighted_acc = metrics.Mean(name="val_weighted_accuracy")
         mean_iou_metric = tf.keras.metrics.OneHotMeanIoU(len(TRAIN_TARGETS))
         val_weighted_f1_score = tf.keras.metrics.F1Score(
-            threshold=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF
+            threshold=model_params.OUTPUT_LAYER_SEGMENTATION_CUTOFF
         )
         val_unweighted_f1_score = tf.keras.metrics.F1Score(
-            threshold=config.OUTPUT_LAYER_SEGMENTATION_CUTOFF
+            threshold=model_params.OUTPUT_LAYER_SEGMENTATION_CUTOFF
         )
 
         # Callbacks
@@ -382,8 +291,8 @@ def train(experimental_configuration: dict = None):
         checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
             filepath=best_checkpoint_path,
             save_best_only=True,
-            monitor=config.METRIC,  # Monitor validation loss
-            mode=config.MODE,  # Save the model with the minimum validation loss
+            monitor=model_params.METRIC,  # Monitor validation loss
+            mode=model_params.MODE,  # Save the model with the minimum validation loss
             save_weights_only=False,
             verbose=1,
         )
@@ -391,9 +300,9 @@ def train(experimental_configuration: dict = None):
 
         # EarlyStopping
         early_stopping_callback = tf.keras.callbacks.EarlyStopping(
-            monitor=config.METRIC,  # "val_weighted_accuracy",  # Monitor validation loss
-            mode=config.MODE,  # "max",  # Trigger when validation loss stops decreasing
-            patience=config.ES_PATIENCE,  # Number of epochs to wait before stopping if no improvement
+            monitor=model_params.METRIC,  # "val_weighted_accuracy",  # Monitor validation loss
+            mode=model_params.MODE,  # "max",  # Trigger when validation loss stops decreasing
+            patience=model_params.ES_PATIENCE,  # Number of epochs to wait before stopping if no improvement
             verbose=1,
         )
         early_stopping_callback.set_model(model)
@@ -411,25 +320,29 @@ def train(experimental_configuration: dict = None):
 
         lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
             initial_learning_rate=(
-                config.TRAIN_LR if not config.IS_TUNE else config.TUNE_LR
+                model_params.TRAIN_LR
+                if not model_params.IS_TUNE
+                else model_params.TUNE_LR
             ),
             decay_steps=train_steps,
             decay_rate=(
-                config.TRAIN_LR_DECAY if not config.IS_TUNE else config.TUNE_LR_DECAY
+                model_params.TRAIN_LR_DECAY
+                if not model_params.IS_TUNE
+                else model_params.TUNE_LR_DECAY
             ),
         )
 
         # Optimizer & Loss
         optimizer = tf.keras.optimizers.Adam(
             learning_rate=lr_schedule,
-            beta_1=config.LR_BETA1,
-            beta_2=config.LR_BETA2,
+            beta_1=model_params.LR_BETA1,
+            beta_2=model_params.LR_BETA2,
             # decay=config.LR_DECAY,
         )
 
         # Will raise AttributeError if the loss function is not found
-        logits = config.OUTPUT_ACTIVATION_FUNCTION == "linear"
-        loss_function = getattr(tf.keras.losses, config.LOSS_FUNCTION)(
+        logits = model_params.OUTPUT_ACTIVATION_FUNCTION == "linear"
+        loss_function = getattr(tf.keras.losses, model_params.LOSS_FUNCTION)(
             # from_logits=logits,  # NOTE: False for "sigmoid", True for "linear"
             # reduction='none',
         )
@@ -450,7 +363,7 @@ def train(experimental_configuration: dict = None):
         #     case _:
         # raise Exception("Undefined Loss Function")
 
-        for epoch in range(config.EPOCHS):
+        for epoch in range(model_params.EPOCHS):
             print("\nStart of epoch %d" % (epoch,))
             start_time = time.time()
 
@@ -481,7 +394,9 @@ def train(experimental_configuration: dict = None):
             )
 
             _train_generator = consistent_data_generator(
-                TRAINING_FILE_LOCATION / "train", config.INPUT_SETS, config.BATCH_SIZE
+                TRAINING_FILE_LOCATION / "train",
+                model_params.INPUT_SETS,
+                model_params.BATCH_SIZE,
             )
             train_generator = enumerate(_train_generator)
 
@@ -529,7 +444,9 @@ def train(experimental_configuration: dict = None):
             batch_loss_val, batch_accuracy_val, batch_weighted_accuracy_val = [], [], []
 
             _val_generator = consistent_data_generator(
-                TRAINING_FILE_LOCATION / "val", config.INPUT_SETS, config.BATCH_SIZE
+                TRAINING_FILE_LOCATION / "val",
+                model_params.INPUT_SETS,
+                model_params.BATCH_SIZE,
             )
             val_generator = enumerate(_val_generator)
 
@@ -610,68 +527,42 @@ def train(experimental_configuration: dict = None):
             print(f"\nValidation loss: {val_loss_tracker.result():.4e}")
             print(f"\nTime taken for validation: {time.time() - start_time:.2f} sec")
 
-            wandb.log(
-                {
-                    "epoch": epoch,
-                    "train/loss": train_loss_tracker.result().numpy(),
-                    "train/accuracy": train_reg_acc.result().numpy(),
-                    "train/weighted_accuracy": train_weighted_acc.result().numpy(),
-                    "val/loss": val_loss_tracker.result().numpy(),
-                    "val/accuracy": val_reg_acc.result().numpy(),
-                    "val/weighted_accuracy": val_weighted_acc.result().numpy(),
-                    "learning_rate": optimizer.learning_rate.numpy(),
-                    "val/f1_score_focal": val_f1[0],
-                    # "val/f1_score_non_focal": val_f1[1],
-                    # "val/f1_score_neutral": val_f1[2],
-                    "val/f1_weighted_score_focal": weighted_val_f1[0],
-                    # "val/f1_weighted_score_non_focal": weighted_val_f1[1],
-                    # "val/f1_weighted_score_neutral": weighted_val_f1[2],
-                    "val/mean_iou": mean_iou_metric.result().numpy(),
-                }
-            )
+            performance = {
+                "epoch": epoch,
+                "train/loss": train_loss_tracker.result().numpy(),
+                "train/accuracy": train_reg_acc.result().numpy(),
+                "train/weighted_accuracy": train_weighted_acc.result().numpy(),
+                "val/loss": val_loss_tracker.result().numpy(),
+                "val/accuracy": val_reg_acc.result().numpy(),
+                "val/weighted_accuracy": val_weighted_acc.result().numpy(),
+                "learning_rate": optimizer.learning_rate.numpy(),
+                "val/mean_iou": mean_iou_metric.result().numpy(),
+            }
+
+            for i in range(len(TRAIN_TARGETS)):
+                performance[f"val/f1_score_{TRAIN_TARGETS[i]}"] = val_f1[i]
+                performance[f"val/f1_weighted_score_{TRAIN_TARGETS[i]}"] = (
+                    weighted_val_f1[i]
+                )
+
+            wandb.log(performance)
 
             # callbacks
 
             # discard first epochs to trigger callbacks
             if epoch > 50:
-                if config.SAVE_INTERMEDIATES and epoch % config.SAVE_FREQ == 0:
+                if (
+                    model_params.SAVE_INTERMEDIATES
+                    and epoch % model_params.SAVE_FREQ == 0
+                ):
                     checkpoint_path = (
                         f"{MODELS_PATH}/PointNet_{epoch=}_name={run.name}.keras"
                     )
                     model.save(checkpoint_path)
+                    checkpoint_callback.on_epoch_end(epoch, logs=performance)
 
-                checkpoint_callback.on_epoch_end(
-                    epoch,
-                    # TODO: adapt for user-defined metric tracking
-                    logs={
-                        "val_loss": val_loss_tracker.result(),
-                        "val/accuracy": val_reg_acc.result(),
-                        "val_weighted_accuracy": val_weighted_acc.result(),
-                        "val/f1_score_focal": val_f1[0],
-                        # "val/f1_score_non_focal": val_f1[1],
-                        # "val/f1_score_neutral": val_f1[2],
-                        "val/f1_weighted_score_focal": weighted_val_f1[0],
-                        # "val/f1_weighted_score_non_focal": weighted_val_f1[1],
-                        # "val/f1_weighted_score_neutral": weighted_val_f1[2],
-                        "val/mean_iou": mean_iou_metric.result().numpy(),
-                    },
-                )
-                if config.EARLY_STOPPING:
-                    early_stopping_callback.on_epoch_end(
-                        epoch,
-                        logs={
-                            "val_loss": val_loss_tracker.result(),
-                            "val/accuracy": val_reg_acc.result(),
-                            "val_weighted_accuracy": val_weighted_acc.result(),
-                            "val/f1_score_focal": val_f1[0],
-                            # "val/f1_score_non_focal": val_f1[1],
-                            # "val/f1_score_neutral": val_f1[2],
-                            "val/f1_weighted_score_focal": weighted_val_f1[0],
-                            # "val/f1_weighted_score_non_focal": weighted_val_f1[1],
-                            # "val/f1_weighted_score_neutral": weighted_val_f1[2],
-                            "val/mean_iou": mean_iou_metric.result().numpy(),
-                        },
-                    )
+                if model_params.EARLY_STOPPING:
+                    early_stopping_callback.on_epoch_end(epoch, logs=performance)
                     if early_stopping_callback.model.stop_training:
                         print(f"Early stopping triggered at epoch {epoch}")
                         break
@@ -694,7 +585,7 @@ def train(experimental_configuration: dict = None):
 
 
 if __name__ == "__main__":
-    train({})
+    train()
 
 
 ## OLD METHODS

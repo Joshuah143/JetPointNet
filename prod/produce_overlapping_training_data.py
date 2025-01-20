@@ -12,6 +12,12 @@ from utils.to_numpy import event_to_trainable
 
 config = load_config()
 
+if not (
+    config["data_pipeline"]["enabled"]
+    and config["data_pipeline"]["pipeline"] == "overlapping"
+):
+    raise ValueError("Config file does not specify to run this pipeline")
+
 # Params
 input_data_dir = Path(config["data_pipeline"]["root_files_dir"])
 output_data_dir = Path(config["data_pipeline"]["output_dir"])
@@ -44,7 +50,7 @@ def save_train_data(chunk_size: int = 1):
                 chunk = data[start_idx : start_idx + chunk_size]
                 split_save_location = save_location / split_type_name / set_name
                 tasks.append((split_type_name, chunk, split_save_location, start_idx))
-        print(tasks)
+
         with Pool() as pool:
             for _ in tqdm(pool.imap(_process_split, tasks), total=len(tasks)):
                 pass

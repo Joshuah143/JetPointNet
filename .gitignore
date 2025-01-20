@@ -14,6 +14,7 @@ wandb
 models/
 result/
 results/
+notebooks/
 images/
 visualizations/
 

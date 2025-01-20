@@ -54,6 +54,7 @@ Model Training:
 - Apply garbage collection to the augmented data processing scripts to ensure stills still meet cluster min significance
 - Try Mask formers instead of PointNet
 - Change batching algorithm for training
+- Add CI/CD pipeline for the data processing scripts
 
 ## Known Issues
 

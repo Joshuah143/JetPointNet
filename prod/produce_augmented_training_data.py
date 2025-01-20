@@ -10,6 +10,12 @@ from utils.to_numpy import event_to_trainable
 
 config = load_config()
 
+if not (
+    config["data_pipeline"]["enabled"]
+    and config["data_pipeline"]["pipeline"] == "augmented"
+):
+    raise ValueError("Config file does not specify to run this pipeline")
+
 # Params
 input_data_dir = Path(config["data_pipeline"]["root_files_dir"])
 output_data_dir = Path(config["data_pipeline"]["output_dir"])

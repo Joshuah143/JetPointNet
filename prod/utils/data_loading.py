@@ -3,9 +3,16 @@ from pathlib import Path
 import awkward as ak
 
 
-def setup_directories(save_location: Path, desired_sets: list, data_split: dict):
+def setup_directories(
+    save_location: Path, desired_sets: list, data_split: dict | list[str] | set[str]
+):
     save_location.mkdir(exist_ok=True)
-    for split_type in data_split.keys():
+    if isinstance(data_split, list) or isinstance(data_split, set):
+        split_names = data_split
+    else:
+        split_names = data_split.keys()
+
+    for split_type in split_names:
         split_save_location = save_location / split_type
         split_save_location.mkdir(exist_ok=True)
         for set_name in desired_sets:

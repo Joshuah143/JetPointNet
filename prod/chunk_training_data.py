@@ -3,52 +3,63 @@ from pathlib import Path
 
 import numpy as np
 
-input_data_dir = Path("")
-output_data_dir = Path("")
-desired_sets = (
-    # "rho",
-    # "delta",
-    # "JZ0",
-    # "JZ1",
-    # "JZ2",
-    # "JZ3",
-    "JZ4",
-    #  "JZ5",
-    #  "JZ6",
-    #  "JZ7",
-    #  "JZ8",
-    #  "JZ9",
-)
+from utils.data_loading import setup_directories
+from utils.dev_tools import load_config
 
-data_splits = (
-    "train",
-    "test",
-    "val",
-)
-
-file_chunk_sizes = 1000  # number of events in a numpy file
+config = load_config()
 
 
-def chunk_files():
-    setup_directories(output_data_dir)
-    for split in data_splits:
-        for set in desired_sets:
-            files_to_chunk = glob.glob(input_data_dir / split / set / "*.npz")
-            buffer = np.array([])
-            for file in files_to_chunk:
-                # TODO: finish this method
-                pass
+def chunk_files(
+    desired_sets: set | list,
+    data_splits_names: set | list,
+    input_data_dir: Path,
+    output_data_dir: Path,
+    file_chunk_sizes: int = 1000,
+):
+    setup_directories(output_data_dir, desired_sets, data_splits_names)
+    for split in data_splits_names:
+        for set_ in desired_sets:
+            print(f"Chunking data for {split} {set_}")
+            print(f"Loading data from: {input_data_dir / split / set_}")
+            # TODO: This is the crash location
+            files_to_chunk = glob.glob(input_data_dir / split / set_ / "*.npy")
+            save_path = output_data_dir / split / set_
+            if not files_to_chunk:
+                continue  # Skip if no files found
+
+            # Collect data from all NPZ files
+            all_arrays = []
+            for file_path in files_to_chunk:
+                with np.load(file_path) as npz_file:
+                    all_arrays.append(npz_file)
+
+            # Concatenate into a single array
+            data = np.concatenate(all_arrays, axis=0)
+
+            # Randomize the rows (in-place shuffle)
+            np.random.shuffle(data)
+
+            # Chunk and save
+            num_rows = data.shape[0]
+            start_idx = 0
+            chunk_count = 0
+
+            while start_idx < num_rows:
+                end_idx = min(start_idx + file_chunk_sizes, num_rows)
+                chunk_data = data[start_idx:end_idx]
+
+                chunk_filename = f"{split}_{set_}_chunk_{chunk_count}.npz"
+                np.savez_compressed(save_path / chunk_filename, chunk_data)
+
+                start_idx = end_idx
+                chunk_count += 1
 
 
-def setup_directories(save_location: Path):
-    save_location.mkdir(exist_ok=True)
-    for split_type in data_splits:
-        split_save_location = save_location / split_type
-        split_save_location.mkdir(exist_ok=True)
-        for set_name in desired_sets:
-            set_save_location = split_save_location / set_name
-            set_save_location.mkdir(exist_ok=True)
-
-
-if __name__ == "__main__":
-    chunk_files()
+if __name__ == "__main__" and config["data_chunking"]["enabled"]:
+    chunk_files(
+        desired_sets=config["data_chunking"]["enabled_sets"],
+        data_splits_names=config["data_chunking"]["enabled_splits"],
+        input_data_dir=Path(config["data_chunking"]["input_data_path"]),
+        output_data_dir=Path(config["data_chunking"]["output_data_path"]),
+        file_chunk_sizes=config["data_chunking"]["chunk_size"],
+    )
