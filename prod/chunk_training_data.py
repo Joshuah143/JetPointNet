@@ -21,25 +21,22 @@ def chunk_files(
         for set_ in desired_sets:
             print(f"Chunking data for {split} {set_}")
             print(f"Loading data from: {input_data_dir / split / set_}")
-            # TODO: This is the crash location
-            files_to_chunk = glob.glob(input_data_dir / split / set_ / "*.npy")
+
+            files_to_chunk = glob.glob(str(input_data_dir / split / set_ / "*.npy"))
             save_path = output_data_dir / split / set_
             if not files_to_chunk:
                 continue  # Skip if no files found
 
-            # Collect data from all NPZ files
+            # TODO: this is memory intensive,
+            #  consider sub-chunking in a more memory efficient way
             all_arrays = []
             for file_path in files_to_chunk:
-                with np.load(file_path) as npz_file:
-                    all_arrays.append(npz_file)
+                npz_file = np.load(file_path)
+                all_arrays.append(npz_file)
 
-            # Concatenate into a single array
             data = np.concatenate(all_arrays, axis=0)
-
-            # Randomize the rows (in-place shuffle)
             np.random.shuffle(data)
 
-            # Chunk and save
             num_rows = data.shape[0]
             start_idx = 0
             chunk_count = 0
