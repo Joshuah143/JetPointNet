@@ -4,6 +4,7 @@ pnet_data
 *.npz
 *.json
 *.root
+*.log
 
 # debug/experimental code
 scratch
@@ -37,6 +38,5 @@ __pycache__/
 models/__pycache__/
 PointNetModel.keras
 .idea/
-wandb
 old_framework/notebooks/joshua_working_notebooks
 .DS_Store

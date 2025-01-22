@@ -1,5 +1,6 @@
 import awkward as ak
 import numpy as np
+from loguru import logger as log
 from .coordinate_conversions import calculate_delta_r
 
 SENTINEL_NO_DATA = -1
@@ -52,12 +53,16 @@ event_array_dtype = np.dtype(
 
 
 def event_to_trainable(
-    event: ak.Record, focal_index: int, delta_r_max=0.2, truth=True, max_event_len=800
+    event: ak.Record,
+    focal_index: int,
+    delta_r_max: float,
+    max_event_len: int,
+    truth=True,
 ) -> np.ndarray:
     trainable_array = []
 
     if ak.num(event["tracks"], axis=0) == 0:
-        print("No tracks contained in event, skipping")
+        log.debug("No tracks contained in event, skipping")
         # TODO: throw error here, this should never be reached in production
         return np.zeros(max_event_len, dtype=event_array_dtype)
 

@@ -3,11 +3,11 @@ import os
 
 def setup_compute(config: dict):
     gpu_id = config["training"]["infra"]["gpu_id"]
-    print(f"Assigning GPU: {gpu_id}")
+    log.info(f"Assigning GPU: {gpu_id}")
     os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
 
     if config["training"]["infra"]["use_cuda_malloc_async"]:
-        print("Using cuda_malloc_async")
+        log.info("Using cuda_malloc_async")
         os.environ["TF_GPU_ALLOCATOR"] = "cuda_malloc_async"
 
 

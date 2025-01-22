@@ -7,8 +7,9 @@ from typing import Any
 import awkward as ak
 import numpy as np
 import uproot
-from track_metadata import fixed_r, fixed_z
+from loguru import logger as log
 
+from track_metadata import fixed_r, fixed_z
 from utils.coordinate_conversions import eta_phi_to_cartesian, intersection_fixed_z
 
 NUM_THREADS = os.cpu_count()
@@ -55,7 +56,7 @@ def load_from_root(
 
         ak_arr_batched = ak.Array(processed_events)
         ak_arr = ak.flatten(ak_arr_batched)
-        print(f"Loaded {len(ak_arr)} events from {root_files_location}")
+        log.info(f"Loaded {len(ak_arr)} events from {root_files_location}")
         return ak_arr
 
 
@@ -185,7 +186,7 @@ def generate_cells(event, geo_dict, truth=True) -> list:
             cell_ID = event["cluster_cell_ID"][cluster_idx][cell_idx]
 
             if len(idx_list := np.where(geo_dict["ID"] == cell_ID)) == 0:
-                print(f"CELL_ID: {cell_ID} does not exist in geo file")
+                log.debug(f"CELL_ID: {cell_ID} does not exist in geo file")
                 continue
 
             idx = idx_list[0]

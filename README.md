@@ -47,6 +47,12 @@ Chunking is optional and can be skipped if the data is already chunked or suffic
 - Change batching algorithm for training
 - Add CI/CD pipeline for the data processing scripts
 
+## Josh's next steps:
+- Add poetryt to ML2 so this runs there
+- Test training script
+- Migrate training script
+- Encode info in file paths for configuration, maybe just use wandb run name??
+
 ## Known Issues
 
 - Many... we should probably start a list here

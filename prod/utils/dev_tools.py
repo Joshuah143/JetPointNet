@@ -8,12 +8,13 @@ else:
 import os
 import subprocess
 from pathlib import Path
+from loguru import logger as log
 
 
 def load_config():
     if "JETPOINTNET_CONFIG_FILE" in os.environ:
         config_path = Path(os.environ["JETPOINTNET_CONFIG_FILE"])
-        print(f"Detected manual config file location, using {config_path}")
+        log.info(f"Detected manual config file location, using {config_path}")
     else:
         user = Path.home().name
         config_path = Path(__file__).parent.parent / "configs" / f"{user}_config.toml"

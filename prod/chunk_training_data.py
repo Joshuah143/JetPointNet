@@ -2,6 +2,7 @@ import glob
 from pathlib import Path
 
 import numpy as np
+from loguru import logger as log
 
 from utils.data_loading import setup_directories
 from utils.dev_tools import load_config
@@ -19,13 +20,14 @@ def chunk_files(
     setup_directories(output_data_dir, desired_sets, data_splits_names)
     for split in data_splits_names:
         for set_ in desired_sets:
-            print(f"Chunking data for {split} {set_}")
-            print(f"Loading data from: {input_data_dir / split / set_}")
+            log.info(f"Chunking data for {split} {set_}")
+            log.info(f"Loading data from: {input_data_dir / split / set_}")
 
             files_to_chunk = glob.glob(str(input_data_dir / split / set_ / "*.npy"))
             save_path = output_data_dir / split / set_
             if not files_to_chunk:
-                continue  # Skip if no files found
+                log.warning(f"No files found for {split} {set_}")
+                continue
 
             # TODO: this is memory intensive,
             #  consider sub-chunking in a more memory efficient way
