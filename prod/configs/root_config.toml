@@ -1,3 +1,4 @@
+# This config is for the CI/CD tests
 [global_params]
 max_sample_length = 800
 user_name = "Joshua Himmens"

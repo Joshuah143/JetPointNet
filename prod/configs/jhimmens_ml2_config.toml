@@ -1,0 +1,162 @@
+[global_params]
+max_sample_length = 800
+geo_file_loc = "/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/data/rho_small.root" # a file with a cell_geo_tree
+user_name = "Joshua Himmens"
+no_data_value = -1 # do not change this value, used in many disparate places
+run_notes = ""
+log_level = "INFO"
+
+[data_pipeline]
+enabled = true
+pipeline = "overlapping" # (overlapping, augmented)
+root_files_dir = "/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/data"
+output_dir = "/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/training_data" # run ID will be appended
+chunk_output = true
+chunk_size = 1000
+max_delta_r = 0.2
+
+sets_to_process = [
+     "rho",
+     "delta",
+     "JZ0",
+     "JZ1",
+     "JZ2",
+     "JZ3",
+    "JZ4",
+     "JZ5",
+     "JZ6",
+     "JZ7",
+     "JZ8",
+     "JZ9",
+]
+
+[data_pipeline.splits]
+train = 0.6
+val = 0.2
+test = 0.2
+
+[data_pipeline.overlapping]
+chunk_size = 10
+
+[data_pipeline.augmented]
+chunk_size = 10
+
+[data_pipeline.set_paths]
+JZ0 = "user.jhimmens.801165.Py8EG_A14NNPDF23LO_jj_JZ0.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"
+JZ1 = "user.jhimmens.801166.Py8EG_A14NNPDF23LO_jj_JZ1.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"
+JZ2 = "user.jhimmens.801167.Py8EG_A14NNPDF23LO_jj_JZ2.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"
+JZ3 = "user.jhimmens.801168.Py8EG_A14NNPDF23LO_jj_JZ3.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"
+JZ4 = "user.jhimmens.801169.Py8EG_A14NNPDF23LO_jj_JZ4.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"
+JZ5 = "user.jhimmens.801170.Py8EG_A14NNPDF23LO_jj_JZ5.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"
+JZ6 = "user.jhimmens.801171.Py8EG_A14NNPDF23LO_jj_JZ6.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"
+JZ7 = "user.jhimmens.801172.Py8EG_A14NNPDF23LO_jj_JZ7.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"
+JZ8 = "user.jhimmens.801173.Py8EG_A14NNPDF23LO_jj_JZ8.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"
+JZ9 = "user.jhimmens.801174.Py8EG_A14NNPDF23LO_jj_JZ9incl.recon.ESD.e8514_e8528_s4185_s4114_r14977_20240916.v0_mltree.root"
+delta = "user.jhimmens.mc21_13p6TeV.900147.singleDelta.recon.ESD.e8537_e8455_s3986_s3874_r14060_20240916.v0_mltree.root"
+rho = "user.jhimmens.mc21_13p6TeV.900148.singlerho.recon.ESD.e8537_e8455_s3986_s3874_r14060_20240916.v0_mltree.root"
+
+
+[data_chunking]
+enabled = true
+use_chunk_from_same_run = true
+input_data_path = "/Users/joshuahimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/training_data"
+output_data_path = "/Users/joshuahimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/chunked_training_data" # run ID will be appended
+chunk_size = 1000
+
+enabled_splits = [
+    "train",
+    "val",
+    "test",
+]
+
+enabled_sets = [
+    "rho",
+    "delta",
+    "JZ0",
+    "JZ1",
+    "JZ2",
+    "JZ3",
+    "JZ4",
+    "JZ5",
+    "JZ6",
+    "JZ7",
+    "JZ8",
+    "JZ9",
+]
+
+[training]
+enabled = true
+epoch_complexity = 204800 # number of samples in an epoch
+batch_size = 700
+epochs = 1000
+
+[training.infra]
+GPU = 1
+cuda_malloc_async = true
+input_data_path = "/Users/joshuahimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/chunked_training_data"
+TF_seed = 70
+model_save_path = "/Users/joshuahimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/models"
+
+[training.experiment]
+experiment_name = "jhimmens"
+
+[training.params]
+training_labels = [
+    "category",
+    "delta_r",
+    "track_num",
+    "normalized_x",
+    "normalized_y",
+    "normalized_z",
+    "track_chi2_dof",
+    "cell_sigma",
+    # "normalized_distance", not included in most recent training data
+    "normalized_cell_E",
+    "normalized_track_pt",
+]
+train_targets = [
+    "truth_cell_focal_observed_fraction_energy",
+]
+
+[training.hyperparameters.training_input_sets]
+rho = 1
+
+# Will be overwritten by a wandb sweep, should add a sweep config here as well
+[training.hyperparameters.model_params]
+model_version=1
+output_activation_function = "softmax" # softmax, linear (requires changes to the BCE function in the loss function)
+output_layer_segmentation_cutoff = 0.5
+primary_metric = "f1_score_focal" # determines the metric to be used for early stopping and saving the best model
+primary_metric_mode = "max" # max, min
+
+early_stopping = true
+early_stopping_patience = 15
+save_intermediates = true
+save_freq = 10
+
+learning_rate = 0.001
+learning_rate_decay = 0.99
+
+learning_rate_decay_1 = 0.98
+learning_rate_decay_2 = 0.999
+
+loss_function = "CategoricalFocalCrossentropy" # CategoricalFocalCrossentropy, MeanSquaredError
+
+
+# old config, tune is no lognger directly supported, but many of its functions do so it could be re-implemented
+#IS_TUNE=false
+#REPLAY=false
+#REPLAY_LINEAR_DECAY_RATE=0.02  # decrease of data from simple set
+#REPLAY_MIN_FREQ=0.10  # steady state of simple set
+#TRAIN_LR=0.04
+#SAVE_INTERMEDIATES=true
+#ACC_ENERGY_WEIGHTING="square"
+#LOSS_ENERGY_WEIGHTING="square"
+#EARLY_STOPPING=false
+# LR_MAX=0.000015,
+# LR_MIN=1e-5,
+# LR_RAMP_EP=2,
+# LR_SUS_EP=10,
+# LR_DECAY=0.7,
+## this could be the primary metric??
+#METRIC="val/f1_score_focal"
