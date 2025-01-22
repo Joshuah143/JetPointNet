@@ -27,8 +27,13 @@ def save_train_data(*, config: dict):
     max_delta_r = config["data_pipeline"]["max_delta_r"]
     max_sample_length = config["global_params"]["max_sample_length"]
 
-    setup_directories(save_location, desired_sets, data_split)
-    # TODO: should warn if the output directory already exists as data may not be overwritten causing issues
+    setup_directories(
+        save_location,
+        desired_sets,
+        data_split,
+        run_id=config["global_params"]["run_id"],
+    )
+    save_location = save_location / config["global_params"]["run_id"]
 
     for set_name in desired_sets:
         log.info(f"Handling set: {set_name}")

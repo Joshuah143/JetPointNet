@@ -4,9 +4,15 @@ import awkward as ak
 
 
 def setup_directories(
-    save_location: Path, desired_sets: list, data_split: dict | list[str] | set[str]
+    save_location: Path,
+    desired_sets: list,
+    data_split: dict | list[str] | set[str],
+    run_id: str = None,
 ):
     save_location.mkdir(exist_ok=True)
+    if run_id:
+        save_location = save_location / run_id
+        save_location.mkdir(exist_ok=True)
     if isinstance(data_split, list) or isinstance(data_split, set):
         split_names = data_split
     else:

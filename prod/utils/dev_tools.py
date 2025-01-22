@@ -64,3 +64,11 @@ def get_git_status():
         raise RuntimeError(
             "Unable to retrieve Git information. Ensure this is a Git repository."
         )
+
+
+def validate_config(config):
+    if config["data_pipeline"]["enabled"] and config["data_chunking"]["enabled"]:
+        if config["training"]["enabled"]:
+            msg = "Cannot enable both data pipeline and data chunking, this is not supported as you cannot train on the data from the same pipeline"
+            log.error(msg)
+            raise ValueError(msg)

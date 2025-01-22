@@ -1,4 +1,4 @@
-from utils.dev_tools import load_config
+from utils.dev_tools import load_config, validate_config
 from pathlib import Path
 from loguru import logger as log
 import wandb
@@ -14,6 +14,7 @@ logger.add(sys.stdout, level=config["global_params"]["log_level"])
 
 if __name__ == "__main__":
     log.info(f"Welcome {config['global_params']['user_name']}")
+    validate_config(config)
     with wandb.init(
         project="pointcloud",
         config=config,
@@ -21,6 +22,7 @@ if __name__ == "__main__":
         notes=config["global_params"]["run_notes"],
     ) as run:
         log.info("Starting run")
+        config["global_params"]["run_id"] = run.name
         if config["data_pipeline"]["enabled"]:
             match config["data_pipeline"]["pipeline"]:
                 case "overlapping":
@@ -38,6 +40,14 @@ if __name__ == "__main__":
         if config["data_chunking"]["enabled"]:
             from chunk_training_data import chunk_files
 
+            if config["data_chunking"]["enabled"]["use_chunk_from_same_run"]:
+                chunk_data_path = (
+                    Path(config["data_pipeline"]["output_dir"])
+                    / config["global_params"]["run_id"]
+                )
+            else:
+                chunk_data_path = Path(config["data_chunking"]["input_data_path"])
+
             log.info("Chunking data")
             chunk_files(
                 desired_sets=config["data_chunking"]["enabled_sets"],
@@ -45,15 +55,13 @@ if __name__ == "__main__":
                 input_data_dir=Path(config["data_chunking"]["input_data_path"]),
                 output_data_dir=Path(config["data_chunking"]["output_data_path"]),
                 file_chunk_sizes=config["data_chunking"]["chunk_size"],
+                run_id=config["global_params"]["run_id"],
             )
 
         if config["training"]["enabled"]:
             from train_model import train
 
             log.info("Training model")
-            train(
-                logger=logger,
-                run=run,
-            )
+            train(run=run)
 
         log.info("Run complete")

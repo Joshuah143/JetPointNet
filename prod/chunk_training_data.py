@@ -15,16 +15,17 @@ def chunk_files(
     data_splits_names: set | list,
     input_data_dir: Path,
     output_data_dir: Path,
+    run_id: str,
     file_chunk_sizes: int = 1000,
 ):
-    setup_directories(output_data_dir, desired_sets, data_splits_names)
+    setup_directories(output_data_dir, desired_sets, data_splits_names, run_id=run_id)
     for split in data_splits_names:
         for set_ in desired_sets:
             log.info(f"Chunking data for {split} {set_}")
             log.info(f"Loading data from: {input_data_dir / split / set_}")
 
             files_to_chunk = glob.glob(str(input_data_dir / split / set_ / "*.npy"))
-            save_path = output_data_dir / split / set_
+            save_path = output_data_dir / run_id / split / set_
             if not files_to_chunk:
                 log.warning(f"No files found for {split} {set_}")
                 continue
