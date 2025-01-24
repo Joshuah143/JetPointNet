@@ -1,10 +1,10 @@
-# to use this config by setting the environment variable JETPOINTNET_CONFIG_PATH to the path of this file:
-# export JETPOINTNET_CONFIG_PATH=prod/configs/jhimmens_ml2_config.toml
+# to use this config by setting the environment variable JETPOINTNET_CONFIG_FILE to the path of this file:
+# export JETPOINTNET_CONFIG_FILE=/home/jhimmens/workspace/jetpointnet/prod/configs/jhimmens_ml2_config.toml
 
 [global_params]
 max_sample_length = 800
 geo_file_loc = "/fast_scratch_1/atlas/pflow/rho_small.root" # a file with a cell_geo_tree
-user_name = "Joshua Himmens"
+user_name = "Joshua Himmens - ML2"
 no_data_value = -1 # do not change this value, used in many disparate places
 run_notes = ""
 log_level = "INFO"
