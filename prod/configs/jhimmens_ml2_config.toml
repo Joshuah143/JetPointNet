@@ -1,6 +1,9 @@
+# to use this config by setting the environment variable JETPOINTNET_CONFIG_PATH to the path of this file:
+# export JETPOINTNET_CONFIG_PATH=prod/configs/jhimmens_ml2_config.toml
+
 [global_params]
 max_sample_length = 800
-geo_file_loc = "/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/data/rho_small.root" # a file with a cell_geo_tree
+geo_file_loc = "/fast_scratch_1/atlas/pflow/rho_small.root" # a file with a cell_geo_tree
 user_name = "Joshua Himmens"
 no_data_value = -1 # do not change this value, used in many disparate places
 run_notes = ""
@@ -9,8 +12,8 @@ log_level = "INFO"
 [data_pipeline]
 enabled = true
 pipeline = "overlapping" # (overlapping, augmented)
-root_files_dir = "/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/data"
-output_dir = "/Users/jhimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/training_data" # run ID will be appended
+root_files_dir = "/fast_scratch_3/atlas/pflow/ntuples/20240916.v0"
+output_dir = "/fast_scratch_3/atlas/pflow/intermediates/np" # run ID will be appended
 chunk_output = true
 chunk_size = 1000
 max_delta_r = 0.2
@@ -59,8 +62,8 @@ rho = "user.jhimmens.mc21_13p6TeV.900148.singlerho.recon.ESD.e8537_e8455_s3986_s
 [data_chunking]
 enabled = true
 use_chunk_from_same_run = true
-input_data_path = "/Users/joshuahimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/training_data"
-output_data_path = "/Users/joshuahimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/chunked_training_data" # run ID will be appended
+input_data_path = "/fast_scratch_3/atlas/pflow/intermediates/chunked/RUN_NAME"
+output_data_path = "/fast_scratch_3/atlas/pflow/intermediates/chunked" # run ID will be appended
 chunk_size = 1000
 
 enabled_splits = [
@@ -92,10 +95,10 @@ epochs = 1000
 
 [training.infra]
 GPU = 1
-cuda_malloc_async = true
-input_data_path = "/Users/joshuahimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/chunked_training_data"
+cuda_malloc_async = false
+input_data_path = "/fast_scratch_3/atlas/pflow/intermediates/chunked/RUN_NAME"
 TF_seed = 70
-model_save_path = "/Users/joshuahimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/models"
+model_save_path = "/fast_scratch_3/atlas/pflow/intermediates/models"
 
 [training.experiment]
 experiment_name = "jhimmens"
