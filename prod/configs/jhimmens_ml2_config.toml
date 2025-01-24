@@ -88,7 +88,7 @@ enabled_sets = [
 ]
 
 [training]
-enabled = true
+enabled = false
 epoch_complexity = 204800 # number of samples in an epoch
 batch_size = 700
 epochs = 1000
