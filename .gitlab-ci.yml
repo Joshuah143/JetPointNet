@@ -6,6 +6,7 @@ test:
   image: python:3.12 # pyarrow is not compatible with python 3.13
   before_script:
     - pip install poetry
+    - pip install tensorflow
     - poetry install
     - source $(poetry env info --path)/bin/activate
   script:
