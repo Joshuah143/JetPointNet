@@ -84,7 +84,7 @@ def _process_split(args: tuple[str, ak.Array, Path, int, float, int]):
                 )
             )
 
-    np.save(split_save_location / f"overlapping_{split_id}.npz", np.stack(trainable))
+    np.save(split_save_location / f"overlapping_{split_id}", np.stack(trainable))
     log.info(
-        f"Saved {len(trainable)} events to {split_save_location / f'overlapping_{split_id}.npz'}"
+        f"Saved {len(trainable)} events to {split_save_location / f'overlapping_{split_id}.npy'}"
     )

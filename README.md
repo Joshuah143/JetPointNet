@@ -15,18 +15,6 @@ pip install -r requirements.txt # --no-cache-dir
 
 Please note that `--no-cache-dir` option is suggested.
 
-## Full Working Installation (with pre-commit hooks)
-Ensure that you have a python version (3.10 or newer installed on your system). You must also have `tensorflow[and-cuda]` installed.
-Then you can clone the repository and run the setup script:
-
-This script will set up the development environment using poetry and install all the necessary dependencies.
-Additionally, it will configure pre-commit hooks to ensure consistent style and run test cases.
-
-```shell
-git clone ssh://git@gitlab.cern.ch:7999/atlas-jetetmiss/pflow/commontools/jetpointnet.git
-make setup-env
-```
-
 ## Usage
 
 All configuration is done in the `prod/configs/USER_config.toml`.

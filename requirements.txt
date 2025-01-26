@@ -10,3 +10,6 @@ particle
 matplotlib
 plotly
 tqdm
+loguru
+pytest
+black

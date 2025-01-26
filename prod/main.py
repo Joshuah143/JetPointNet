@@ -1,3 +1,4 @@
+from utils.train_helpers import verify_model_config
 from utils.dev_tools import load_config, validate_config
 from pathlib import Path
 from loguru import logger as log
@@ -61,6 +62,7 @@ if __name__ == "__main__":
         if config["training"]["enabled"]:
             from train_model import train
 
+            # verify_model_config(config) # TODO: fix this
             log.info("Training model")
             train(run=run)
 

@@ -14,7 +14,7 @@ from pathlib import Path
 
 import numpy as np
 import tensorflow as tf
-import tensorflow.metrics as metrics
+import tensorflow.keras.metrics as metrics
 import tensorflow.keras.backend as K
 import wandb
 from wandb.sdk import Config
@@ -31,7 +31,7 @@ from tqdm.auto import tqdm
 from wandb.sdk.wandb_run import Run
 from loguru import logger as log
 
-from prod.utils.train_helpers import verify_model_config, setup_compute
+from utils.train_helpers import verify_model_config, setup_compute
 
 # tf.config.run_functions_eagerly(True) - Useful when using the debugger - don't delete, but should not be used in production
 
@@ -52,8 +52,6 @@ from prod.utils.train_helpers import verify_model_config, setup_compute
 # TRAIN_STEPS = VAL_STEPS = (
 #     baseline_configuration["EPOCH_COMPLEXITY"] // baseline_configuration["BATCH_SIZE"],
 # )
-
-verify_model_config(config)
 
 
 def load_data_from_npz(
@@ -94,7 +92,7 @@ def single_set_data_generator(
 
     # get filenames and initialize buffers
     npz_files = glob.glob(
-        os.path.join(data_dir, set_name, "*.np[yz]")
+        os.path.join(data_dir, set_name, "*.npy")
     )  # TODO: switch back to NPZ after rename of files
     feats_buffer, targets_buffer, e_weights_buffer = _init_buffers()
     if len(npz_files) == 0:
@@ -222,6 +220,13 @@ def train_step(
     weighted_accuracy_metric,
     unweighted_accuracy_metric,
 ):
+    print(x.shape, y.shape, energy_weights.shape, x_class.shape)
+
+    assert len(x.shape) == 3  # (batch_size, num_points, features)
+    assert len(y.shape) == 3  # (batch_size, num_points, features)
+    assert len(energy_weights.shape) == 2  # (batch_size, num_points)
+    assert len(x_class.shape) == 2  # (batch_size, num_points)
+
     with tf.GradientTape() as tape:
         predictions = model(x, training=True)
         loss = masked_weighted_loss(
@@ -257,6 +262,11 @@ def val_step(
     weighted_accuracy_metric,
     unweighted_accuracy_metric,
 ):
+    assert len(x.shape) == 3  # (batch_size, num_points, features)
+    assert len(y.shape) == 3  # (batch_size, num_points, features)
+    assert len(energy_weights.shape) == 2  # (batch_size, num_points)
+    assert len(x_class.shape) == 2  # (batch_size, num_points)
+
     predictions = model(x, training=False)
     v_loss = masked_weighted_loss(
         y_true=y,
@@ -282,30 +292,35 @@ def train(*, run: Run):
     run_config: Config = run.config
     setup_compute(dict(run_config))
 
-    models_save_path = Path(run_config.training.infra.model_save_path)
+    models_save_path = Path(run_config["training"]["infra"]["model_save_path"])
 
     train_steps = val_steps = (
-        run_config.training.epoch_complexity // run_config.training.batch_size
+        run_config["training"]["epoch_complexity"]
+        // run_config["training"]["batch_size"]
     )
     log.debug(f"{train_steps = };\t{val_steps = }")
 
-    seed = run_config.training.infra.TF_SEED
+    seed = run_config["training"]["infra"]["TF_SEED"]
     log.debug(f"Setting training determinism based on {seed=}")
     set_global_determinism(seed=seed)
 
-    train_inputs = run_config.training.params.training_labels
-    train_targets = run_config.training.params.training_targets
+    train_inputs = run_config["training"]["params"]["training_labels"]
+    train_targets = run_config["training"]["params"]["train_targets"]
 
     log.info(f"Training inputs: {train_inputs}")
     log.info(f"Training targets: {train_targets}")
 
     # model, trackers and callbacks and setup
     model, trainable_params = _setup_model(
-        num_points=run_config.global_params.max_sample_length,
+        num_points=run_config["global_params"]["max_sample_length"],
         num_features=len(train_inputs),
         num_classes=len(train_targets),
-        output_activation=run_config.training.params.output_activation_function,
-        model_version=run_config.training.params.model_version,
+        output_activation=run_config["training"]["hyperparameters"]["model_params"][
+            "output_activation_function"
+        ],
+        model_version=run_config["training"]["hyperparameters"]["model_params"][
+            "model_version"
+        ],
     )
 
     wandb.log({"trainable_params": trainable_params})
@@ -320,10 +335,14 @@ def train(*, run: Run):
 
     mean_iou_metric = tf.keras.metrics.OneHotMeanIoU(len(train_targets))
     val_weighted_f1_score = tf.keras.metrics.F1Score(
-        threshold=run_config.training.params.output_layer_segmentation_cutoff
+        threshold=run_config["training"]["hyperparameters"]["model_params"][
+            "output_layer_segmentation_cutoff"
+        ]
     )
     val_unweighted_f1_score = tf.keras.metrics.F1Score(
-        threshold=run_config.training.params.output_layer_segmentation_cutoff
+        threshold=run_config["training"]["hyperparameters"]["model_params"][
+            "output_layer_segmentation_cutoff"
+        ]
     )
 
     # Callbacks
@@ -332,8 +351,12 @@ def train(*, run: Run):
     checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
         filepath=best_checkpoint_path,
         save_best_only=True,
-        monitor=run_config.training.hyperparameters.model_params.primary_metric,  # Monitor validation loss
-        mode=run_config.training.hyperparameters.model_params.primary_metric_mode,
+        monitor=run_config["training"]["hyperparameters"]["model_params"][
+            "primary_metric"
+        ],  # Monitor validation loss
+        mode=run_config["training"]["hyperparameters"]["model_params"][
+            "primary_metric_mode"
+        ],
         save_weights_only=False,
         verbose=1,
     )
@@ -341,9 +364,15 @@ def train(*, run: Run):
 
     # EarlyStopping
     early_stopping_callback = tf.keras.callbacks.EarlyStopping(
-        monitor=run_config.training.hyperparameters.model_params.primary_metric,  # "val_weighted_accuracy",  # Monitor validation loss
-        mode=run_config.training.hyperparameters.model_params.primary_metric_mode,  # "max",  # Trigger when validation loss stops decreasing
-        patience=run_config.training.hyperparameters.model_params.early_stopping_patience,  # Number of epochs to wait before stopping if no improvement
+        monitor=run_config["training"]["hyperparameters"]["model_params"][
+            "primary_metric"
+        ],  # "val_weighted_accuracy",  # Monitor validation loss
+        mode=run_config["training"]["hyperparameters"]["model_params"][
+            "primary_metric_mode"
+        ],  # "max",  # Trigger when validation loss stops decreasing
+        patience=run_config["training"]["hyperparameters"]["model_params"][
+            "early_stopping_patience"
+        ],  # Number of epochs to wait before stopping if no improvement
         verbose=1,
     )
     early_stopping_callback.set_model(model)
@@ -361,26 +390,38 @@ def train(*, run: Run):
 
     lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate=(
-            run_config.training.hyperparameters.model_params.learning_rate
+            run_config["training"]["hyperparameters"]["model_params"]["learning_rate"]
         ),
         decay_steps=train_steps,
         decay_rate=(
-            run_config.training.hyperparameters.model_params.learning_rate_decay
+            run_config["training"]["hyperparameters"]["model_params"][
+                "learning_rate_decay"
+            ]
         ),
     )
 
     # Optimizer & Loss
     optimizer = tf.keras.optimizers.Adam(
         learning_rate=lr_schedule,
-        beta_1=run_config.training.hyperparameters.model_params.learning_rate_decay_1,
-        beta_2=run_config.training.hyperparameters.model_params.learning_rate_beta_2,
+        beta_1=run_config["training"]["hyperparameters"]["model_params"][
+            "learning_rate_beta_1"
+        ],
+        beta_2=run_config["training"]["hyperparameters"]["model_params"][
+            "learning_rate_beta_2"
+        ],
         # decay=config.LR_DECAY,
     )
 
     # Will raise AttributeError if the loss function is not found
-    logits = run_config.training.params.output_activation_function == "linear"
+    logits = (
+        run_config["training"]["hyperparameters"]["model_params"][
+            "output_activation_function"
+        ]
+        == "linear"
+    )
     loss_function = getattr(
-        tf.keras.losses, run_config.training.hyperparameters.model_params.loss_function
+        tf.keras.losses,
+        run_config["training"]["hyperparameters"]["model_params"]["loss_function"],
     )(
         from_logits=logits,  # NOTE: False for "sigmoid", True for "linear"
         # reduction='none', # TODO: check if this is needed, look into the loss funct params again
@@ -402,7 +443,7 @@ def train(*, run: Run):
     #     case _:
     # raise Exception("Undefined Loss Function")
 
-    for epoch in range(run_config.training.epochs):
+    for epoch in range(run_config["training"]["epochs"]):
         log.info(f"\nStart of epoch {epoch}")
         start_time = time.time()
 
@@ -433,10 +474,10 @@ def train(*, run: Run):
         )
 
         _train_generator = consistent_data_generator(
-            Path(run_config.training.infra.input_data_path) / "train",
-            run_config.training.hyperparameters.training_input_sets,
-            run_config.training.batch_size,
-            max_sample_length=run_config.global_params.max_sample_length,
+            Path(run_config["training"]["infra"]["input_data_path"]) / "train",
+            run_config["training"]["hyperparameters"]["training_input_sets"],
+            run_config["training"]["batch_size"],
+            max_sample_length=run_config["global_params"]["max_sample_length"],
             train_inputs=train_inputs,
             train_targets=train_targets,
         )
@@ -451,8 +492,8 @@ def train(*, run: Run):
             x_batch_train = rfn.structured_to_unstructured(x_batch_train_named)
             y_batch_train = rfn.structured_to_unstructured(y_batch_train)
             # For some reason the second last dim is always 1, not sure why but this fixes it
-            y_batch_train = np.squeeze(y_batch_train)
-            e_weight_train = np.squeeze(e_weight_train)
+            e_weight_train = np.squeeze(e_weight_train, axis=-1)
+            y_batch_train = np.squeeze(y_batch_train, axis=-1)
 
             if step >= train_steps:
                 break
@@ -463,6 +504,11 @@ def train(*, run: Run):
                 model,
                 loss_function,
                 x_catagories,
+                transform=run_config["training"]["hyperparameters"]["model_params"][
+                    "energy_weighting_transform"
+                ],
+                weighted_accuracy_metric=weighted_accuracy_metric,
+                unweighted_accuracy_metric=unweighted_accuracy_metric,
             )
             optimizer.apply_gradients(zip(grads, model.trainable_variables))
             train_loss_tracker.update_state(loss_value)
@@ -486,10 +532,10 @@ def train(*, run: Run):
         batch_loss_val, batch_accuracy_val, batch_weighted_accuracy_val = [], [], []
 
         _val_generator = consistent_data_generator(
-            Path(run_config.training.infra.input_data_path) / "val",
-            run_config.training.hyperparameters.training_input_sets,
-            run_config.training.batch_size,
-            max_sample_length=run_config.global_params.max_sample_length,
+            Path(run_config["training"]["infra"]["input_data_path"]) / "val",
+            run_config["training"]["hyperparameters"]["training_input_sets"],
+            run_config["training"]["batch_size"],
+            max_sample_length=run_config["global_params"][".max_sample_length"],
             train_inputs=train_inputs,
             train_targets=train_targets,
         )
@@ -504,8 +550,9 @@ def train(*, run: Run):
             x_batch_val = rfn.structured_to_unstructured(x_batch_val_named)
             y_batch_val = rfn.structured_to_unstructured(y_batch_val_named)
             # For some reason the second last dim is always 1, not sure why but this fixes it
-            y_batch_val = np.squeeze(y_batch_val)
-            e_weight_val = np.squeeze(e_weight_val)
+            y_batch_val = np.squeeze(y_batch_val, axis=-1)
+            e_weight_val = np.squeeze(e_weight_val, axis=-1)
+
             if step >= val_steps:
                 break
             (
@@ -520,6 +567,11 @@ def train(*, run: Run):
                 model,
                 loss_function,
                 x_catagories_val,
+                transform=run_config["training"]["hyperparameters"]["model_params"][
+                    "energy_weighting_transform"
+                ],
+                weighted_accuracy_metric=weighted_accuracy_metric,
+                unweighted_accuracy_metric=unweighted_accuracy_metric,
             )
             val_loss_tracker.update_state(val_loss_value)
             val_reg_acc.update_state(val_reg_acc_value)
@@ -596,9 +648,11 @@ def train(*, run: Run):
 
         # discard first epochs to trigger callbacks
         if epoch > 50:
-            if (
-                run_config.training.hyperparameters.model_params.save_intermediates
-                and epoch % run_config.training.hyperparameters.model_params.save_freq
+            if run_config["training"]["hyperparameters"]["model_params"][
+                "save_intermediates"
+            ] and (
+                epoch
+                % run_config["training"]["hyperparameters"]["model_params"]["save_freq"]
                 == 0
             ):
                 checkpoint_path = (
@@ -607,7 +661,9 @@ def train(*, run: Run):
                 model.save(checkpoint_path)
                 checkpoint_callback.on_epoch_end(epoch, logs=performance)
 
-            if run_config.training.hyperparameters.model_params.early_stopping:
+            if run_config["training"]["hyperparameters"]["model_params"][
+                "early_stopping"
+            ]:
                 early_stopping_callback.on_epoch_end(epoch, logs=performance)
                 if early_stopping_callback.model.stop_training:
                     log.info(f"Early stopping triggered at epoch {epoch}")

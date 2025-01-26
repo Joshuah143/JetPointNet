@@ -72,7 +72,7 @@ def _process_split(args: tuple[str, ak.Array, Path, int, float, int]):
             f"Processing split {split_id} iteration {iters}, {len(data)} events remaining"
         )
         trainable = ak_to_numpy(data, max_delta_r, max_event_len)
-        np.save(split_save_location / f"{iters}_reductions__{split_id}.npz", trainable)
+        np.save(split_save_location / f"{iters}_reductions__{split_id}", trainable)
         # this should be able to be saved as parquet instead of json, but it runs into an issue inside ak
         ak.to_json(
             data,

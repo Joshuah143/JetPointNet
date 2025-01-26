@@ -92,9 +92,9 @@ epochs = 1000
 
 [training.infra]
 GPU = 1
-cuda_malloc_async = true
+use_cuda_malloc_async = true
 input_data_path = "/Users/joshuahimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/chunked_training_data"
-TF_seed = 70
+TF_SEED = 70
 model_save_path = "/Users/joshuahimmens/Library/CloudStorage/Dropbox/Work/TRIUMF/jetpointnet/prod/models"
 
 [training.experiment]
@@ -137,8 +137,8 @@ save_freq = 10
 learning_rate = 0.001
 learning_rate_decay = 0.99
 
-learning_rate_decay_1 = 0.98
-learning_rate_decay_2 = 0.999
+learning_rate_beta_1 = 0.98
+learning_rate_beta_2 = 0.999
 
 loss_function = "CategoricalFocalCrossentropy" # CategoricalFocalCrossentropy, MeanSquaredError
 

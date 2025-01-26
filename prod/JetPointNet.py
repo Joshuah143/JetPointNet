@@ -210,7 +210,11 @@ def TNet(
 
 
 def PointNetSegmentation(
-    num_points, num_features, num_classes, output_activation_function, model_version
+    num_points: int,
+    num_features: int,
+    num_classes: int,  # Number of classes to predict
+    output_activation_function: str,
+    model_version: int,
 ):
     input_points = tf.keras.Input(shape=(num_points, num_features))
 
@@ -243,7 +247,7 @@ def PointNetSegmentation(
     feature_tnet = TNet(x, 96, add_regularization=True)
     x = tf.keras.layers.Dot(axes=(2, 1))([x, feature_tnet])
     x = conv_mlp(x, 128)  # JH: this should be 64?
-    x = conv_mlp(x, 256)  # JG: this should be 128?
+    x = conv_mlp(x, 256)  # JH: this should be 128?
     x = conv_mlp(x, 1024)
 
     # Get global features and expand

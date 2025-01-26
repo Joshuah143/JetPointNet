@@ -48,8 +48,8 @@ def chunk_files(
                 end_idx = min(start_idx + file_chunk_sizes, num_rows)
                 chunk_data = data[start_idx:end_idx]
 
-                chunk_filename = f"{split}_{set_}_chunk_{chunk_count}.npz"
-                np.savez_compressed(save_path / chunk_filename, chunk_data)
+                chunk_filename = f"{split}_{set_}_chunk_{chunk_count}"
+                np.save(save_path / chunk_filename, chunk_data)
 
                 start_idx = end_idx
                 chunk_count += 1

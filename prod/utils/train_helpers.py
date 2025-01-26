@@ -1,10 +1,11 @@
 import os
+from loguru import logger as log
 
 
 def setup_compute(config: dict):
-    gpu_id = config["training"]["infra"]["gpu_id"]
+    gpu_id = config["training"]["infra"]["GPU"]
     log.info(f"Assigning GPU: {gpu_id}")
-    os.environ["CUDA_VISIBLE_DEVICES"] = gpu_id
+    os.environ["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
 
     if config["training"]["infra"]["use_cuda_malloc_async"]:
         log.info("Using cuda_malloc_async")
@@ -12,6 +13,7 @@ def setup_compute(config: dict):
 
 
 def verify_model_config(config):
+    # TODO: fix this to work with the new config file
     # note that if you change the output activation function, you must change the loss function
     if (
         baseline_configuration["OUTPUT_ACTIVATION_FUNCTION"] in ["softmax", "sigmoid"]

@@ -17,9 +17,7 @@ result/
 results/
 notebooks/
 images/
-visualizations/*.png
-visualizations/*.pdf
-visualizations/*.jpg
+visualizations/
 
 # ignore containers. These are not tracked here
 containers/*

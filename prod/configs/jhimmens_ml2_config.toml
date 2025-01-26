@@ -75,16 +75,16 @@ enabled_splits = [
 enabled_sets = [
     "rho",
     "delta",
-    "JZ0",
-    "JZ1",
-    "JZ2",
-    "JZ3",
-    "JZ4",
-    "JZ5",
-    "JZ6",
-    "JZ7",
-    "JZ8",
-    "JZ9",
+    # "JZ0",
+    # "JZ1",
+    # "JZ2",
+    # "JZ3",
+    # "JZ4",
+    # "JZ5",
+    # "JZ6",
+    # "JZ7",
+    # "JZ8",
+    # "JZ9",
 ]
 
 [training]
@@ -95,9 +95,9 @@ epochs = 1000
 
 [training.infra]
 GPU = 1
-cuda_malloc_async = false
-input_data_path = "/fast_scratch_3/atlas/pflow/intermediates/chunked/gallant-eon-1041"
-TF_seed = 70
+use_cuda_malloc_async = false
+input_data_path = "/fast_scratch_3/atlas/pflow/intermediates/chunked/wobbly-tree-1070"
+TF_SEED = 70
 model_save_path = "/fast_scratch_3/atlas/pflow/intermediates/models"
 
 [training.experiment]
@@ -127,11 +127,11 @@ rho = 1
 # Will be overwritten by a wandb sweep, should add a sweep config here as well
 [training.hyperparameters.model_params]
 model_version=1
-output_activation_function = "softmax" # softmax, linear (requires changes to the BCE function in the loss function)
+output_activation_function = "sigmoid" # softmax, linear (requires changes to the BCE function in the loss function)
 output_layer_segmentation_cutoff = 0.5
 primary_metric = "f1_score_focal" # determines the metric to be used for early stopping and saving the best model
 primary_metric_mode = "max" # max, min
-
+energy_weighting_transform = "none"
 early_stopping = true
 early_stopping_patience = 15
 save_intermediates = true
@@ -140,8 +140,8 @@ save_freq = 10
 learning_rate = 0.001
 learning_rate_decay = 0.99
 
-learning_rate_decay_1 = 0.98
-learning_rate_decay_2 = 0.999
+learning_rate_beta_1 = 0.98
+learning_rate_beta_2 = 0.999
 
 loss_function = "CategoricalFocalCrossentropy" # CategoricalFocalCrossentropy, MeanSquaredError
 
