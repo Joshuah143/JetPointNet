@@ -60,7 +60,7 @@ rho = "user.jhimmens.mc21_13p6TeV.900148.singlerho.recon.ESD.e8537_e8455_s3986_s
 
 
 [data_chunking]
-enabled = true
+enabled = false
 use_chunk_from_same_run = true
 input_data_path = "/fast_scratch_3/atlas/pflow/intermediates/np/blooming-rain-1034"
 output_data_path = "/fast_scratch_3/atlas/pflow/intermediates/chunked" # run name will be appended
@@ -88,7 +88,7 @@ enabled_sets = [
 ]
 
 [training]
-enabled = false
+enabled = true
 epoch_complexity = 204800 # number of samples in an epoch
 batch_size = 700
 epochs = 1000
@@ -96,7 +96,7 @@ epochs = 1000
 [training.infra]
 GPU = 1
 cuda_malloc_async = false
-input_data_path = "/fast_scratch_3/atlas/pflow/intermediates/chunked/RUN_NAME"
+input_data_path = "/fast_scratch_3/atlas/pflow/intermediates/chunked/gallant-eon-1041"
 TF_seed = 70
 model_save_path = "/fast_scratch_3/atlas/pflow/intermediates/models"
 
