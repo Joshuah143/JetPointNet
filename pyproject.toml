@@ -28,6 +28,8 @@ numpy = "1.26.4" # should be updated, but there is an issue with ragged tensors
 codespell = "^2.3.0"
 tomli = "^2.2.1"
 loguru = "^0.7.3"
+mypy = {extras = ["mypyc"], version = "^1.14.1"}
+numba = "^0.61.0"
 
 
 [build-system]

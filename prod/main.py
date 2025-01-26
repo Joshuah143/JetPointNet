@@ -40,7 +40,7 @@ if __name__ == "__main__":
         if config["data_chunking"]["enabled"]:
             from chunk_training_data import chunk_files
 
-            if config["data_chunking"]["enabled"]["use_chunk_from_same_run"]:
+            if config["data_chunking"]["use_chunk_from_same_run"]:
                 chunk_data_path = (
                     Path(config["data_pipeline"]["output_dir"])
                     / config["global_params"]["run_id"]

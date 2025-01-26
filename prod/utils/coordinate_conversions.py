@@ -1,17 +1,29 @@
 import numpy as np
+from numba import njit
 
 
 # TODO: only allow named arguments
-def eta_phi_to_cartesian(eta, phi, R=1):
+def eta_phi_to_cartesian(
+    eta: str | np.ndarray, phi: str | np.ndarray, radius: str | np.ndarray = 1
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     # theta = 2 * np.arctan(np.exp(-eta))
-    x = R * np.cos(phi)
-    y = R * np.sin(phi)
-    z = R * np.sinh(eta)
+
+    eta = np.asarray(eta, dtype=np.float64)  # Force array
+    phi = np.asarray(phi, dtype=np.float64)  # Force array
+    radius = np.asarray(radius, dtype=np.float64)
+
+    x = radius * np.cos(phi)
+    y = radius * np.sin(phi)
+    z = radius * np.sinh(eta)
     return x, y, z
 
 
 # TODO: only allow named arguments
-def intersection_fixed_z(eta, phi, fixed_z):
+def intersection_fixed_z(
+    eta: int | np.ndarray[np.float32],
+    phi: int | np.ndarray[np.float32],
+    fixed_z: int | np.ndarray[np.float32],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
         Warnings:
             Eta encodes the sign of z, so it should be positive for positive z and negative for negative z. The fixed_z should always be positive.
@@ -34,7 +46,12 @@ def intersection_fixed_z(eta, phi, fixed_z):
 
 
 # TODO: only allow named arguments
-def calculate_delta_r(eta1, phi1, eta2, phi2):
+def calculate_delta_r(
+    eta1: int | np.ndarray[np.float32],
+    phi1: int | np.ndarray[np.float32],
+    eta2: int | np.ndarray[np.float32],
+    phi2: int | np.ndarray[np.float32],
+) -> np.ndarray[np.float32]:
     dphi = np.mod(phi2 - phi1 + np.pi, 2 * np.pi) - np.pi
     # dphi = np.arctan2(np.sin(phi2 - phi1), np.cos(phi2 - phi1)) should be equivalent to the above
     deta = eta2 - eta1

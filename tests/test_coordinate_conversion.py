@@ -11,50 +11,50 @@ from prod.utils.coordinate_conversions import (
 
 
 def test_eta_phi_to_cartesian_basic_case():
-    x, y, z = eta_phi_to_cartesian(eta=0, phi=0, R=1)
+    x, y, z = eta_phi_to_cartesian(eta=0, phi=0, radius=1)
     assert x == pytest.approx(1)
     assert y == pytest.approx(0)
     assert z == pytest.approx(0)
 
 
 def test_eta_phi_to_cartesian_0_case():
-    x, y, z = eta_phi_to_cartesian(eta=1, phi=1, R=0)
+    x, y, z = eta_phi_to_cartesian(eta=1, phi=1, radius=0)
     assert x == pytest.approx(0)
     assert y == pytest.approx(0)
     assert z == pytest.approx(0)
 
 
 def test_eta_phi_to_cartesian_positive_eta_phi():
-    x, y, z = eta_phi_to_cartesian(eta=1, phi=np.pi / 4, R=2)
+    x, y, z = eta_phi_to_cartesian(eta=1, phi=np.pi / 4, radius=2)
     assert x == pytest.approx(np.sqrt(2))  # cos(pi/4) * 2
     assert y == pytest.approx(np.sqrt(2))  # sin(pi/4) * 2
     assert z == pytest.approx(2 * np.sinh(1))
 
 
 def test_eta_phi_to_cartesian_negative_eta_phi():
-    x, y, z = eta_phi_to_cartesian(eta=-1, phi=-np.pi / 4, R=1)
+    x, y, z = eta_phi_to_cartesian(eta=-1, phi=-np.pi / 4, radius=1)
     assert x == pytest.approx(np.sqrt(2) / 2)  # cos(-pi/4)
     assert y == pytest.approx(-np.sqrt(2) / 2)  # sin(-pi/4)
     assert z == pytest.approx(np.sinh(-1))
 
 
 def test_eta_phi_to_cartesian_large_R():
-    x, y, z = eta_phi_to_cartesian(eta=0.5, phi=np.pi, R=100)
+    x, y, z = eta_phi_to_cartesian(eta=0.5, phi=np.pi, radius=100)
     assert x == pytest.approx(-100)  # cos(pi) * 100
     assert y == pytest.approx(0)  # sin(pi) * 100
     assert z == pytest.approx(100 * np.sinh(0.5))
 
 
 def test_eta_phi_to_cartesian_zero_eta():
-    x, y, z = eta_phi_to_cartesian(eta=0, phi=np.pi / 2, R=1)
+    x, y, z = eta_phi_to_cartesian(eta=0, phi=np.pi / 2, radius=1)
     assert x == pytest.approx(0)  # cos(pi/2)
     assert y == pytest.approx(1)  # sin(pi/2)
     assert z == pytest.approx(0)  # sinh(0)
 
 
 def test_eta_phi_to_cartesian_phi_wraparound():
-    x1, y1, z1 = eta_phi_to_cartesian(eta=1, phi=0, R=1)
-    x2, y2, z2 = eta_phi_to_cartesian(eta=1, phi=2 * np.pi, R=1)
+    x1, y1, z1 = eta_phi_to_cartesian(eta=1, phi=0, radius=1)
+    x2, y2, z2 = eta_phi_to_cartesian(eta=1, phi=2 * np.pi, radius=1)
     assert x1 == pytest.approx(x2)
     assert y1 == pytest.approx(y2)
     assert z1 == pytest.approx(z2)

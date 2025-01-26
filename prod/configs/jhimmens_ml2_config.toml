@@ -7,7 +7,7 @@ geo_file_loc = "/fast_scratch_1/atlas/pflow/rho_small.root" # a file with a cell
 user_name = "Joshua Himmens - ML2"
 no_data_value = -1 # do not change this value, used in many disparate places
 run_notes = ""
-log_level = "INFO"
+log_level = "DEBUG"
 
 [data_pipeline]
 enabled = true

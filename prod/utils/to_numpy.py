@@ -1,7 +1,9 @@
 import awkward as ak
 import numpy as np
-from loguru import logger as log
+
+# from loguru import logger as log
 from .coordinate_conversions import calculate_delta_r
+from numba import njit
 
 SENTINEL_NO_DATA = -1
 POINT_TYPE_LABELS = {
@@ -11,8 +13,6 @@ POINT_TYPE_LABELS = {
     SENTINEL_NO_DATA: "padding",
 }
 POINT_TYPE_ENCODING = {v: k for k, v in POINT_TYPE_LABELS.items()}
-
-# TODO: add tests for this file
 
 event_array_dtype = np.dtype(
     [
@@ -62,7 +62,7 @@ def event_to_trainable(
     trainable_array = []
 
     if ak.num(event["tracks"], axis=0) == 0:
-        log.debug("No tracks contained in event, skipping")
+        # log.debug("No tracks contained in event, skipping")
         # TODO: throw error here, this should never be reached in production
         return np.zeros(max_event_len, dtype=event_array_dtype)
 
@@ -111,7 +111,7 @@ def event_to_trainable(
     return trainable_array
 
 
-def normalize_event_data(event_data):
+def normalize_event_data(event_data: np.ndarray) -> np.ndarray:
     # Normalize x, y, z
     positions = np.vstack((event_data["x"], event_data["y"], event_data["z"])).T
     norms = np.linalg.norm(positions, axis=1)
@@ -157,7 +157,7 @@ def truncate_or_pad(event_data, max_event_len):
     return event_data
 
 
-def add_focal_track(track):
+def add_focal_track(track: ak.Record) -> np.ndarray:
     n_hits = ak.num(track["hits"], axis=0)
 
     trainable = np.zeros(n_hits, dtype=event_array_dtype)
