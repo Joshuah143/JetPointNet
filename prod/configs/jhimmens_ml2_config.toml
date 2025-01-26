@@ -10,10 +10,10 @@ run_notes = ""
 log_level = "DEBUG"
 
 [data_pipeline]
-enabled = true
+enabled = false
 pipeline = "overlapping" # (overlapping, augmented)
 root_files_dir = "/fast_scratch_3/atlas/pflow/ntuples/20240916.v0"
-output_dir = "/fast_scratch_3/atlas/pflow/intermediates/np" # run ID will be appended
+output_dir = "/fast_scratch_3/atlas/pflow/intermediates/np" # run name will be appended
 chunk_output = true
 chunk_size = 1000
 max_delta_r = 0.2
@@ -62,8 +62,8 @@ rho = "user.jhimmens.mc21_13p6TeV.900148.singlerho.recon.ESD.e8537_e8455_s3986_s
 [data_chunking]
 enabled = true
 use_chunk_from_same_run = true
-input_data_path = "/fast_scratch_3/atlas/pflow/intermediates/chunked/RUN_NAME"
-output_data_path = "/fast_scratch_3/atlas/pflow/intermediates/chunked" # run ID will be appended
+input_data_path = "/fast_scratch_3/atlas/pflow/intermediates/np/blooming-rain-1034"
+output_data_path = "/fast_scratch_3/atlas/pflow/intermediates/chunked" # run name will be appended
 chunk_size = 1000
 
 enabled_splits = [
