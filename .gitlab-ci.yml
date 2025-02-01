@@ -5,10 +5,6 @@ test:
   stage: test
   image: python:3.12 # pyarrow is not compatible with python 3.13
   before_script:
-    - pip install poetry
-    - poetry install
-    # install tensorflow for tests, should be in env already
-    - poetry add tensorflow
-    - source $(poetry env info --path)/bin/activate
+    - pip install -r requirements.txt
   script:
     - make test

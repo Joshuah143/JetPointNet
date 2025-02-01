@@ -6,13 +6,9 @@ test:
 
 setup-dev-env:
 	@echo "Setting up development environment"
-	poetry install
+	pip install -r requirements.txt
 	@echo "Setting up pre-commit hooks"
-	poetry run pre-commit install
-	@poetry shell
-
-env:
-	poetry shell
+	pre-commit install
 
 run:
 	poetry run python prod/main.py

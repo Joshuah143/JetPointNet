@@ -13,3 +13,4 @@ tqdm
 loguru
 pytest
 black
+numba
