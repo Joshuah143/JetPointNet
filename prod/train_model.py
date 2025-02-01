@@ -540,7 +540,7 @@ def train(*, run: Run):
             Path(run_config["training"]["infra"]["input_data_path"]) / "val",
             run_config["training"]["hyperparameters"]["training_input_sets"],
             run_config["training"]["batch_size"],
-            max_sample_length=run_config["global_params"][".max_sample_length"],
+            max_sample_length=run_config["global_params"]["max_sample_length"],
             train_inputs=train_inputs,
             train_targets=train_targets,
         )

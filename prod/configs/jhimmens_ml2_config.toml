@@ -108,14 +108,14 @@ training_labels = [
     "category",
     "delta_r",
     "track_num",
-    "normalized_x",
-    "normalized_y",
-    "normalized_z",
+    "x", # normalized_x
+    "y", # normalized_y
+    "z", # normalized_z
     "track_chi2_dof",
     "cell_sigma",
     # "normalized_distance", not included in most recent training data
-    "normalized_cell_E",
-    "normalized_track_pt",
+    "cell_E", # normalized_cell_E
+    "track_pt", # normalized_track_pt
 ]
 train_targets = [
     "truth_cell_focal_observed_fraction_energy",
