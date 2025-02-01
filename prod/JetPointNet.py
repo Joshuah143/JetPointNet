@@ -469,10 +469,6 @@ def masked_weighted_accuracy(
 
     energies_times_mask = energies * valid_mask
 
-    # y_true = tf.expand_dims(y_true, axis=-1)
-
-    # energies_times_mask = tf.expand_dims(energies_times_mask, axis=-1)
-
     weighted_accuracy_metric.update_state(
         y_true, y_pred, sample_weight=energies_times_mask
     )
