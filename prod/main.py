@@ -21,6 +21,7 @@ if __name__ == "__main__":
         config=config,
         job_type="training",
         notes=config["global_params"]["run_notes"],
+        settings=wandb.Settings(code_dir="."),
     ) as run:
         log.info("Starting run")
         config["global_params"]["run_id"] = run.name

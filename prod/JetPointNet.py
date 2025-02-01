@@ -212,10 +212,23 @@ def TNet(
 def PointNetSegmentation(
     num_points: int,
     num_features: int,
-    num_classes: int,  # Number of classes to predict
+    num_classes: int,
     output_activation_function: str,
     model_version: int,
-):
+) -> tf.keras.Model:
+    """
+    PointNet model for segmentation of point clouds.
+
+    Args:
+        num_points: The number of points in each batch.
+        num_features: The number of features for each point.
+        num_classes: The number of classes to predict.
+        output_activation_function:
+        model_version:
+
+    Returns:
+        tf.keras.Model: The model.
+    """
     input_points = tf.keras.Input(shape=(num_points, num_features))
 
     # Masking layer to ignore points with the last feature index as -1
@@ -326,16 +339,16 @@ def masked_weighted_loss(
     x_class: tf.Tensor,
     transform: None | str = None,
     energy_threshold: float = 0,
-):
+) -> tf.Tensor:
     """
     Computes the masked weighted loss of predictions.
 
     Parameters:
-    y_true (tf.Tensor): True labels.
-    y_pred (tf.Tensor): Predicted labels.
-    energies (tf.Tensor): Weights for each prediction.
-    loss_function: (tf.keras.losses.Loss): The loss function to call with the model outputs
-    x_class: (tf.Tensor): The point-type for each cell, CELL, PAD, TRACK, etc
+    y_true (tf.Tensor): True labels. Shape: (batch_size, num_points, num_classes)
+    y_pred (tf.Tensor): Predicted labels. Shape: (batch_size, num_points, num_classes)
+    energies (tf.Tensor): Weights for each prediction. Shape: (batch_size, num_points)
+    loss_function: (tf.keras.losses.Loss): The loss function to call with the model outputs.
+    x_class: (tf.Tensor): The point-type for each cell, CELL, PAD, TRACK, etc. Shape: (batch_size, num_points)
     transform (str, optional): Transformation to apply to energies. Possible values:
         - None: no transformation (default).
         - "absolute": absolute value.
@@ -343,11 +356,19 @@ def masked_weighted_loss(
         - "normalize": batch-normalize to zero mean and unit variance.
         - "standardize": batch-standardize to zero mean and unit variance.
         - "threshold": threshold at 0 --> discard contributions by negative energies.
-    energy_threshold (float, optional): the threshold to cutoff energy weighting if "threshold" is the transform
+    energy_threshold (float, optional): the threshold to cut off energy weighting if "threshold" is the transform
 
     Returns:
-    tf.Tensor: standardized loss.
+    tf.Tensor: standardized loss. Single value of shape ().
     """
+    # shape of y_true is (batch_size, num_points, num_classes)
+    assert len(y_true.shape) == 3
+    assert len(y_pred.shape) == 3
+    assert len(energies.shape) == 2
+    assert len(x_class.shape) == 2
+    assert y_true.shape == y_pred.shape
+    assert x_class.shape[1] == y_true.shape[1]
+    assert y_true.shape[1] == energies.shape[1]
 
     # Transform energy weights
     match transform:
@@ -359,10 +380,11 @@ def masked_weighted_loss(
             energies = (energies - tf.reduce_min(energies)) / (
                 tf.reduce_max(energies) - tf.reduce_min(energies) + 1e-5
             )
-        case "standardize":
-            energies = (energies - tf.reduce_mean(energies)) / (
-                tf.math.reduce_std(energies) + 1e-5
-            )
+        # standardize does not work well with negative energies
+        # case "standardize":
+        #     energies = (energies - tf.reduce_mean(energies)) / (
+        #         tf.math.reduce_std(energies) + 1e-5
+        #     )
         case "threshold":
             energies = tf.cast(tf.greater(energies, energy_threshold), tf.float32)
         case None | "none":
@@ -390,16 +412,16 @@ def masked_weighted_accuracy(
     weighted_accuracy_metric: tf.keras.metrics.Metric,
     transform: None | str = None,
     energy_threshold: float = 0,
-):
+) -> tuple[tf.Tensor, tf.Tensor]:
     """
-    Computes the masked weighted accuracy of predictions.
+    Computes the masked weighted and unweighted accuracy of predictions.
 
     Parameters:
-    y_true (tf.Tensor): True labels.
-    y_pred (tf.Tensor): Predicted labels.
-    energies (tf.Tensor): Weights for each prediction.
-    x_class: (tf.Tensor): The point-type for each cell, CELL, PAD, TRACK, etc
-    unweighted_accuracy_metric (tf.keras.metrics.Metric): The metric to be called with outputs
+    y_true (tf.Tensor): True labels. Shape: (batch_size, num_points, num_classes)
+    y_pred (tf.Tensor): Predicted labels. Shape: (batch_size, num_points, num_classes)
+    energies (tf.Tensor): Weights for each prediction. Shape: (batch_size, num_points)
+    x_class: (tf.Tensor): The point-type for each cell, CELL, PAD, TRACK, etc. Shape: (batch_size, num_points)
+    unweighted_accuracy_metric (tf.keras.metrics.Metric): The metric to be called with outputs.
     weighted_accuracy_metric (tf.keras.metrics.Metric): The metric to be called with outputs
     transform (str, optional): Transformation to apply to energies. Possible values:
         - None: no transformation (default).
@@ -408,8 +430,18 @@ def masked_weighted_accuracy(
         - "normalize": batch-normalize to zero mean and unit variance.
         - "standardize": batch-standardize to zero mean and unit variance.
         - "threshold": threshold at 0 --> discard contributions by negative energies.
-    energy_threshold (float, optional): the threshold to cutoff energy weighting if "threshold" is the transform
+    energy_threshold (float, optional): the threshold to cutoff energy weighting if "threshold" is the transform.
+
+    Returns:
+        tuple[tf.Tensor, tf.Tensor]: unweighted accuracy, weighted accuracy, both of shape ().
     """
+    assert len(y_true.shape) == 3
+    assert len(y_pred.shape) == 3
+    assert len(energies.shape) == 2
+    assert len(x_class.shape) == 2
+    assert y_true.shape == y_pred.shape
+    assert x_class.shape[1] == y_true.shape[1]
+
     # Transform energy weights
     match transform:
         case "absolute":
@@ -420,10 +452,11 @@ def masked_weighted_accuracy(
             energies = (energies - tf.reduce_min(energies)) / (
                 tf.reduce_max(energies) - tf.reduce_min(energies) + 1e-5
             )
-        case "standardize":
-            energies = (energies - tf.reduce_mean(energies)) / (
-                tf.math.reduce_std(energies) + 1e-5
-            )
+        # standardize does not work well with negative energies
+        # case "standardize":
+        #     energies = (energies - tf.reduce_mean(energies)) / (
+        #         tf.math.reduce_std(energies) + 1e-5
+        #     )
         case "threshold":
             energies = tf.cast(tf.greater(energies, energy_threshold), tf.float32)
         case None | "none":

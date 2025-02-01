@@ -14,6 +14,7 @@ def setup_compute(config: dict):
 
 def verify_model_config(config):
     # TODO: fix this to work with the new config file
+    raise NotImplementedError("verify_model_config is not implemented")
     # note that if you change the output activation function, you must change the loss function
     if (
         baseline_configuration["OUTPUT_ACTIVATION_FUNCTION"] in ["softmax", "sigmoid"]
