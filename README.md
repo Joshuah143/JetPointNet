@@ -18,7 +18,7 @@ Please note that `--no-cache-dir` option is suggested.
 ## Usage
 
 All configuration is done in the `prod/configs/USER_config.toml`.
-I config file can also be set in the environment variable `JETPOINTNET_CONFIG_FILE`.
+A config file can also be set in the environment variable `JETPOINTNET_CONFIG_FILE`.
 Once a run, either training or data processing is defined, it can be run with:
 ```shell
 make run
@@ -30,16 +30,14 @@ Chunking is optional and can be skipped if the data is already chunked or suffic
 
 ## Next steps:
 
-- Apply garbage collection to the augmented data processing scripts to ensure stills still meet cluster min significance
+- Apply garbage collection to the augmented data processing scripts to ensure clusters still meet cluster min significance
 - Try Mask formers instead of PointNet
 - Change batching algorithm for training
 - Add CI/CD pipeline for the data processing scripts
 
 ## Josh's next steps:
-- Add poetryt to ML2 so this runs there
-- Test training script
-- Migrate training script
-- Encode info in file paths for configuration, maybe just use wandb run name??
+- Investigate normalization and visualizations for it
+- Remove poetry
 
 ## Known Issues
 
