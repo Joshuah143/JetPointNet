@@ -19,6 +19,11 @@ import tensorflow.keras.backend as K
 import wandb
 from wandb.sdk import Config
 
+try:
+    import tensorflow.keras as keras
+except ImportError:
+    import keras
+
 from JetPointNet import (
     TF_SEED,
     PointNetSegmentation,
@@ -333,13 +338,13 @@ def train(*, run: Run):
     val_reg_acc = metrics.Mean(name="val_regular_accuracy")
     val_weighted_acc = metrics.Mean(name="val_weighted_accuracy")
 
-    mean_iou_metric = tf.keras.metrics.OneHotMeanIoU(len(train_targets))
-    val_weighted_f1_score = tf.keras.metrics.F1Score(
+    mean_iou_metric = keras.metrics.OneHotMeanIoU(len(train_targets))
+    val_weighted_f1_score = keras.metrics.F1Score(
         threshold=run_config["training"]["hyperparameters"]["model_params"][
             "output_layer_segmentation_cutoff"
         ]
     )
-    val_unweighted_f1_score = tf.keras.metrics.F1Score(
+    val_unweighted_f1_score = keras.metrics.F1Score(
         threshold=run_config["training"]["hyperparameters"]["model_params"][
             "output_layer_segmentation_cutoff"
         ]
@@ -348,7 +353,7 @@ def train(*, run: Run):
     # Callbacks
     best_checkpoint_path = f"{models_save_path}/PointNet_best_name={run.name}.keras"
 
-    checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
+    checkpoint_callback = keras.callbacks.ModelCheckpoint(
         filepath=best_checkpoint_path,
         save_best_only=True,
         monitor=run_config["training"]["hyperparameters"]["model_params"][
@@ -363,7 +368,7 @@ def train(*, run: Run):
     checkpoint_callback.set_model(model)
 
     # EarlyStopping
-    early_stopping_callback = tf.keras.callbacks.EarlyStopping(
+    early_stopping_callback = keras.callbacks.EarlyStopping(
         monitor=run_config["training"]["hyperparameters"]["model_params"][
             "primary_metric"
         ],  # "val_weighted_accuracy",  # Monitor validation loss
@@ -388,7 +393,7 @@ def train(*, run: Run):
     #     verbose=1,
     # )
 
-    lr_schedule = tf.keras.optimizers.schedules.ExponentialDecay(
+    lr_schedule = keras.optimizers.schedules.ExponentialDecay(
         initial_learning_rate=(
             run_config["training"]["hyperparameters"]["model_params"]["learning_rate"]
         ),
@@ -401,7 +406,7 @@ def train(*, run: Run):
     )
 
     # Optimizer & Loss
-    optimizer = tf.keras.optimizers.Adam(
+    optimizer = keras.optimizers.Adam(
         learning_rate=lr_schedule,
         beta_1=run_config["training"]["hyperparameters"]["model_params"][
             "learning_rate_beta_1"
@@ -420,24 +425,24 @@ def train(*, run: Run):
         == "linear"
     )
     loss_function = getattr(
-        tf.keras.losses,
+        keras.losses,
         run_config["training"]["hyperparameters"]["model_params"]["loss_function"],
     )(
         from_logits=logits,  # NOTE: False for "sigmoid", True for "linear"
         # reduction='none', # TODO: check if this is needed, look into the loss funct params again
     )
 
-    weighted_accuracy_metric = tf.keras.metrics.CategoricalAccuracy()
-    unweighted_accuracy_metric = tf.keras.metrics.CategoricalAccuracy()
+    weighted_accuracy_metric = keras.metrics.CategoricalAccuracy()
+    unweighted_accuracy_metric = keras.metrics.CategoricalAccuracy()
 
     # NOTE: the match/case below may still be useful in case of differential processing depending on the chosen loss function
     # match config.LOSS_FUNCTION:
     #     case "BCE":
-    #         loss_function = tf.keras.losses.BinaryCrossentropy(
+    #         loss_function = keras.losses.BinaryCrossentropy(
     #             from_logits=False
     #         )
     #     case "FocalBCE":
-    #         loss_function = tf.keras.losses.BinaryFocalCrossentropy(
+    #         loss_function = keras.losses.BinaryFocalCrossentropy(
     #             from_logits=False
     #         )
     #     case _:

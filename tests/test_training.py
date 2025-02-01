@@ -1,4 +1,8 @@
-from prod.JetPointNet import masked_weighted_loss, masked_weighted_accuracy
+from prod.JetPointNet import (
+    masked_weighted_loss,
+    masked_weighted_accuracy_multi_target,
+    masked_weighted_accuracy_single_target,
+)
 import tensorflow as tf
 import pytest
 from prod.utils.to_numpy import POINT_TYPE_ENCODING
@@ -76,6 +80,11 @@ def test_masked_weighted_accuracy_dimensions(transform, n_targets, batch_size=10
     unweighted_accuracy_metric = tf.keras.metrics.BinaryAccuracy(threshold=0.0)
     weighted_accuracy_metric = tf.keras.metrics.BinaryAccuracy(threshold=0.0)
 
+    if n_targets == 1:
+        masked_weighted_accuracy = masked_weighted_accuracy_single_target
+    else:
+        masked_weighted_accuracy = masked_weighted_accuracy_multi_target
+
     unweighted_acc, weighted_acc = masked_weighted_accuracy(
         y_true=y_true,
         y_pred=y_pred,
@@ -104,10 +113,16 @@ def test_masked_weighted_accuracy_dimensions(transform, n_targets, batch_size=10
 
 def test_masked_weighted_accuracy_raises_for_invalid_transform():
     batch_size = 8
-    y_true, y_pred, energies, x_class = setup_test_data(batch_size, 1, 1)
+    n_targets = 1
+    y_true, y_pred, energies, x_class = setup_test_data(batch_size, 1, n_targets)
 
     unweighted_accuracy_metric = tf.keras.metrics.BinaryAccuracy()
     weighted_accuracy_metric = tf.keras.metrics.BinaryAccuracy()
+
+    if n_targets == 1:
+        masked_weighted_accuracy = masked_weighted_accuracy_single_target
+    else:
+        masked_weighted_accuracy = masked_weighted_accuracy_multi_target
 
     with pytest.raises(ValueError) as exc_info:
         masked_weighted_accuracy(
@@ -159,6 +174,11 @@ def test_masked_weighted_accuracy_perfect_prediction(n_targets: int, transform: 
 
     unweighted_accuracy_metric = tf.keras.metrics.CategoricalAccuracy()
     weighted_accuracy_metric = tf.keras.metrics.CategoricalAccuracy()
+
+    if n_targets == 1:
+        masked_weighted_accuracy = masked_weighted_accuracy_single_target
+    else:
+        masked_weighted_accuracy = masked_weighted_accuracy_multi_target
 
     unweighted_acc, weighted_acc = masked_weighted_accuracy(
         y_true=y_true,
@@ -221,3 +241,109 @@ def test_loss_decreases_with_better_predictions(n_targets: int, transform: str):
     assert (
         loss_close.numpy() < loss_far.numpy()
     ), "Loss should be lower for better predictions"
+
+
+@pytest.mark.parametrize("transform", possible_transforms)
+@pytest.mark.parametrize("n_targets", [1, 2, 3, 4])
+def test_accuracy_increases_with_better_predictions(n_targets: int, transform: str):
+    batch_size = 5
+    n_points = 10
+
+    # Generate test data
+    y_true, _, energies, x_class = setup_test_data(batch_size, n_points, n_targets)
+
+    y_pred_close = y_true + tf.constant(0.1, shape=y_true.shape)
+    y_pred_far = tf.constant(1, shape=y_true.shape)
+
+    unweighted_accuracy_metric = tf.keras.metrics.CategoricalAccuracy()
+    weighted_accuracy_metric = tf.keras.metrics.CategoricalAccuracy()
+
+    if n_targets == 1:
+        masked_weighted_accuracy = masked_weighted_accuracy_single_target
+    else:
+        masked_weighted_accuracy = masked_weighted_accuracy_multi_target
+
+    # Calculate the accuracy for both sets of predictions
+    unweighted_acc_close, weighted_acc_close = masked_weighted_accuracy(
+        y_true=y_true,
+        y_pred=y_pred_close,
+        energies=energies,
+        x_class=x_class,
+        unweighted_accuracy_metric=unweighted_accuracy_metric,
+        weighted_accuracy_metric=weighted_accuracy_metric,
+        transform=transform,
+        energy_threshold=0.5,
+    )
+
+    unweighted_acc_far, weighted_acc_far = masked_weighted_accuracy(
+        y_true=y_true,
+        y_pred=y_pred_far,
+        energies=energies,
+        x_class=x_class,
+        unweighted_accuracy_metric=unweighted_accuracy_metric,
+        weighted_accuracy_metric=weighted_accuracy_metric,
+        transform=transform,
+        energy_threshold=0.5,
+    )
+
+    # Assert that the accuracy is higher for the closer predictions
+    assert (
+        unweighted_acc_close.numpy() > unweighted_acc_far.numpy()
+    ), "Unweighted accuracy should be higher for better predictions"
+    assert (
+        weighted_acc_close.numpy() > weighted_acc_far.numpy()
+    ), "Weighted accuracy should be higher for better predictions"
+
+
+# @pytest.mark.parametrize("transform", possible_transforms)
+# def test_accuracy_increases_with_better_predictions_single_target(transform: str):
+#     batch_size = 5
+#     n_points = 10
+#     n_targets = 1
+#
+#     # Generate test data
+#     y_true, _, energies, x_class = setup_test_data(batch_size, n_points, n_targets)
+#
+#     y_pred_close = y_true + tf.constant(0.1, shape=y_true.shape)
+#     y_pred_far = tf.constant(1, shape=y_true.shape)
+#
+#     if n_targets == 1:
+#         unweighted_accuracy_metric = tf.keras.metrics.BinaryAccuracy()
+#         weighted_accuracy_metric = tf.keras.metrics.BinaryAccuracy()
+#     else:
+#         unweighted_accuracy_metric = tf.keras.metrics.CategoricalAccuracy()
+#         weighted_accuracy_metric = tf.keras.metrics.CategoricalAccuracy()
+#
+#     # Calculate the accuracy for both sets of predictions
+#     unweighted_acc_close, weighted_acc_close = masked_weighted_accuracy(
+#         y_true=y_true,
+#         y_pred=y_pred_close,
+#         energies=energies,
+#         x_class=x_class,
+#         unweighted_accuracy_metric=unweighted_accuracy_metric,
+#         weighted_accuracy_metric=weighted_accuracy_metric,
+#         transform=transform,
+#         energy_threshold=0.5,
+#     )
+#
+#     unweighted_acc_far, weighted_acc_far = masked_weighted_accuracy_single_target(
+#         y_true=y_true,
+#         y_pred=y_pred_far,
+#         energies=energies,
+#         x_class=x_class,
+#         unweighted_accuracy_metric=unweighted_accuracy_metric,
+#         weighted_accuracy_metric=weighted_accuracy_metric,
+#         transform=transform,
+#         energy_threshold=0.5,
+#     )
+#
+#     # Assert that the accuracy is higher for the closer predictions
+#     assert (
+#         unweighted_acc_close.numpy() > unweighted_acc_far.numpy()
+#     ), "Unweighted accuracy should be higher for better predictions"
+#     assert (
+#         weighted_acc_close.numpy() > weighted_acc_far.numpy()
+#     ), "Weighted accuracy should be higher for better predictions"
+
+if __name__ == "__main__":
+    test_accuracy_increases_with_better_predictions(1, "none")

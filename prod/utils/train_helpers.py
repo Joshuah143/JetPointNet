@@ -16,7 +16,9 @@ def verify_model_config(config):
     # TODO: fix this to work with the new config file
     raise NotImplementedError("verify_model_config is not implemented")
 
+    # TODO: add config validation
     # run_config["training"]["hyperparameters"]["model_params"]["loss_function"] depends on target features
+    # same for the accuracy function
 
     # note that if you change the output activation function, you must change the loss function
     if (
