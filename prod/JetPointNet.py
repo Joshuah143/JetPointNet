@@ -408,7 +408,7 @@ def masked_weighted_loss(
 
 
 @tf.autograph.experimental.do_not_convert
-def masked_weighted_accuracy_multi_target(
+def masked_weighted_accuracy(
     y_true: tf.Tensor,
     y_pred: tf.Tensor,
     energies: tf.Tensor,
