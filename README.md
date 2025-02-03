@@ -27,7 +27,7 @@ make run
 
 There are 3 core steps, data processing, chunking, and training.
 All are defined in the `prod/configs/USER_config.toml` file.
-Chunking is optional and can be skipped if the data is already chunked or sufficiently randomised.
+Chunking is optional and can be skipped if the data is already chunked or sufficiently randomized.
 
 ## Next steps:
 

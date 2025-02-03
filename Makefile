@@ -10,5 +10,9 @@ setup-dev-env:
 	@echo "Setting up pre-commit hooks"
 	pre-commit install
 
+ml2-env:
+	~/start_dev/start_container_tf_ml2.sh
+	export JETPOINTNET_CONFIG_FILE=/home/jhimmens/workspace/jetpointnet/prod/configs/jhimmens_ml2_config.toml
+
 run:
-	poetry run python prod/main.py
+	python prod/main.py
