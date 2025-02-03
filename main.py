@@ -1,5 +1,5 @@
-from utils.train_helpers import verify_model_config
-from utils.dev_tools import load_config, validate_config
+from prod.utils.train_helpers import verify_model_config
+from prod.utils.dev_tools import load_config, validate_config
 from pathlib import Path
 from loguru import logger as log
 import wandb
@@ -21,18 +21,18 @@ if __name__ == "__main__":
         config=config,
         job_type="training",
         notes=config["global_params"]["run_notes"],
-        settings=wandb.Settings(code_dir="."),
+        settings=wandb.Settings(code_dir="prod"),
     ) as run:
         log.info("Starting run")
         config["global_params"]["run_id"] = run.name
         if config["data_pipeline"]["enabled"]:
             match config["data_pipeline"]["pipeline"]:
                 case "overlapping":
-                    from produce_overlapping_training_data import save_train_data
+                    from prod.produce_overlapping_training_data import save_train_data
 
                     save_train_data(config=config)
                 case "augmented":
-                    from produce_augmented_training_data import save_train_data
+                    from prod.produce_augmented_training_data import save_train_data
 
                     save_train_data(config=config)
                 case _:
@@ -40,7 +40,7 @@ if __name__ == "__main__":
                     raise ValueError("Invalid pipeline type")
 
         if config["data_chunking"]["enabled"]:
-            from chunk_training_data import chunk_files
+            from prod.chunk_training_data import chunk_files
 
             if config["data_chunking"]["use_chunk_from_same_run"]:
                 chunk_data_path = (
@@ -61,7 +61,7 @@ if __name__ == "__main__":
             )
 
         if config["training"]["enabled"]:
-            from train_model import train
+            from prod.train_model import train
 
             # verify_model_config(config) # TODO: fix this
             log.info("Training model")

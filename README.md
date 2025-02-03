@@ -1,3 +1,4 @@
+![Coverage](https://gitlab.cern.ch/atlas-jetetmiss/pflow/commontools/jetpointnet/badges/main/coverage.svg)
 # JetPointNet
 
 This repository contains the code used to develop particle-flow models based on pointcloud data for jets data.

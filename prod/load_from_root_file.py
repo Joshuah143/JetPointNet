@@ -9,8 +9,8 @@ import numpy as np
 import uproot
 from loguru import logger as log
 
-from track_metadata import fixed_r, fixed_z
-from utils.coordinate_conversions import eta_phi_to_cartesian, intersection_fixed_z
+from .track_metadata import fixed_r, fixed_z
+from .utils.coordinate_conversions import eta_phi_to_cartesian, intersection_fixed_z
 
 NUM_THREADS = os.cpu_count()
 EVENT_BATCHES = 20
@@ -18,10 +18,23 @@ EVENT_BATCHES = 20
 
 def load_from_root(
     root_files_location: Path,
-    geo_file=Path("data/rho_small.root"),
+    geo_file: Path = Path("data/rho_small.root"),
     truth: bool = True,
-    debug=False,
-) -> ak.Array:
+    debug: bool = False,
+) -> ak.Array[ak.Record]:
+    """
+    Load data from root files and return as awkward array
+
+    Args:
+        root_files_location: Path to root files, can be a directory or a single file, supports wildcards
+        geo_file: Path to the geo file, default is the small geo file
+        truth: Whether to include truth information from the root files
+        debug: Return only EVENT_BATCHES events rather than all events
+
+    Returns:
+        ak.Array: Awkward array of events, each event is a ak.Record
+
+    """
     with uproot.open(geo_file)["CellGeo"] as geo_locations:
         calo_geo = {
             "ID": geo_locations["cell_geo_ID"].array()[0],
@@ -60,7 +73,7 @@ def load_from_root(
         return ak_arr
 
 
-def filter_events(event_batch):
+def filter_events(event_batch: ak.Array) -> ak.Array:
     INVALID_TRUTH_INDEX = -1
 
     valid_tracks = ak.all(

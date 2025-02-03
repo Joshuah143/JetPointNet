@@ -17,15 +17,15 @@ from utils.to_numpy import event_to_trainable
 def save_train_data(*, config: dict):
     log.info("Processing overlapping data pipeline")
 
-    input_data_dir = Path(config["data_pipeline"]["root_files_dir"])
-    save_location = Path(config["data_pipeline"]["output_dir"])
-    geo_file = Path(config["global_params"]["geo_file_loc"])
-    desired_sets = config["data_pipeline"]["sets_to_process"]
-    set_to_dir_name = config["data_pipeline"]["set_paths"]
-    data_split = config["data_pipeline"]["splits"]
-    chunk_size = config["data_pipeline"]["overlapping"]["chunk_size"]
-    max_delta_r = config["data_pipeline"]["max_delta_r"]
-    max_sample_length = config["global_params"]["max_sample_length"]
+    input_data_dir: Path = Path(config["data_pipeline"]["root_files_dir"])
+    save_location: Path = Path(config["data_pipeline"]["output_dir"])
+    geo_file: Path = Path(config["global_params"]["geo_file_loc"])
+    desired_sets: list[str] = config["data_pipeline"]["sets_to_process"]
+    set_to_dir_name: dict[str, str] = config["data_pipeline"]["set_paths"]
+    data_split: dict[str, float] = config["data_pipeline"]["splits"]
+    chunk_size: int = config["data_pipeline"]["overlapping"]["chunk_size"]
+    max_delta_r: float = config["data_pipeline"]["max_delta_r"]
+    max_sample_length: int = config["global_params"]["max_sample_length"]
 
     setup_directories(
         save_location,

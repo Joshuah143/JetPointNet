@@ -1,7 +1,6 @@
 import awkward as ak
 import numpy as np
-
-# from loguru import logger as log
+from loguru import logger as log
 from .coordinate_conversions import calculate_delta_r
 from numba import njit
 
@@ -39,6 +38,9 @@ event_array_dtype = np.dtype(
         ("normalized_x", np.float32),
         ("normalized_y", np.float32),
         ("normalized_z", np.float32),
+        ("normalized_x_isolated", np.float32),
+        ("normalized_y_isolated", np.float32),
+        ("normalized_z_isolated", np.float32),
         ("cell_sigma", np.float32),
         ("track_chi2_dof", np.float32),
         # ("track_chi2_dof_cell_sigma", np.float32), TBD if combined classes are required/useful
@@ -62,9 +64,15 @@ def event_to_trainable(
     trainable_array = []
 
     if ak.num(event["tracks"], axis=0) == 0:
-        # log.debug("No tracks contained in event, skipping")
-        # TODO: throw error here, this should never be reached in production
-        return np.zeros(max_event_len, dtype=event_array_dtype)
+        log.error(
+            f"No tracks contained in event, runNumber:{event['runNumber']}, eventNumber:{event['eventNumber']}"
+        )
+        raise ValueError(
+            f"No tracks contained in event, runNumber:{event['runNumber']}, eventNumber:{event['eventNumber']}"
+        )
+        no_data = np.zeros(max_event_len, dtype=event_array_dtype)
+        no_data.fill(SENTINEL_NO_DATA)
+        return no_data
 
     # TODO: This process crashes if there are no track hits for the focal track
 
@@ -112,18 +120,47 @@ def event_to_trainable(
 
 
 def normalize_event_data(event_data: np.ndarray) -> np.ndarray:
-    # Normalize x, y, z
-    positions = np.vstack((event_data["x"], event_data["y"], event_data["z"])).T
-    norms = np.linalg.norm(positions, axis=1)
-    norms[norms == 0] = 1  # Avoid division by zero
+    # Normalize x, y, z in isolation
+    event_data["normalized_x_isolated"] = np.where(
+        event_data["x"] != SENTINEL_NO_DATA,
+        event_data["x"] / np.max(np.abs(event_data["x"])),
+        SENTINEL_NO_DATA,
+    )
+    event_data["normalized_y_isolated"] = np.where(
+        event_data["y"] != SENTINEL_NO_DATA,
+        event_data["y"] / np.max(np.abs(event_data["y"])),
+        SENTINEL_NO_DATA,
+    )
+    event_data["normalized_z_isolated"] = np.where(
+        event_data["z"] != SENTINEL_NO_DATA,
+        event_data["z"] / np.max(np.abs(event_data["z"])),
+        SENTINEL_NO_DATA,
+    )
 
-    # TODO: Should these be normalized together to scale the space or independently?
-    event_data["normalized_x"] = event_data["x"] / norms
-    event_data["normalized_y"] = event_data["y"] / norms
-    event_data["normalized_z"] = event_data["z"] / norms
+    # Normalize x, y, z together
+    max_cartesian = max(
+        np.max(np.abs(event_data["x"])),
+        np.max(np.abs(event_data["y"])),
+        np.max(np.abs(event_data["z"])),
+    )
+    event_data["normalized_x"] = np.where(
+        event_data["x"] != SENTINEL_NO_DATA,
+        event_data["x"] / max_cartesian,
+        SENTINEL_NO_DATA,
+    )
+    event_data["normalized_y"] = np.where(
+        event_data["y"] != SENTINEL_NO_DATA,
+        event_data["y"] / max_cartesian,
+        SENTINEL_NO_DATA,
+    )
+    event_data["normalized_z"] = np.where(
+        event_data["z"] != SENTINEL_NO_DATA,
+        event_data["z"] / max_cartesian,
+        SENTINEL_NO_DATA,
+    )
 
     # Normalize cell_E and track_pt
-    cell_E_valid = event_data["cell_E"][event_data["cell_E"] != -1]
+    cell_E_valid = event_data["cell_E"][event_data["cell_E"] != SENTINEL_NO_DATA]
     if len(cell_E_valid) > 0:
         max_cell_E = np.max(cell_E_valid)
     else:
