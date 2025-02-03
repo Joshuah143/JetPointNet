@@ -3,9 +3,9 @@ stages:
 
 test:
   stage: test
-  image: python:3.12  # pyarrow is not compatible with Python 3.13
+  image: ghcr.io/astral-sh/uv:python3.12-alpine  # pyarrow is not compatible with Python 3.13
   before_script:
-    - pip install -r requirements.txt
+    - uv pip install -r requirements.txt
   script:
     - pytest --cov=prod --cov-report=xml --cov-report=html --junitxml=test-results.xml
     - coverage report
