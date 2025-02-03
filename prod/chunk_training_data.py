@@ -4,8 +4,8 @@ from pathlib import Path
 import numpy as np
 from loguru import logger as log
 
-from utils.data_loading import setup_directories
-from utils.dev_tools import load_config
+from .utils.data_loading import setup_directories
+from .utils.dev_tools import load_config
 
 config = load_config()
 

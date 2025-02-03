@@ -15,6 +15,7 @@ pip install -r requirements.txt # --no-cache-dir
 ```
 
 Please note that `--no-cache-dir` option is suggested.
+If you plan on developing the code, you should install LFS to download the test cases.
 
 ## Usage
 
@@ -39,6 +40,7 @@ Chunking is optional and can be skipped if the data is already chunked or suffic
 ## Josh's next steps:
 - Investigate normalization and visualizations for it
 - Remove poetry
+- Create sample event with only 1 event for testing, reduce git lfs size
 
 ## Known Issues
 

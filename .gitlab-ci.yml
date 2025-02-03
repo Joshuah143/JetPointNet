@@ -20,4 +20,4 @@ test:
         coverage_format: cobertura
         path: coverage.xml  # Enables GitLab Coverage Visualization
     expire_in: 7 days  # Keep test reports for 7 days
-  coverage: '/^TOTAL.*?(\d+\%)$/'
+  coverage: '/^TOTAL.*?(\d+\%)$/' # TODO: this regex is not working, the coverage is not being parsed

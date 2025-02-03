@@ -4,9 +4,9 @@ from pathlib import Path
 import awkward as ak
 import numpy as np
 from loguru import logger as log
-from load_from_root_file import load_from_root
-from utils.data_loading import setup_directories, split_data
-from utils.to_numpy import event_to_trainable
+from .load_from_root_file import load_from_root
+from .utils.data_loading import setup_directories, split_data
+from .utils.to_numpy import event_to_trainable
 
 
 def save_train_data(*, config):

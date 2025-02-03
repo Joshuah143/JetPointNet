@@ -15,4 +15,4 @@ ml2-env:
 	export JETPOINTNET_CONFIG_FILE=/home/jhimmens/workspace/jetpointnet/prod/configs/jhimmens_ml2_config.toml
 
 run:
-	python prod/main.py
+	python main.py

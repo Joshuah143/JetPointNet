@@ -36,7 +36,7 @@ from tqdm.auto import tqdm
 from wandb.sdk.wandb_run import Run
 from loguru import logger as log
 
-from utils.train_helpers import verify_model_config, setup_compute
+from .utils.train_helpers import verify_model_config, setup_compute
 
 # tf.config.run_functions_eagerly(True) - Useful when using the debugger - don't delete, but should not be used in production
 
@@ -608,13 +608,13 @@ def train(*, run: Run):
         val_weights = tf.cast(val_weights, dtype=tf.float32)
 
         val_weighted_f1_score.update_state(
-            val_true_labels, # tf.expand_dims(val_true_labels, axis=-1),
-            val_predictions, # tf.expand_dims(val_predictions, axis=-1),
+            val_true_labels,  # tf.expand_dims(val_true_labels, axis=-1),
+            val_predictions,  # tf.expand_dims(val_predictions, axis=-1),
             sample_weight=val_weights,
         )
         val_unweighted_f1_score.update_state(
-            val_true_labels, # tf.expand_dims(val_true_labels, axis=-1),
-            val_predictions, # tf.expand_dims(val_predictions, axis=-1),
+            val_true_labels,  # tf.expand_dims(val_true_labels, axis=-1),
+            val_predictions,  # tf.expand_dims(val_predictions, axis=-1),
         )
         mean_iou_metric.update_state(
             tf.expand_dims(val_true_labels, axis=-1), val_predictions
