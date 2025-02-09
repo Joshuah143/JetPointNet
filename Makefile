@@ -1,8 +1,8 @@
 format:
-	black .
+	uv runblack .
 
 test:
-	pytest -v
+	uv run pytest . -v
 
 setup-dev-env:
 	@echo "Setting up development environment"
@@ -15,4 +15,7 @@ ml2-env:
 	export JETPOINTNET_CONFIG_FILE=/home/jhimmens/workspace/jetpointnet/prod/configs/jhimmens_ml2_config.toml
 
 run:
-	python main.py
+	uv run main.py
+
+run-cuda:
+	uv run main.py --cuda
