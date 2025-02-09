@@ -1,14 +1,20 @@
-stages:
-  - test
+variables:
+  UV_VERSION: 0.5
+  PYTHON_VERSION: 3.12
+  BASE_LAYER: bookworm-slim
+  # GitLab CI creates a separate mountpoint for the build directory,
+  # so we need to copy instead of using hard links.
+  UV_LINK_MODE: copy
 
 test:
-  stage: test
-  image: python:3.12  # pyarrow is not compatible with Python 3.13
+  image: ghcr.io/astral-sh/uv:$UV_VERSION-python$PYTHON_VERSION-$BASE_LAYER
   before_script:
-    - pip install -r requirements.txt
+    - apt-get update
+    - apt-get install -y git # required for git hash in tests
+    - uv sync
   script:
-    - pytest --cov=prod --cov-report=xml --cov-report=html --junitxml=test-results.xml
-    - coverage report
+    - uv run pytest --cov=prod --cov-report=xml --cov-report=html --junitxml=test-results.xml
+    - uv run coverage report
   artifacts:
     when: always
     paths:
