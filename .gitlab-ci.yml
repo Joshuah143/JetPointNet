@@ -8,6 +8,9 @@ variables:
 
 test:
   image: ghcr.io/astral-sh/uv:$UV_VERSION-python$PYTHON_VERSION-$BASE_LAYER
+  before_script:
+    - apt-get update
+    - apt-get install -y git # required for git hash in tests
   script:
     - uv run pytest --cov=prod --cov-report=xml --cov-report=html --junitxml=test-results.xml
     - uv run coverage report
