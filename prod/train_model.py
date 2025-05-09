@@ -260,7 +260,7 @@ def val_step(
     x,
     y,
     energy_weights,
-    model,
+    model: keras.Model,
     loss_function,
     x_class,
     transform,

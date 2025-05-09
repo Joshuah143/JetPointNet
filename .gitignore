@@ -19,6 +19,16 @@ notebooks/
 images/
 visualizations/
 
+adgadkjhasgdkj
+
+# coverage files
+htmlcov/
+.coverage
+.coverage.*
+.coverage-*
+test-results.xml
+coverage.xml
+
 # ignore containers. These are not tracked here
 containers/*
 
