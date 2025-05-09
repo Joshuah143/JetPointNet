@@ -1,18 +1,33 @@
-
 # ignore data files. Must manually configure
 pnet_data
+*.npy
+*.npz
+*.json
+*.root
+*.log
 
 # debug/experimental code
 scratch
-notebooks/root_images
+old_framework/notebooks/root_images
 
 # results/logs
 wandb
 models/
 result/
 results/
+notebooks/
 images/
 visualizations/
+
+adgadkjhasgdkj
+
+# coverage files
+htmlcov/
+.coverage
+.coverage.*
+.coverage-*
+test-results.xml
+coverage.xml
 
 # ignore containers. These are not tracked here
 containers/*
@@ -31,5 +46,5 @@ __pycache__/
 models/__pycache__/
 PointNetModel.keras
 .idea/
-wandb
-notebooks/joshua_working_notebooks
+old_framework/notebooks/joshua_working_notebooks
+.DS_Store
